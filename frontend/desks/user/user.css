@@ -1,0 +1,6 @@
+/**
+ * Ritham ERP — User Management Styles (user.css)
+ */
+
+/* Inherits all employee styles */
+@import url('../employee/employee.css');

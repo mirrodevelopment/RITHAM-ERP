@@ -1,0 +1,1246 @@
+================================================================================
+          RITHAM ERP -- COMPLETE SYSTEM DOCUMENTATION & HANDOVER GUIDE
+          For Ritham Garments (Tailoring & Garment Business)
+          Technical Reference | Version 1.0 | September 2026
+================================================================================
+
+> Audience: Developers, architects, or technical stakeholders taking ownership of the system.
+> Source of truth: The live repository at d:\ritham-erp. Every fact in this document is derived directly from reading the source code.
+> Do not modify repository contents without understanding this document first.
+
+---
+
+Table of Contents
+
+1. What the Project Is
+2. Why It Exists
+3. Technology Stack
+4. Project Layout and Source Structure
+5. How to Start the Application
+6. Database Design and Schema History
+7. Authentication and Authorization Architecture
+8. Multi-Tenancy (Branch Isolation)
+9. Security Configuration
+10. Login Rate Limiting
+11. API Structure and Conventions
+12. Module: Auth
+13. Module: Employee
+14. Module: Customer
+15. Module: Customer Measurements
+16. Module: Order (Core)
+17. Order Lifecycle and State Machine
+18. Payment Ledger
+19. Analytics and Reporting
+20. Module: Production Stages
+21. Module: Branch
+22. Frontend Architecture
+23. Frontend Desks (Screens)
+24. Frontend API Client (api.js)
+25. Frontend Auth and Session (auth.js)
+26. How Frontend and Backend Communicate
+27. Data Flow: Order Creation End-to-End
+28. Default System Credentials
+29. Configuration and Environment Variables
+30. Error Handling and Response Envelope
+31. Test Coverage
+32. Work Completed (TASK-001 to TASK-025)
+33. Known Issues and Technical Debt
+34. Intentionally Deferred Work
+35. Recommended Next Work Items
+
+---
+
+1. What the Project Is
+
+RITHAM ERP is a full-stack, web-based Enterprise Resource Planning system built exclusively for Ritham Garments, a multi-branch custom tailoring and garment manufacturing business.
+
+The system manages the entire customer-to-delivery lifecycle for custom garments:
+- Registering customers and capturing their body measurements
+- Creating garment orders with pricing, delivery dates, and advance payments
+- Routing each order through a 12-stage tailoring production pipeline
+- Tracking which employee is working on each stage at any moment
+- Recording all payment transactions in a full payment ledger
+- Delivering completed orders and collecting final balances
+- Providing business analytics, revenue reports, and stage-wise dashboards
+
+The system runs as a single Java JAR that serves both the REST API and the HTML frontend on port 8080.
+
+---
+
+2. Why It Exists
+
+Ritham Garments previously managed orders on paper or in spreadsheets. This caused:
+- Orders getting lost or duplicated when multiple staff handled the same job
+- No visibility into which stage a garment was at across two physical branches
+- Revenue numbers miscounted because advance payments and balances were mixed
+- No record of body measurements per customer for repeat orders
+- Branch staff accidentally viewing or modifying orders from other locations
+
+RITHAM ERP replaces all of this with a digital, role-enforced, multi-branch system.
+
+---
+
+3. Technology Stack
+
+| Layer | Technology | Version | Notes |
+
+| Language | Java | 17 | LTS release |
+| Framework | Spring Boot | 4.1.0 | Servlet-based (not reactive) |
+| Persistence | Spring Data JPA / Hibernate | Boot-managed | PostgreSQL dialect |
+| Database | PostgreSQL | Any modern | DB: ritham_erp, user: ritham |
+| Migrations | Flyway | Boot-managed | classpath:db/migration |
+| Security | Spring Security | Boot-managed | Stateless JWT, BCrypt cost=12 |
+| JWT | JJWT | 0.12.6 | HS256 signing |
+| Connection pool | HikariCP | Boot-managed | Max 10 connections |
+| Build | Maven | via mvnw wrapper | Single-module |
+| Dev tool | Lombok | latest | Annotation processing |
+| Frontend | Vanilla HTML / CSS / JS | -- | No framework, no bundler |
+| Test DB | H2 in-memory | Boot-managed | Test scope only |
+
+---
+
+4. Project Layout and Source Structure
+
+
+d:\ritham-erp\
+├── pom.xml                              # Maven build (Spring Boot 4.1.0, Java 17)
+├── start.bat                            # One-click Windows launcher
+├── mvnw / mvnw.cmd                      # Maven wrapper scripts
+├── RITHAM_ERP_COMPLETE_GUIDE.txt        # Business-user documentation
+├── RITHAM_ERP_PROBLEM_AND_FIX_REPORT.txt
+├── RITHAM_ERP_SYSTEM_DOCUMENTATION.md   # This file
+│
+├── frontend/                            # Static HTML/CSS/JS (packaged into JAR)
+│   ├── index.html                       # Root redirect to login
+│   ├── js/
+│   │   ├── constants.js                 # API routes, ROUTES, ROLES, APP config
+│   │   ├── api.js                       # HTTP client (fetch + auto-refresh)
+│   │   ├── auth.js                      # Login, logout, route guards
+│   │   ├── router.js                    # Page router
+│   │   ├── storage.js                   # localStorage session management
+│   │   ├── utils.js                     # Shared UI helpers
+│   │   ├── validation.js                # Form validation rules
+│   │   └── stages.js                    # Production stage helpers
+│   ├── css/                             # Stylesheets
+│   ├── components/                      # Shared HTML components
+│   ├── desks/                           # 17 individual page desks (screens)
+│   └── icons/ images/ theme/           # Static assets
+│
+└── src/
+    ├── main/
+    │   ├── java/com/ritham/erp/
+    │   │   ├── RithamErpApplication.java
+    │   │   ├── common/
+    │   │   │   ├── config/
+    │   │   │   │   ├── AppProperties.java       # @ConfigurationProperties for app.*
+    │   │   │   │   ├── CorsConfig.java          # CORS configuration
+    │   │   │   │   ├── DataInitializer.java     # Startup password check
+    │   │   │   │   └── SecurityConfig.java      # Spring Security filter chain
+    │   │   │   ├── constants/
+    │   │   │   │   ├── AppConstants.java        # JWT headers, order prefix, etc.
+    │   │   │   │   └── RoleConstants.java       # ROLE_ADMIN, ROLE_RECEPTION, etc.
+    │   │   │   ├── exception/
+    │   │   │   │   ├── AppException.java
+    │   │   │   │   ├── ErrorCode.java
+    │   │   │   │   └── GlobalExceptionHandler.java
+    │   │   │   └── response/
+    │   │   │       ├── ApiResponse.java
+    │   │   │       └── PageResponse.java
+    │   │   ├── security/
+    │   │   │   ├── BranchContext.java           # ThreadLocal branch ID
+    │   │   │   ├── CustomUserDetails.java
+    │   │   │   ├── CustomUserDetailsService.java
+    │   │   │   ├── JwtAuthFilter.java           # JWT + branch context filter
+    │   │   │   └── JwtService.java              # Token generation/validation
+    │   │   └── module/
+    │   │       ├── auth/                        # Login, refresh, logout
+    │   │       ├── branch/                      # Branch CRUD
+    │   │       ├── customer/                    # Customer + measurement CRUD
+    │   │       ├── employee/                    # Employee CRUD
+    │   │       ├── order/                       # Order lifecycle, payments, analytics
+    │   │       └── production/                  # Production stage management
+    │   └── resources/
+    │       ├── application.yaml                 # Main config
+    │       ├── application-dev.yaml             # Dev profile overrides
+    │       └── db/migration/                    # Flyway: V1 through V11
+    └── test/
+        └── java/com/ritham/erp/
+            ├── module/auth/
+            ├── module/customer/
+            ├── module/employee/
+            └── module/order/
+
+
+Frontend packaging: Maven's resource configuration copies the frontend/ directory to
+target/classes/static/ during build. Spring Boot's static resource serving makes all
+frontend files available at /. The packaged JAR is fully self-contained with no Node.js
+or separate web server required.
+
+---
+
+5. How to Start the Application
+
+Prerequisites
+- Java 17+
+- PostgreSQL running with database ritham_erp, user ritham, password ritham123
+- Override defaults with environment variables (see Section 29)
+
+Quick Start (Windows)
+Double-click start.bat
+
+The script starts Spring Boot, then automatically opens the browser to
+http://localhost:8080/desks/login/login.html once /actuator/health responds 200.
+
+Command Line
+
+cd d:\ritham-erp
+.\mvnw.cmd spring-boot:run
+
+
+Access Points
+
+| URL | Purpose |
+
+| http://localhost:8080/ | Redirects to login desk |
+| http://localhost:8080/desks/login/login.html | Login screen |
+| http://localhost:8080/api | REST API base |
+| http://localhost:8080/actuator/health | Health probe |
+| http://localhost:8080/actuator/flyway | Migration history |
+
+---
+
+6. Database Design and Schema History
+
+All schema changes are managed by Flyway from src/main/resources/db/migration/.
+Flyway runs automatically on startup. The ddl-auto: validate setting ensures Hibernate
+validates against the Flyway-managed schema (no auto-create or auto-update).
+
+Migration Timeline
+
+| Migration | Description | Key Changes |
+
+| V1 | Baseline schema | roles, departments, employees, refresh_tokens, customers, customer_measurements, customer_orders, order_designs, order_measurements, order_materials, production_tracking, order_payments, order_deliveries, production_stages |
+| V2 | Seed data | Pre-populates roles, departments, all system employees (hashed passwords), customer/order dataset |
+| V3 | discount_amount column | Adds discount support to customer_orders |
+| V4 | Fix status default | Corrects default value for status column |
+| V5 | Employee advance | Adds advance payment tracking to employees |
+| V6 | Employee joining date | Adds joining_date column |
+| V7 | Nullable username | Makes employees.username nullable (mobile-number login support) |
+| V8 | Restore system usernames | Re-assigns known usernames to system accounts |
+| V9 | Branches and multi-tenancy | Creates branches table, adds branch_id to employees and customer_orders, seeds Chennai and Coimbatore branches |
+| V10 | Order number sequence | Creates order_number_seq starting at 1001, adds unique index on order_number |
+| V11 | Optimistic locking | Adds version BIGINT DEFAULT 0 NOT NULL to customer_orders |
+
+Core Tables Summary
+
+| Table | Primary Key | Purpose |
+
+| roles | id BIGSERIAL | 4 named roles |
+| departments | id BIGSERIAL | 4 departments |
+| employees | id BIGSERIAL | All system users + production staff |
+| refresh_tokens | id BIGSERIAL | Persisted JWT refresh tokens |
+| branches | id BIGSERIAL | Physical business locations |
+| customers | customer_mobile VARCHAR(15) | Customer registry (mobile = PK) |
+| customer_measurements | id BIGSERIAL | Per-customer, per-garment measurement profiles |
+| customer_orders | id BIGSERIAL | Core order master (with @Version optimistic lock) |
+| order_measurements | id BIGSERIAL | Per-order measurement snapshot (immutable) |
+| order_designs | id BIGSERIAL | Design details per order |
+| order_materials | id BIGSERIAL | Materials list per order |
+| production_tracking | id BIGSERIAL | Stage-by-stage production log (schema only, not yet wired) |
+| order_payments | id BIGSERIAL | Full payment ledger (every transaction) |
+| order_deliveries | id BIGSERIAL | Delivery confirmation records (schema only) |
+| production_stages | id BIGSERIAL | Master list of tailoring stages (DB-driven) |
+
+---
+
+7. Authentication and Authorization Architecture
+
+Token Flow
+
+
+1. POST /api/auth/login  {username, password}
+       |
+   AuthService.login() -> LoginRateLimiter.checkRateLimit()
+       |
+   AuthenticationManager.authenticate() -> BCrypt verify
+       |
+   JwtService.generateAccessToken()   -> 15-minute HS256 JWT
+   JwtService.generateRefreshToken()  -> 7-day HS256 JWT
+       |
+   RefreshToken persisted in refresh_tokens table
+       |
+   LoginResponse {accessToken, refreshToken, employeeId, role, branchId, ...}
+
+2. Every protected API call:
+   Authorization: Bearer <accessToken>
+       |
+   JwtAuthFilter.doFilterInternal()
+     -> extractUsername() from JWT
+     -> isAccessToken() check (tokenType == "access")
+     -> CustomUserDetailsService.loadUserByUsername()
+     -> isTokenValid() (signature + expiry)
+     -> SecurityContextHolder.setAuthentication()
+     -> BranchContext.setBranchId() based on role/header
+       |
+   Service layer reads BranchContext.getBranchId() for data scoping
+
+3. POST /api/auth/refresh  {refreshToken}
+       |
+   RefreshTokenRepository.findByToken() -> validate not expired/revoked
+       |
+   Rotate: mark old token isRevoked=true, issue new pair
+       |
+   New LoginResponse
+
+4. POST /api/auth/logout
+       |
+   RefreshTokenRepository.revokeAllByEmployeeId(employeeId)
+
+
+JWT Claims (Access Token)
+
+| Claim | Value |
+
+| sub | username (or mobile number) |
+| tokenType | "access" |
+| role | e.g. "ROLE_ADMIN" |
+| employeeId | Long (employee primary key) |
+| fullName | String |
+| branchId | Long (null for global admin) |
+| branchCode | String (null for global admin) |
+| iat | Issued at (epoch seconds) |
+| exp | Expiry (epoch seconds) |
+
+Token Expiry
+- Access token: 15 minutes (configurable via app.jwt.access-token-expiry-ms)
+- Refresh token: 7 days (configurable via app.jwt.refresh-token-expiry-ms)
+
+Password Hashing
+BCrypt with cost factor 12. The DataInitializer runs on startup and calls encodeIfNeeded()
+which only re-encodes a password if the stored hash is NOT already a valid BCrypt hash.
+This prevents admin-changed passwords from being overwritten on restart (TASK-002 fix).
+
+---
+
+8. Multi-Tenancy (Branch Isolation)
+
+The system supports multiple physical branches sharing one database, with row-level data
+isolation enforced at the service layer.
+
+Mechanism
+
+BranchContext is a static ThreadLocal<Long> that holds the active branch ID for the
+current HTTP request thread. Set in JwtAuthFilter, cleared in the finally block.
+
+Rules
+
+| User Type | branch_id in DB | BranchContext set to | Can see |
+
+| Global Admin (admin) | NULL | null (unless X-Branch-Id header sent) | All branches |
+| Global Admin with header X-Branch-Id: 2 | NULL | 2 | Branch 2 only |
+| Global Admin with header X-Branch-Id: ALL | NULL | null | All branches |
+| Branch Manager/Reception (e.g. manager_cbe) | 2 | 2 | Branch 2 only |
+
+Security Alert
+If a non-admin user sends the X-Branch-Id header attempting to switch branches, the filter:
+1. Ignores the header (always uses their own branchId from JWT)
+2. Logs an AUDIT SECURITY ALERT with the username, attempted branch ID, and request URI
+
+Service Layer Enforcement
+
+All repository queries accept an optional branchId parameter:
+- When branchId IS NULL: returns all branches (admin global view)
+- When branchId IS NOT NULL: filters to that branch only
+
+The verifyBranchAccess(CustomerOrder order) method in OrderService is called on every
+single-order read or update to prevent cross-branch data access (TASK-003 fix).
+
+---
+
+9. Security Configuration
+
+SecurityConfig.java defines the Spring Security filter chain:
+
+| Category | Details |
+
+| Session | Fully stateless -- SessionCreationPolicy.STATELESS |
+| CSRF | Disabled (JWT stateless API does not need it) |
+| Static assets | Bypassed via WebSecurityCustomizer: /, /index.html, /desks/, /css/, /js/, /theme/, /components/, /icons/, /images/**, /favicon.ico |
+| Public API endpoints | /api/auth/login, /api/auth/refresh, /actuator/health, /actuator/info |
+| Production stages GET | Any authenticated user |
+| Production stages mutations | ROLE_ADMIN or ROLE_OPERATIONS_MANAGER |
+| Employee mutations | @PreAuthorize("hasRole('ADMIN')") at controller level |
+| Branch mutations | @PreAuthorize("hasRole('ADMIN')") |
+| Customer delete | @PreAuthorize("hasRole('ADMIN')") |
+| Archive orders | @PreAuthorize("hasRole('ADMIN')") + admin password re-verification |
+| All other endpoints | Any authenticated user |
+| 401 response | JSON ApiResponse.error(...) -- not HTML redirect |
+| 403 response | JSON ApiResponse.error(...) |
+| Password encoder | BCryptPasswordEncoder(12) |
+
+---
+
+10. Login Rate Limiting
+
+LoginRateLimiter is an in-memory ConcurrentHashMap-based rate limiter with no
+external dependency (no Redis required).
+
+| Parameter | Default | Config Key |
+
+| Max failed attempts per username | 5 | app.rate-limit.max-attempts-per-username |
+| Max failed attempts per IP | 10 | app.rate-limit.max-attempts-per-ip |
+| Lockout duration | 15 minutes | app.rate-limit.lockout-duration-minutes |
+| HTTP response on lockout | 429 Too Many Requests | -- |
+
+How it works:
+1. checkRateLimit(ip, username) called BEFORE any DB or BCrypt work
+2. If locked -> throws AppException(RATE_LIMIT_EXCEEDED) immediately (no BCrypt cost)
+3. On BadCredentialsException -> recordFailedAttempt(ip, username) increments counters
+4. On success -> recordSuccessfulLogin(ip, username) clears counters
+5. Entries pruned when map size exceeds 1,000
+6. State lost on JVM restart (in-memory only; acceptable for internal LAN use)
+
+---
+
+11. API Structure and Conventions
+
+Base URL: http://localhost:8080/api
+
+Response Envelope (Success)
+
+{
+  "success": true,
+  "message": "Optional message",
+  "data": { ... }
+}
+
+
+Response Envelope (Error)
+
+{
+  "success": false,
+  "message": "Human-readable error message",
+  "data": null
+}
+
+
+Pagination Response
+
+{
+  "content": [...],
+  "page": 0,
+  "size": 20,
+  "totalElements": 150,
+  "totalPages": 8,
+  "last": false
+}
+
+
+All API Endpoints
+
+| Method | Path | Description |
+
+| POST | /api/auth/login | Login -> access + refresh tokens |
+| POST | /api/auth/refresh | Rotate refresh -> new token pair |
+| POST | /api/auth/logout | Revoke all refresh tokens |
+| GET | /api/auth/me | Current employee profile |
+| GET | /api/branches | List all branches |
+| POST | /api/branches | Create branch (ADMIN) |
+| PUT | /api/branches/{id} | Update branch (ADMIN) |
+| PATCH | /api/branches/{id}/toggle-status | Toggle active (ADMIN) |
+| GET | /api/employees | Paginated employee list |
+| GET | /api/employees/{id} | Single employee |
+| POST | /api/employees | Create employee (ADMIN) |
+| PUT | /api/employees/{id} | Update employee (ADMIN) |
+| PATCH | /api/employees/{id}/status | Toggle active (ADMIN) |
+| DELETE | /api/employees/{id} | Deactivate (ADMIN) |
+| GET | /api/employees/roles | All roles list |
+| GET | /api/employees/departments | All departments |
+| GET | /api/customers | Paginated customer list |
+| GET | /api/customers/{mobile} | Customer by mobile |
+| POST | /api/customers | Register customer |
+| PUT | /api/customers/{mobile} | Update customer |
+| DELETE | /api/customers/{mobile} | Delete (ADMIN, if no orders) |
+| GET | /api/customer-measurements | All measurements (paginated) |
+| POST | /api/customer-measurements | Save/update measurement profile |
+| GET | /api/customer-measurements/customer/{mobile} | All measurements for customer |
+| GET | /api/customer-measurements/customer/{mobile}/latest | Most recent measurement |
+| GET | /api/customer-measurements/customer/{mobile}/garment/{type} | Specific garment type |
+| DELETE | /api/customer-measurements/{id} | Delete (ADMIN, OPS_MANAGER) |
+| GET | /api/orders | Paginated order list (search, status filter) |
+| POST | /api/orders | Create order |
+| GET | /api/orders/{id} | Single order |
+| PUT | /api/orders/{id}/status | Update status + optional payment |
+| DELETE | /api/orders/{id}/cancel | Cancel order |
+| GET | /api/orders/{id}/payments | Payment ledger for order |
+| POST | /api/orders/{id}/payments | Record payment transaction |
+| GET | /api/orders/stats | Dashboard summary counts |
+| GET | /api/orders/revenue | Revenue by date range + method |
+| GET | /api/orders/analytics | Full analytics payload |
+| GET | /api/orders/customer/{mobile}/latest-measurements | Measurements for repeat order |
+| GET | /api/orders/customer/{mobile}/due | Outstanding due summary |
+| GET | /api/orders/delivered/archive-stats | Preview archive cleanup |
+| POST | /api/orders/delivered/archive | Delete old delivered orders (ADMIN + password) |
+| GET | /api/production-stages | All/active stages list |
+| POST | /api/production-stages | Create custom stage (ADMIN/OPS_MGR) |
+| PUT | /api/production-stages/{id} | Update stage |
+| PUT | /api/production-stages/reorder | Reorder stages |
+| DELETE | /api/production-stages/{id} | Deactivate stage |
+
+---
+
+12. Module: Auth
+
+Location: src/main/java/com/ritham/erp/module/auth/
+
+Key classes:
+- AuthController -- REST endpoints (/api/auth/)
+- AuthService -- login, refresh, logout, admin password verification
+- LoginRateLimiter -- brute-force protection (see Section 10)
+- RefreshToken entity -> refresh_tokens table
+
+Login response payload:
+
+{
+  "employeeId": 1,
+  "employeeCode": "EMP-001",
+  "fullName": "System Administrator",
+  "username": "admin",
+  "role": "ROLE_ADMIN",
+  "branchId": null,
+  "branchName": "All Branches (Global)",
+  "branchCode": "GLOBAL",
+  "isGlobalAdmin": true,
+  "accessToken": "eyJ...",
+  "refreshToken": "eyJ...",
+  "accessTokenExpiresInMs": 900000
+}
+
+
+/api/auth/me returns the same profile, fetched fresh from DB. Called by the frontend
+after login to populate the user header display.
+
+Admin password verification (verifyAdminPassword()) is a separate internal method used
+by destructive operations such as archive cleanup. It re-confirms identity through
+AuthenticationManager without issuing new tokens, and also enforces rate limiting.
+
+---
+
+13. Module: Employee
+
+Location: src/main/java/com/ritham/erp/module/employee/
+
+Entity: Employee -> employees table
+
+Key fields: employeeCode (EMP-XXX format), fullName, mobileNumber, email, username,
+passwordHash, role (FK -> roles), department (FK -> departments), stage (which production
+stage they work at), isActive, branch (FK -> branches).
+
+Role-Based Access:
+- GET /api/employees -- any authenticated user (branch-scoped)
+- POST/PUT/PATCH/DELETE -- ADMIN only (@PreAuthorize enforced at controller)
+
+Branch scoping: EmployeeService.getEmployees() filters by BranchContext.getBranchId().
+Branch staff see only their own branch's employees. Global admin sees all.
+
+Employee code generation: Safe Java regex (^EMP-(\d+)$) to find the max numeric suffix,
+then increments it. Avoids the legacy SQL CAST(SUBSTRING...) crash that caused the entire
+employee screen to fail on codes like EMP-ADMIN (TASK-019 fix).
+
+---
+
+14. Module: Customer
+
+Location: src/main/java/com/ritham/erp/module/customer/
+
+Entity: Customer -> customers table
+
+Primary key: customerMobile (10-digit Indian mobile number, validated by ^[6-9]\d{9}$).
+
+Other fields: customerName, totalOrders (counter), createdAt.
+
+Business rules:
+- Customer deletion is blocked if the customer has any associated orders or measurements.
+  Returns HTTP 409 via DataIntegrityViolationException handler (TASK-013 fix).
+- Customer deletion restricted to ROLE_ADMIN.
+- totalOrders counter incremented atomically within the createOrder transaction.
+
+---
+
+15. Module: Customer Measurements
+
+Location: src/main/java/com/ritham/erp/module/customer/ (measurement classes)
+
+Entity: CustomerMeasurement -> customer_measurements table
+
+This is the customer PROFILE measurement store -- distinct from order_measurements.
+
+Unique constraint: (customer_mobile, garment_type) -- one record per garment type per customer.
+
+Fields: customerMobile, customerName, garmentType, lining (defaults WITHOUT_LINING),
+measurementsJson (TEXT -- JSON key-value pairs), notes, createdAt, updatedAt.
+
+Dual measurement system:
+1. customer_measurements -- the customer's latest profile measurements (updated whenever
+   a new order is placed for the same garment type)
+2. order_measurements -- a PERMANENT SNAPSHOT captured at order creation time (never
+   changed even if the profile is later updated -- TASK-012 fix)
+
+Lookup priority in getLatestCustomerMeasurements():
+1. First checks customer_measurements table (profile)
+2. Falls back to order_measurements from the most recent order if no profile exists
+
+---
+
+16. Module: Order (Core)
+
+Location: src/main/java/com/ritham/erp/module/order/
+
+This is the largest and most critical module. The OrderService is approximately 1,380 lines
+and handles the complete order lifecycle.
+
+Entity: CustomerOrder -> customer_orders table
+
+Key financial fields:
+- totalAmount: gross order price
+- discountAmount: discount applied
+- advanceAmount: advance paid at order creation (informational reference)
+- paidAmount: total amount actually collected so far (updated by payment ledger sync)
+- Net due = totalAmount - discountAmount - paidAmount
+
+Entity: OrderPayment -> order_payments table
+
+Every financial transaction is a separate, immutable row:
+- paymentType: ADVANCE / PARTIAL / FINAL
+- paymentMethod: CASH / UPI / CARD / BANK / SPLIT
+- amount, paymentDate
+
+Entity: OrderMeasurement -> order_measurements table (immutable per-order snapshot)
+
+Order Status Constants (defined as static final String in OrderService):
+
+  STATUS_PENDING           = "PENDING"
+  STATUS_DESIGNING         = "DESIGNING"
+  STATUS_LINING            = "LINING"
+  STATUS_HAND_MACHINE_WORK = "HAND_MACHINE_WORK"
+  STATUS_INITIAL_IRONING   = "INITIAL_IRONING"
+  STATUS_CUTTING           = "CUTTING"
+  STATUS_STRETCHING        = "STRETCHING"
+  STATUS_STITCHING         = "STITCHING"
+  STATUS_HEMMING           = "HEMMING"
+  STATUS_FINAL_IRONING     = "FINAL_IRONING"
+  STATUS_QUALITY_CHECK     = "QUALITY_CHECK"
+  STATUS_READY_TO_DELIVERY = "READY_TO_DELIVERY"
+  STATUS_DELIVERY          = "DELIVERY"
+  STATUS_DELIVERED         = "DELIVERED"
+  STATUS_COMPLETED         = "COMPLETED"
+  STATUS_CANCELLED         = "CANCELLED"
+
+Order number format: ORD-yyyyMMdd-XXXX (e.g. ORD-20260905-1001)
+Generated via PostgreSQL sequence order_number_seq (starts at 1001) with a
+collision-retry loop (up to 10 attempts) for safety (TASK-009 fix).
+
+---
+
+17. Order Lifecycle and State Machine
+
+Valid Status Groups
+
+| Group | Statuses |
+
+| ACTIVE_PRODUCTION_STAGES | DESIGNING, LINING, HAND_MACHINE_WORK, INITIAL_IRONING, CUTTING, STRETCHING, STITCHING, HEMMING, FINAL_IRONING, QUALITY_CHECK |
+| DELIVERED_STATUSES | DELIVERED, DELIVERY, COMPLETED |
+| TERMINAL_STATUSES | DELIVERED, DELIVERY, COMPLETED, CANCELLED |
+
+Transition Rules (validateStatusTransition)
+
+
+PENDING -> any active production stage     ALLOWED
+PENDING -> READY_TO_DELIVERY               ALLOWED
+PENDING -> CANCELLED                       ALLOWED
+PENDING -> DELIVERED                       BLOCKED (must pass through READY_TO_DELIVERY)
+
+Active Stage -> any other active stage     ALLOWED (rework/reorder supported)
+Active Stage -> READY_TO_DELIVERY          ALLOWED
+Active Stage -> CANCELLED                  ALLOWED
+Active Stage -> PENDING                    BLOCKED (cannot revert)
+Active Stage -> DELIVERED                  BLOCKED (must pass READY_TO_DELIVERY first)
+
+READY_TO_DELIVERY -> DELIVERED/DELIVERY    ALLOWED
+READY_TO_DELIVERY -> any active stage      ALLOWED (rework)
+READY_TO_DELIVERY -> CANCELLED             ALLOWED
+READY_TO_DELIVERY -> PENDING               BLOCKED
+
+DELIVERED / COMPLETED / CANCELLED -> any   BLOCKED (permanent terminal states)
+
+
+The state machine also supports custom dynamic stages stored in the production_stages table.
+These are validated via productionStageRepository.existsByStageKeyIgnoreCaseAndIsActiveTrue().
+
+Payment Status Reconciliation
+
+After every status update or payment, syncOrderPaymentState() recalculates:
+- All payment rows summed -> paidAmount
+- Payment methods collected -> paymentMode (or "SPLIT" if composite string exceeds 30 chars)
+- paymentStatus = PAID if paidAmount >= netTotal
+                  PARTIAL if paidAmount > 0
+                  PENDING otherwise
+
+---
+
+18. Payment Ledger
+
+Every payment creates a permanent, immutable OrderPayment row. Rows are never deleted
+or updated -- the ledger is append-only.
+
+Payment Flow at Order Creation
+
+createOrder(req):
+  advance = req.advanceAmount
+  -> CustomerOrder.advanceAmount = advance
+  -> CustomerOrder.paidAmount = advance
+  -> OrderPayment { type=ADVANCE, method=req.paymentMode, amount=advance }
+
+
+Payment Flow at Status Update
+
+updateStatus(id, newStatus, finalPayment, paymentMode):
+  if finalPayment > 0:
+    remaining = netTotal - currentPaid
+    if finalPayment > remaining -> VALIDATION_FAILED (overpayment rejected)
+    -> paidAmount += finalPayment
+    -> OrderPayment { type=FINAL or PARTIAL, method=paymentMode, amount=finalPayment }
+    -> syncOrderPaymentState(order)
+
+
+Standalone Payment Recording
+
+POST /api/orders/{id}/payments
+  RecordPaymentRequest { amount, paymentMethod, paymentType, collector }
+  -> same validation (no overpayment)
+  -> OrderPayment persisted
+  -> syncOrderPaymentState(order)
+
+
+Revenue Reporting Key Rule
+Revenue is aggregated from order_payments.payment_date, NOT customer_orders.created_at.
+This means:
+- An advance of 1000 paid Monday is counted in Monday's revenue
+- A balance of 3000 paid Friday is counted in Friday's revenue
+(TASK-008 fix)
+
+---
+
+19. Analytics and Reporting
+
+GET /api/orders/analytics is the primary reporting endpoint. All aggregation happens
+server-side in SQL -- no heavy data is downloaded to the browser (TASK-014 fix).
+
+Query Parameters
+
+| Parameter | Default | Options |
+
+| preset | WEEK | TODAY, YESTERDAY, WEEK, 14DAYS, MONTH, 90DAYS, CUSTOM, ALL |
+| startDate | preset-derived | ISO date, used with CUSTOM preset |
+| endDate | preset-derived | ISO date |
+| stage | all | Any status string or ALL |
+| paymentStatus | all | PENDING, PARTIAL, PAID, ALL |
+| paymentMode | all | CASH, UPI, CARD, ALL |
+| searchQuery | none | Free-text search |
+| branchId | callers branch | Override for admin global view |
+
+---
+
+20. Module: Production Stages
+
+Location: src/main/java/com/ritham/erp/module/production/
+
+Entity: ProductionStage -> production_stages table
+
+The production stages master table allows the business to:
+- Manage the 12 standard tailoring stages (seeded in V2)
+- Add custom stages such as EMBROIDERY or HANDWORK via the Stage desk
+- Reorder stages via drag-and-drop in the frontend Stage desk
+- Deactivate stages without deleting them
+
+Each stage has: stageKey (unique, maps to customer_orders.status), title, description,
+icon (emoji), displayOrder, color, bgColor, isActive.
+
+The OrderService dynamically queries active custom stages when:
+1. Building the IN_PROGRESS filter set for order listing
+2. Validating status transitions (isRecognizedStatus, isActiveProductionStage)
+
+---
+
+21. Module: Branch
+
+Location: src/main/java/com/ritham/erp/module/branch/
+
+Entity: Branch -> branches table
+
+Fields: branchCode, name, city, address, phone, email, gstNumber, isActive.
+
+Seeded branches (V9 migration):
+- BR-001: Ritham Designs -- Main Branch (Chennai)
+- BR-002: Ritham Designs -- City Branch (Coimbatore)
+
+Multi-tenancy: Global admin has branch_id = NULL and sees all branches.
+All other employees are assigned to their branch at account creation time.
+
+---
+
+22. Frontend Architecture
+
+The frontend is vanilla JavaScript -- no React, no Vue, no Angular, no bundler.
+
+Script load order on every protected page:
+1. /js/constants.js   -- API routes, ROUTES map, ROLES, APP config
+2. /js/storage.js     -- localStorage session helpers
+3. /js/api.js         -- HTTP client with auto-refresh on 401
+4. /js/auth.js        -- Auth guard, login/logout
+5. /js/utils.js       -- UI helpers (toast, spinner, format)
+6. /js/validation.js  -- Form validation rules
+7. page-specific JS   -- loaded last
+
+Token localStorage keys:
+- ritham_access_token
+- ritham_refresh_token
+- ritham_user (JSON of full login response)
+
+---
+
+23. Frontend Desks (Screens)
+
+| Desk | Path | Role Access | Purpose |
+
+| Login | /desks/login/ | Public | Authentication |
+| Order Desk | /desks/order-desk/ | All roles | Main order list |
+| Operations Desk | /desks/operations-desk/ | ADMIN, OPS_MGR | Business overview |
+| Production Desk | /desks/production-desk/ | All roles | Production floor view |
+| Customer | /desks/customer/ | All roles | Customer search and registration |
+| Order | /desks/order/ | All roles | Single order detail and payments |
+| Employee | /desks/employee/ | ADMIN | Employee management |
+| User | /desks/user/ | ADMIN | System user accounts |
+| Stage | /desks/stage/ | ADMIN, OPS_MGR | Production stage configuration |
+| Measurement | /desks/measurement/ | All roles | Customer measurement profiles |
+| Production | /desks/production/ | All roles | Production tracking |
+| Payment | /desks/payment/ | All roles | Payment recording |
+| Delivery | /desks/delivery/ | All roles | Delivery confirmation |
+| Report | /desks/report/ | ADMIN, OPS_MGR | Analytics and revenue |
+| Branch | /desks/branch/ | ADMIN | Branch management |
+| Design | /desks/design/ | -- | Placeholder - Phase 8 not active |
+| Material | /desks/material/ | -- | Placeholder - Phase 10 not active |
+
+Default dashboard after login:
+- ROLE_ADMIN -> Order Desk
+- ROLE_OPERATIONS_MANAGER -> Operations Desk
+- ROLE_PRODUCTION_EMPLOYEE -> Production Desk
+- ROLE_RECEPTION -> Order Desk
+
+---
+
+24. Frontend API Client (api.js)
+
+The Api IIFE module wraps browser fetch() with:
+
+1. Auto-attach JWT: reads Storage.getToken() -> Authorization: Bearer header
+2. Auto-attach branch header: X-Branch-Id (only if not "ALL")
+3. Response unwrapping: unwraps ApiResponse envelope, returns json.data
+4. 401 silent refresh: on first 401, retries /api/auth/refresh; if successful,
+   retries original request once with new token
+5. Queue management: concurrent 401s queue behind a single refresh call
+6. Redirect on auth failure: if refresh fails, clears session and goes to login
+7. postPublic(): unauthenticated POST for the login endpoint only
+
+---
+
+25. Frontend Auth and Session (auth.js)
+
+The Auth IIFE module handles:
+
+- Auth.login(username, password): calls Api.postPublic(API.LOGIN) -> saves session
+- Auth.logout(): calls Api.post(API.LOGOUT) -> clears session -> redirects to login
+- Auth.guard(allowedRoles): call at top of every protected page; redirects if not
+  authenticated or wrong role. Returns false if unauthorized.
+- Auth.redirectToDashboard(): navigates to the role default desk
+- Auth.isTokenExpired(): client-side JWT expiry check (decode without verify)
+
+Route guard pattern used in every protected page:
+  if (!Auth.guard()) return;
+  if (!Auth.guard([ROLES.ADMIN, ROLES.OPERATIONS_MANAGER])) return;
+
+---
+
+26. How Frontend and Backend Communicate
+
+``
+Browser (any desk .html)
+    |
+    +-- Page loads: <script src="/js/constants.js"> etc.
+    |
+    +-- Auth.guard() -> checks localStorage for access token
+    |   +-- If missing -> window.location = ROUTES.LOGIN
+    |
+    +-- Api.get(API.ORDERS) or Api.post(API.ORDERS, body)
+    |
+    |   api.js request():
+    |   +-- Add: Authorization: Bearer <access_token>
+    |   +-- Add: X-Branch-Id: <activeBranchId>  (if set and not ALL)
+    |   +-- fetch(url, options)
+    |   |
+    |   |   -- HTTP request -> Spring Boot port 8080 --
+    |   |   JwtAuthFilter.doFilterInternal()
+    |   |   +-- Parse "Bearer <token>" from Authorization header
+    |   |   +-- JwtService.extractUsername(token)
+    |   |   +-- JwtService.isAccessToken(token)  <- rejects refresh tokens
+    |   |   +-- CustomUserDetailsService.loadUserByUsername()
+    |   |   +-- JwtService.isTokenValid(token, userDetails)
+    |   |   +-- SecurityContextHolder.setAuthentication(...)
+    |   |   +-- BranchContext.setBranchId(...)
+    |   |   |
+    |   |   Controller method invoked
+    |   |   |
+    |   |   Service method:
+    |   |   +-- BranchContext.getBranchId() -> filter data scope
+    |   |   +-- Business logic
+    |   |   +-- return ResponseEntity<ApiResponse<T>>
+    |   |   |
+    |   |   finally: BranchContext.clear()
+    |   |   -- Response <- JSON: { success, message, data } --
+    |   |
+    |   +-- if 401 -> silent refresh -> retry
+    |   +-- unwrap json.data -> return to desk code
+    |
+    +-- Desk JS updates DOM with returned data
+`
+
+---
+
+27. Data Flow: Order Creation End-to-End
+
+`
+Reception staff -> Order Desk -> "New Order" button
+  |
+Frontend: Mobile number entered
+  -> Api.get(API.CUSTOMER(mobile)) to verify customer exists
+  -> Api.get to show any existing dues
+  -> Prefill measurements from /api/orders/customer/{mobile}/latest-measurements
+  |
+Staff fills: garmentType, measurements, deliveryDate, totalAmount, advanceAmount, paymentMode
+  |
+Frontend: Api.post(API.ORDERS, {
+  customerMobile, deliveryDate, garmentType, lining, measurements,
+  totalAmount, discountAmount, advanceAmount, paymentMode
+})
+  |
+Backend: OrderController.createOrder(@RequestBody CreateOrderRequest)
+  |
+OrderService.createOrder(req):
+  1. customerRepository.findByCustomerMobile() -> verify customer exists
+  2. Validate: total >= 0, discount <= total, advance <= netTotal
+  3. Calculate paymentStatus (PENDING / PARTIAL / PAID)
+  4. Resolve branch: req.branchId -> BranchContext.getBranchId() -> DEFAULT_BRANCH_ID
+  5. Generate order number via DB sequence order_number_seq
+  6. CustomerOrder.builder()... -> orderRepository.save()
+  7. If advance > 0: OrderPayment {ADVANCE, amount=advance} -> orderPaymentRepository.save()
+  8. If garmentType provided:
+     -> OrderMeasurement saved (immutable snapshot)
+     -> CustomerMeasurementService.saveOrUpdate() (updates customer profile)
+  9. customer.incrementOrderCount() -> customerRepository.save()
+  10. return orderMapper.toResponse(saved, customerName, measurements)
+  |
+Frontend: Order created -> show order number -> navigate to order detail desk
+``
+
+---
+
+28. Default System Credentials
+
+These are initialized by DataInitializer on every startup. BCrypt re-encoding only
+happens if the stored hash is not already a valid BCrypt hash (TASK-002 fix).
+
+| Username | Default Password | Role | Branch |
+
+| admin | Admin@123 | ROLE_ADMIN | Global (all branches) |
+| manager | Manager@123 | ROLE_OPERATIONS_MANAGER | Branch 1 (Chennai) |
+| reception | Reception@123 | ROLE_RECEPTION | Branch 1 (Chennai) |
+| production | Production@123 | ROLE_PRODUCTION_EMPLOYEE | Branch 1 (Chennai) |
+| manager_cbe | Manager@123 | ROLE_OPERATIONS_MANAGER | Branch 2 (Coimbatore) |
+| reception_cbe | Reception@123 | ROLE_RECEPTION | Branch 2 (Coimbatore) |
+| production_cbe | Production@123 | ROLE_PRODUCTION_EMPLOYEE | Branch 2 (Coimbatore) |
+
+IMPORTANT: Change all default passwords before connecting this system to any network
+accessible from outside the immediate office. Use the Employee management screen while
+logged in as admin.
+
+---
+
+29. Configuration and Environment Variables
+
+All config lives in src/main/resources/application.yaml.
+Production overrides use environment variables:
+
+| Env Variable | Purpose | Dev Default |
+
+| DB_HOST | PostgreSQL host | localhost |
+| DB_PORT | PostgreSQL port | 5432 |
+| DB_NAME | Database name | ritham_erp |
+| DB_USERNAME | DB user | ritham |
+| DB_PASSWORD | DB password | ritham123 |
+| SPRING_DATASOURCE_URL | Full JDBC URL (overrides host/port/name) | -- |
+| JWT_SECRET | Base64-encoded 256-bit signing secret | dev fallback in config |
+| CORS_ORIGIN_1 | Allowed CORS origin 1 | http://localhost:3000 |
+| CORS_ORIGIN_2 | Allowed CORS origin 2 | http://localhost:5173 |
+| CORS_ORIGIN_3 | Allowed CORS origin 3 | http://localhost:4200 |
+
+Note: Since the frontend is served by the same Spring Boot server, CORS is not needed
+for same-origin access. The CORS config only matters if a separate frontend dev server
+is running (e.g. during development with Vite or similar).
+
+Active profile: dev by default. Override with SPRING_PROFILES_ACTIVE=prod for production.
+
+HikariCP pool settings:
+- maximum-pool-size: 10
+- minimum-idle: 2
+- idle-timeout: 300000 ms (5 minutes)
+- connection-timeout: 20000 ms (20 seconds)
+
+---
+
+30. Error Handling and Response Envelope
+
+GlobalExceptionHandler (@RestControllerAdvice) maps all exceptions to consistent JSON:
+
+| Exception | HTTP Status | Scenario |
+
+| AppException | varies by ErrorCode | Business rule violations |
+| MethodArgumentNotValidException | 400 | Bean Validation failures |
+| AccessDeniedException | 403 | Spring Security role check failure |
+| AuthenticationException | 401 | Bad credentials |
+| NoResourceFoundException | 404 | Missing static resource |
+| HttpMessageNotReadableException | 400 | Malformed JSON body |
+| DataIntegrityViolationException | 409 | FK violation (delete linked record) |
+| Exception (fallback) | 500 | Unexpected server errors |
+
+Stack traces are never exposed to the client (server.error.include-stacktrace: never).
+
+---
+
+31. Test Coverage
+
+Location: src/test/java/com/ritham/erp/
+
+Test infrastructure: Spring Boot Test + H2 in-memory database.
+Flyway migrations run against H2 for schema setup.
+
+Current test count: 186 tests, 100% pass rate (as of last build verification).
+
+Test Modules
+
+| Package | Focus |
+
+| module/auth/ | Login, token refresh, logout, rate limiting |
+| module/customer/ | Customer CRUD, measurement profiles |
+| module/employee/ | Employee CRUD, role enforcement |
+| module/order/ | Order creation, state transitions, payment ledger, analytics |
+
+Key Scenarios Covered
+
+- Multi-tenancy: branch-scoped data isolation
+- Order state machine: all valid and invalid transitions
+- Payment calculations: advance, partial, final, overpayment rejection
+- Discount logic: discount cannot exceed total; net total calculations
+- Terminal status protection: CANCELLED/DELIVERED cannot transition
+- Authentication: rate limiter lockout, token refresh, logout
+- Input validation: negative amounts, invalid mobiles, missing fields
+
+---
+
+32. Work Completed (TASK-001 to TASK-025)
+
+The following tasks were designed, implemented, and verified during the project development phase.
+
+Security and Access Control
+
+| Task | What Was Fixed |
+
+| TASK-001 | Unauthorized staff modifying employees. Added @PreAuthorize("hasRole('ADMIN')") to all employee mutation endpoints. |
+| TASK-002 | Password reset on server restart. encodeIfNeeded() now preserves existing BCrypt hashes and only initializes passwords for truly new accounts. |
+| TASK-003 | Cross-branch order snooping. verifyBranchAccess() enforced in OrderService on every single-order read or update. |
+| TASK-004 | Cross-branch employee snooping. Branch-filtered queries in EmployeeRepository. |
+| TASK-021 | Brute-force login attacks. LoginRateLimiter with 5 user-attempt lockout, 10 IP-attempt lockout, 15-minute window, HTTP 429 response. |
+| TASK-022 | Unaudited branch context switching. Structured AUDIT logging in JwtAuthFilter. Non-admin X-Branch-Id attempts trigger AUDIT SECURITY ALERT. |
+
+Payments and Finance
+
+| Task | What Was Fixed |
+
+| TASK-005 | Unused payment table. Connected order_payments entity to the service layer. |
+| TASK-006 | Missing payment ledger. Full OrderPayment ledger with per-transaction rows (amount, method, type, timestamp). |
+| TASK-007 | Payments overwriting each other. Immutable ledger entries. syncOrderPaymentState() recalculates from the full ledger. |
+| TASK-008 | Wrong revenue dates. Revenue aggregated by order_payments.payment_date, not customer_orders.created_at. |
+
+Order Production
+
+| Task | What Was Fixed |
+
+| TASK-009 | Duplicate order numbers. PostgreSQL sequence order_number_seq with collision-retry loop. |
+| TASK-010 | Illegal stage skipping. validateStatusTransition() state machine enforces strict ordering. |
+| TASK-011 | Premature delivery. READY_TO_DELIVERY status required before DELIVERED. Receiver name is mandatory. |
+
+Customer Data
+
+| Task | What Was Fixed |
+
+| TASK-012 | Historical measurements changed. order_measurements is an immutable snapshot at creation time. |
+| TASK-013 | Deleting customers with active orders. FK protection + admin-only restriction. |
+| TASK-015 | Inconsistent mobile phone validation. Unified ^[6-9]\d{9}$ regex across all forms and controllers. |
+
+Frontend and Stability
+
+| Task | What Was Fixed |
+
+| TASK-014 | Slow analytics (client-side aggregation). Built /api/orders/analytics with server-side SQL aggregation. |
+| TASK-016 | Hardcoded usernames in UI. Replaced string matching with dynamic role and branch property checks. |
+| TASK-017 | Standalone JAR missing frontend files (404 Not Found). Maven resource config packages frontend/ into target/classes/static/. |
+| TASK-018 | Ghost API routes pointing to non-existent endpoints. Audited and documented all real vs placeholder routes. |
+| TASK-019 | SQL crash on non-numeric employee codes. Java regex extraction replaces SQL CAST(SUBSTRING...). |
+| TASK-020 | Missing automated test coverage. 186 tests created and passing. |
+
+Additional Hardening (Post-TASK-022)
+
+| Task | What Was Fixed |
+
+| TASK-023 | Hardcoded JWT secret in source code. Externalized to JWT_SECRET environment variable. |
+| TASK-024 | Hardcoded CORS origins in source code. Externalized to CORS_ORIGIN_1/2/3 environment variables. |
+| TASK-025 | Absolute API URL in frontend constants.js. Changed to relative /api path so the same build works on any host/port. |
+
+---
+
+33. Known Issues and Technical Debt
+
+In-Memory Rate Limiter State Lost on Restart
+The LoginRateLimiter state is lost on every JVM restart. An attacker with access to restart
+the app could clear lockouts. Acceptable for internal LAN use. For internet-facing deployments,
+replace ConcurrentHashMap with Redis-backed or database-backed tracking.
+
+OptimisticLockingFailureException Not Handled
+The version column on customer_orders (V11) enables JPA @Version optimistic locking, but
+ObjectOptimisticLockingFailureException is not yet mapped in GlobalExceptionHandler.
+Currently falls through to the generic 500 handler with a confusing error message.
+Fix: add a handler returning HTTP 409 with a clear "Order was modified by another user,
+please refresh" message.
+
+paidAmount Denormalization
+paidAmount on the order is a denormalized cache of the sum of payment ledger rows.
+If a payment row were directly deleted from the database outside the application,
+paidAmount would become stale. The application prevents this via the API layer, but
+there is no compensating re-sync mechanism outside of the application path.
+
+production_tracking Table Unused
+The production_tracking table exists in the schema (V1) but is not yet wired to any
+backend service or controller. Order tracking is done entirely via customer_orders.status.
+This table could support a granular per-employee, per-stage audit trail in future.
+
+order_deliveries Table Unused
+Similarly, order_deliveries exists in the schema but delivery confirmation is done via
+order status (DELIVERED). The table could support multi-delivery or partial-delivery
+tracking in future.
+
+Design and Material Modules Placeholder Only
+/desks/design/ and /desks/material/ are HTML placeholder pages. There is no active
+controller for /api/designs or /api/materials.
+
+---
+
+34. Intentionally Deferred Work
+
+| ID | Description | Reason Deferred |
+
+| TASK-036 | Advanced search and filter on order desk | UX clarity needed before build |
+| TASK-037 | Employee advance salary payment tracking | Business rules to confirm with owner |
+| TASK-038 | GST invoice generation and thermal printer receipt | GST number and format varies by branch |
+| TASK-039 | SMS or WhatsApp notification on delivery ready | Requires third-party API key (Twilio/MSG91) |
+| TASK-040 | Order image uploads for design photos | File storage strategy undecided (local vs cloud) |
+| TASK-041 | Azure or cloud deployment pipeline | Infrastructure provisioning not yet started |
+
+---
+
+35. Recommended Next Work Items
+
+Based on the current codebase state, here are the highest-value items to tackle next,
+ordered by impact-to-effort ratio:
+
+1. Handle OptimisticLockingFailureException (High Priority - Safety)
+Add a handler in GlobalExceptionHandler to return HTTP 409 with a user-friendly message
+when concurrent updates collide. Without this, concurrent saves produce a confusing 500.
+Effort: 30 minutes. Impact: prevents confusing errors in production.
+
+2. Production Tracking Wiring (Medium - Feature Completeness)
+Wire the production_tracking table to the order status update flow. Each status change
+should insert a production_tracking row with employeeId, stage, startTime, and endTime.
+This enables a full audit trail showing who worked on which stage and for how long.
+Effort: 1-2 days. Impact: full accountability and production performance reporting.
+
+3. GST Receipt / Thermal Printer Output (High - Business Value)
+Reception staff currently have no way to print a receipt. A simple HTML receipt template
+served as a browser print dialog would dramatically improve the checkout experience and
+provide customers with a paper record.
+Effort: 1 day. Impact: immediate visible improvement for front-desk operations.
+
+4. Delivery Desk Completion (Medium - Feature Completeness)
+The /desks/delivery/ placeholder should become a functional desk for marking orders as
+delivered, capturing receiver name and signature, and confirming final payment settlement.
+Currently delivery is done via the Order detail desk, which is less intuitive.
+Effort: 1-2 days. Impact: cleaner delivery workflow.
+
+5. Rate Limiter Persistence (Low - Security Hardening for Internet Deployments)
+For internet-facing deployments, replace ConcurrentHashMap in LoginRateLimiter with
+database-backed or Redis-backed tracking to survive JVM restarts.
+Effort: 2-4 hours. Impact: critical if system is exposed to the internet.
+
+6. Design and Material Desks (Low - Phase Completion)
+Implement /api/designs and /api/materials backend controllers and wire them to the
+existing placeholder frontend desks. These are the next phases in the original roadmap.
+Effort: 3-5 days. Impact: enables design spec capture and material inventory tracking.
+
+7. Customer Notification (Low - UX Enhancement)
+When an order reaches READY_TO_DELIVERY, automatically notify the customer via WhatsApp
+or SMS using a service like Twilio or MSG91. Requires an API key and a notification
+service layer in the backend.
+Effort: 2-3 days. Impact: reduces front-desk phone calls for order ready inquiries.
+
+8. Cloud Deployment Pipeline (Low - Infrastructure)
+Set up a Docker container build, push to Azure Container Registry, and deploy to Azure
+App Service or Azure Container Instances. Add a GitHub Actions workflow for CI/CD.
+Effort: 2-5 days. Impact: enables remote access and multi-location deployment.
+
+---
+
+Appendix: File Quick Reference
+
+| File | Purpose |
+
+| d:\ritham-erp\pom.xml | Maven build configuration |
+| d:\ritham-erp\start.bat | Windows one-click launcher |
+| src/main/resources/application.yaml | Main application config |
+| src/main/resources/db/migration/V1__init_schema.sql | Full baseline schema |
+| src/main/java/.../security/JwtAuthFilter.java | JWT authentication filter |
+| src/main/java/.../security/BranchContext.java | ThreadLocal branch isolation |
+| src/main/java/.../module/order/service/OrderService.java | Core order business logic |
+| src/main/java/.../module/auth/security/LoginRateLimiter.java | Brute-force protection |
+| src/main/java/.../common/config/SecurityConfig.java | Spring Security filter chain |
+| src/main/java/.../common/exception/GlobalExceptionHandler.java | Error mapping |
+| frontend/js/constants.js | All API route constants |
+| frontend/js/api.js | HTTP client with auto-refresh |
+| frontend/js/auth.js | Auth guard and session management |
+| d:\ritham-erp\RITHAM_ERP_COMPLETE_GUIDE.txt | Business user guide |
+| d:\ritham-erp\RITHAM_ERP_PROBLEM_AND_FIX_REPORT.txt | All 22 original task summaries |
+| d:\ritham-erp\RITHAM_ERP_SYSTEM_DOCUMENTATION.md | This technical handover document |
+
+---
+
+Document compiled: September 2026
+Source: d:\ritham-erp (live repository, read directly)
+Maintainer: Ritham Garments Engineering Team
+

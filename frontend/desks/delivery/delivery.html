@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delivery Management — Ritham ERP</title>
+  <meta name="description" content="Track and manage order deliveries — ready to deliver and completed orders.">
+
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/utilities.css">
+  <link rel="stylesheet" href="delivery.css">
+
+  <!-- Export Libraries (SheetJS for Excel, jsPDF + AutoTable for PDF) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+  <div class="app-layout" id="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="main-wrapper">
+      <header class="header" id="header"></header>
+
+      <main class="content">
+        <div class="content-inner">
+
+          <!-- ── Page Header ──────────────────────────────────────────── -->
+          <div class="page-header">
+            <div class="page-header-left">
+              <h1 class="page-title">Delivery Management</h1>
+              <p class="page-subtitle" id="deliveryCountLabel">Loading…</p>
+            </div>
+            <div class="page-header-right">
+              <button class="btn btn-ghost" id="refreshBtn" title="Refresh">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+                </svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Stats Row ───────────────────────────────────────────── -->
+          <div class="dlv-stats-row">
+            <div class="dlv-stat-card dlv-stat-ready">
+              <div class="dlv-stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                </svg>
+              </div>
+              <div class="dlv-stat-content">
+                <div class="dlv-stat-label">Ready to Deliver</div>
+                <div class="dlv-stat-value" id="statReady">—</div>
+                <div class="dlv-stat-sub">Awaiting dispatch</div>
+              </div>
+            </div>
+            <div class="dlv-stat-card dlv-stat-delivered">
+              <div class="dlv-stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
+              <div class="dlv-stat-content">
+                <div class="dlv-stat-label">Total Delivered</div>
+                <div class="dlv-stat-value" id="statDelivered">—</div>
+                <div class="dlv-stat-sub">All time</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Tab Switcher ────────────────────────────────────────── -->
+          <div class="dlv-tabs" id="dlvTabs">
+            <button class="dlv-tab active" data-tab="ready" id="tabReady">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+              </svg>
+              Ready to Deliver
+              <span class="dlv-tab-badge dlv-tab-badge-amber" id="tabReadyBadge">0</span>
+            </button>
+            <button class="dlv-tab" data-tab="delivered" id="tabDelivered">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              Completed Orders
+              <span class="dlv-tab-badge dlv-tab-badge-green" id="tabDeliveredBadge">0</span>
+            </button>
+          </div>
+
+          <!-- ── Table Card ──────────────────────────────────────────── -->
+          <div class="dlv-table-card">
+            <div class="dlv-table-header">
+              <div>
+                <div class="dlv-table-title" id="tableTitle">Ready to Deliver</div>
+                <div class="dlv-table-subtitle" id="tableSubtitle">Orders packaged and awaiting customer dispatch</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <!-- Export & Delete Action Buttons (Active on Completed Orders tab) -->
+                <div id="dlvArchiveActions" style="display:none;align-items:center;gap:8px;">
+                  <button class="btn btn-ghost btn-sm" id="btnExportPdf" title="Export Completed Orders to PDF" style="gap:5px;color:#F43F5E;border:1px solid rgba(244,63,94,0.25);background:rgba(244,63,94,0.08);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    PDF
+                  </button>
+                  <button class="btn btn-ghost btn-sm" id="btnExportExcel" title="Export Completed Orders to Excel (.xlsx)" style="gap:5px;color:#10B981;border:1px solid rgba(16,185,129,0.25);background:rgba(16,185,129,0.08);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>
+                    Excel
+                  </button>
+                  <button class="btn btn-ghost btn-sm" id="btnDeleteOld" title="Delete Delivered Orders older than 30 days (Admin Only)" style="display:none;gap:5px;color:#EF4444;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    Delete Old (&gt;30d)
+                  </button>
+                </div>
+
+                <div style="position:relative;display:flex;align-items:center;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                       style="position:absolute;left:10px;color:var(--text-muted);pointer-events:none;">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input type="text" id="dlvSearch" class="dlv-search-input" placeholder="Search order or customer…" autocomplete="off">
+                </div>
+              </div>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="dlv-table">
+                <thead><tr id="tableHead"></tr></thead>
+                <tbody id="dlvTableBody">
+                  <!-- populated by JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="dlv-pagination" id="dlvPagination"></div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ── Delivery Payment Collection Modal ────────────────────────────── -->
+  <div class="dlv-modal-backdrop hidden" id="deliveryPayModalBackdrop">
+    <div class="dlv-modal" style="max-width:440px;" role="dialog" aria-modal="true" aria-labelledby="dlvPayTitle">
+      <div class="dlv-modal-head">
+        <div>
+          <h2 class="dlv-modal-title" id="dlvPayTitle">Collect Payment &amp; Deliver</h2>
+          <p class="dlv-modal-sub">
+            Order <strong id="dlvPayOrderNum"></strong>
+          </p>
+        </div>
+        <button class="dlv-modal-close" id="closePayModalBtn" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="dlv-modal-body" style="gap:12px;">
+
+        <!-- Payment summary -->
+        <div class="dlv-pay-summary">
+          <div class="dlv-pay-row">
+            <span class="dlv-pay-label">Total Order Value</span>
+            <span class="dlv-pay-val" id="dlvPayTotal">—</span>
+          </div>
+          <div class="dlv-pay-row">
+            <span class="dlv-pay-label">Already Paid</span>
+            <span class="dlv-pay-val dlv-pay-green" id="dlvPayAlreadyPaid">—</span>
+          </div>
+          <div class="dlv-pay-row dlv-pay-row-balance">
+            <span class="dlv-pay-label" style="font-weight:700;">Balance Due</span>
+            <span class="dlv-pay-val dlv-pay-red" id="dlvPayBalance" style="font-size:18px;font-weight:700;">—</span>
+          </div>
+        </div>
+
+        <!-- Fully Paid Notice (informative, not blocking) -->
+        <div id="dlvPayNothingDue" style="
+          display:none;align-items:center;gap:8px;
+          padding:10px 14px;
+          background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);
+          border-radius:8px;color:#4ADE80;font-size:12px;font-weight:600;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12l5 5L20 7"/>
+          </svg>
+          Order already paid in full — enter amount below only if collecting extra.
+        </div>
+
+        <!-- Receiver Name Field -->
+        <div>
+          <label class="dlv-pay-field-label" for="dlvModalReceiverName">
+            Receiver Name <span style="color:#EF4444;margin-left:2px;">*</span>
+          </label>
+          <input
+            type="text"
+            id="dlvModalReceiverName"
+            class="dlv-pay-input"
+            placeholder="Person receiving the garment…"
+            autocomplete="off"
+            style="font-size:14px;padding:9px 12px;"
+          >
+          <div id="dlvReceiverError" class="dlv-pay-error" style="display:none;color:#EF4444;font-size:12px;margin-top:4px;">Receiver name is required.</div>
+        </div>
+
+        <!-- Discount Field -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label class="dlv-pay-field-label" for="dlvDiscount" style="margin:0;">
+              Discount (₹)
+            </label>
+            <span style="font-size:11px;color:var(--text-muted);">Optional deduction</span>
+          </div>
+          <div class="dlv-pay-input-wrap" style="margin-top:4px;">
+            <span class="dlv-pay-prefix">₹</span>
+            <input
+              type="number"
+              id="dlvDiscount"
+              class="dlv-pay-input"
+              placeholder="0.00"
+              min="0"
+              step="1"
+              autocomplete="off"
+              onwheel="this.blur()"
+            >
+          </div>
+        </div>
+
+        <!-- Amount Received Field -->
+        <div id="dlvPayAmountRow">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label class="dlv-pay-field-label" for="dlvPayAmount" style="margin:0;">
+              Amount Received at Delivery (₹)
+            </label>
+            <span style="font-size:11px;color:var(--text-muted);" id="dlvPayStatusHint">Payment collected</span>
+          </div>
+          <div class="dlv-pay-input-wrap" style="margin-top:4px;">
+            <span class="dlv-pay-prefix">₹</span>
+            <input
+              type="number"
+              id="dlvPayAmount"
+              class="dlv-pay-input"
+              placeholder="0.00"
+              min="0"
+              step="1"
+              autocomplete="off"
+              onwheel="this.blur()"
+            >
+          </div>
+          <div id="dlvPayError" class="dlv-pay-error" style="display:none;"></div>
+          <!-- Live Status Feedback -->
+          <div id="dlvLiveFeedback" style="display:none;font-size:12px;padding:6px 10px;border-radius:6px;margin-top:6px;font-weight:600;"></div>
+        </div>
+
+        <!-- Payment Mode Select -->
+        <div id="dlvPaymentModeContainer">
+          <label class="dlv-pay-field-label" for="dlvPayMode">
+            Payment Type / Method
+          </label>
+          <select id="dlvPayMode" class="dlv-pay-input" style="font-size:14px;padding:9px 12px;cursor:pointer;">
+            <option value="CASH">💵 Cash</option>
+            <option value="UPI">📱 UPI / QR Code (GPay, PhonePe, Paytm)</option>
+            <option value="CARD">💳 Debit / Credit Card</option>
+            <option value="BANK_TRANSFER">🏦 Net Banking / Bank Transfer</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div class="dlv-modal-footer">
+        <button class="btn btn-ghost" id="dlvPayCancelBtn">Cancel</button>
+        <button class="dlv-deliver-btn" id="dlvPayConfirmBtn" style="padding:9px 20px;font-size:13px;">
+          ✓ Confirm Delivery
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── View Order Detail Modal ───────────────────────────────────────── -->
+  <div class="dlv-modal-backdrop hidden" id="viewModalBackdrop">
+    <div class="dlv-modal" role="dialog" aria-modal="true">
+      <div class="dlv-modal-head">
+        <div>
+          <h2 class="dlv-modal-title" id="viewModalOrderNum">Order Details</h2>
+          <p class="dlv-modal-sub" id="viewModalSub">Customer Order</p>
+        </div>
+        <button class="dlv-modal-close" id="closeViewModalBtn">&times;</button>
+      </div>
+      <div class="dlv-modal-body" id="viewModalBody">
+        <!-- loaded by JS -->
+      </div>
+      <div class="dlv-modal-footer">
+        <button class="btn btn-secondary" id="closeViewModalFooterBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Delete Archive Confirmation Modal (Admin Only) ─────────────────── -->
+  <div class="dlv-modal-backdrop hidden" id="deleteArchiveModalBackdrop">
+    <div class="dlv-modal" style="max-width:460px;border-color:rgba(239,68,68,0.4);" role="dialog" aria-modal="true" aria-labelledby="dlvArchiveTitle">
+      <div class="dlv-modal-head" style="border-bottom-color:rgba(239,68,68,0.2);">
+        <div>
+          <h2 class="dlv-modal-title" id="dlvArchiveTitle" style="color:#EF4444;display:flex;align-items:center;gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Delete Old Delivered Records
+          </h2>
+          <p class="dlv-modal-sub">Irreversible database purge operation</p>
+        </div>
+        <button class="dlv-modal-close" id="closeArchiveModalBtn" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="dlv-modal-body" style="gap:14px;">
+        <!-- Stats preview -->
+        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:13px;color:var(--text-muted);">Orders to be deleted (&gt;30 days old):</span>
+            <span style="font-size:15px;font-weight:700;color:#EF4444;" id="archiveToDeleteCount">0</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:13px;color:var(--text-muted);">Orders to be kept (last 30 days):</span>
+            <span style="font-size:15px;font-weight:700;color:#4ADE80;" id="archiveToKeepCount">0</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);border-top:1px dashed rgba(255,255,255,0.1);padding-top:6px;margin-top:4px;">
+            Cutoff Date: <strong id="archiveCutoffDate" style="color:var(--text-primary);">—</strong>
+          </div>
+        </div>
+
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.4;">
+          ⚠️ Make sure you have exported your data first using <strong>PDF</strong> or <strong>Excel</strong>. Deleted records cannot be restored.
+        </p>
+
+        <!-- Admin Password Form -->
+        <div>
+          <label class="dlv-pay-field-label" for="archiveAdminPassword" style="color:#EF4444;">
+            Enter System Admin Password to Confirm *
+          </label>
+          <input
+            type="password"
+            id="archiveAdminPassword"
+            class="dlv-pay-input"
+            placeholder="Admin Password"
+            style="font-size:14px;padding:10px 14px;border-color:rgba(239,68,68,0.4);"
+            autocomplete="current-password"
+          >
+          <div id="archiveError" class="dlv-pay-error" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="dlv-modal-footer">
+        <button class="btn btn-ghost" id="archiveCancelBtn">Cancel</button>
+        <button class="btn btn-danger" id="archiveConfirmBtn" disabled style="background:#DC2626;color:#FFF;padding:9px 18px;font-size:13px;font-weight:600;">
+          🗑 Delete Old Records
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../js/validation.js"></script>
+  <script src="../../components/toast/toast.js"></script>
+  <script src="../../components/loader/loader.js"></script>
+  <script src="../../components/modal/modal.js"></script>
+  <script src="../../components/sidebar/sidebar.js"></script>
+  <script src="../../components/header/header.js"></script>
+  <script src="delivery.js"></script>
+</body>
+</html>

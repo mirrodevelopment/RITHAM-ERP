@@ -1,0 +1,18 @@
+/* ==========================================================================
+   Ritham ERP Master Theme Entry Point
+   Imports color tokens, typography tokens, and spacing tokens.
+   ========================================================================== */
+
+@import url('./colors.css');
+@import url('./typography.css');
+@import url('./spacing.css');
+
+/* ==========================================================================
+   Universal Compatibility Aliases (Ensures all legacy components adapt to theme)
+   ========================================================================== */
+:root {
+  --border-color:     var(--border-default);
+  --color-primary:    var(--brand-fg);
+  --surface-card:     var(--bg-surface);
+  --color-text-muted: var(--text-muted);
+}

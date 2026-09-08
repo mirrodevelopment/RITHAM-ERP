@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Company Branches Management — Ritham ERP">
+  <title>Company Branches — Ritham ERP</title>
+
+  <!-- Design System & Theme Stylesheets -->
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/utilities.css">
+  <link rel="stylesheet" href="branch.css">
+</head>
+<body>
+
+  <div class="app-layout" id="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+      <!-- Header -->
+      <header class="header" id="header"></header>
+
+      <!-- Main Content -->
+      <main class="content" id="content">
+        <div class="content-inner">
+
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header-left">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <h1 class="page-title">Company Branches & Locations</h1>
+                <span class="badge badge-primary" id="branchCountBadge" style="font-size:11px;">2 Branches</span>
+              </div>
+              <p class="page-subtitle">Configure branch locations, staff allocation, and isolated branch workflows</p>
+            </div>
+
+            <div class="page-header-right flex items-center gap-3">
+              <button class="btn btn-ghost btn-icon" id="refreshBranchesBtn" title="Reload branches list">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+              </button>
+              <button class="btn btn-primary" id="addNewBranchBtn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Add New Branch</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Management Navigation Tabs -->
+          <div style="display:flex; gap:16px; border-bottom:1px solid var(--border-color, #27272a); margin-bottom:20px;">
+            <a href="../employee/employee.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              👥 Employees Directory
+            </a>
+            <a href="../user/user.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              🔑 System Users & Logins
+            </a>
+            <a href="../stage/stage.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              🧵 Worker Categories & Stages
+            </a>
+            <a href="../branch/branch.html" style="padding:10px 16px; font-size:14px; font-weight:600; color:var(--color-primary, #6366f1); border-bottom:2px solid var(--color-primary, #6366f1); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              🏢 Company Branches
+            </a>
+            <a href="../migration/migration.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              📜 Historical Migration
+            </a>
+          </div>
+
+          <!-- Controls / Filter bar -->
+          <div class="card mb-6">
+            <div class="branch-controls-bar">
+              <!-- Search bar -->
+              <div class="search-bar" style="width: 360px; max-width: 100%;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="branchSearchInput" class="search-input" placeholder="Search branch by name, code, city..." autocomplete="off">
+              </div>
+            </div>
+          </div>
+
+          <!-- Branches Table Container -->
+          <div class="card" style="overflow: hidden;">
+            <div class="table-responsive">
+              <table class="table" id="branchesTable">
+                <thead>
+                  <tr>
+                    <th style="width: 120px; padding-left: 20px;">BRANCH CODE</th>
+                    <th>BRANCH & LOCATION</th>
+                    <th>CONTACT & GSTIN</th>
+                    <th style="width: 120px; text-align: center;">WORKFORCE</th>
+                    <th style="width: 120px; text-align: center;">ORDERS</th>
+                    <th style="width: 180px; text-align: right; padding-right: 20px;">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody id="branchesTableBody">
+                  <tr>
+                    <td colspan="6" style="padding: 40px; text-align: center; color: var(--text-muted);">
+                      Loading company branches...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Table Footer -->
+            <div class="card-footer flex items-center justify-between text-sm text-muted" id="tableFooter">
+              <span id="totalCountText">Total 2 company branches</span>
+            </div>
+          </div>
+
+        </div><!-- /.content-inner -->
+      </main>
+    </div><!-- /.main-wrapper -->
+  </div><!-- /.app-layout -->
+
+  <!-- ── Add / Edit Branch Modal ───────────────────────────────────────────── -->
+  <div class="modal-backdrop hidden" id="branchModalBackdrop">
+    <div class="modal modal-md" role="dialog" aria-modal="true" aria-labelledby="branchModalTitle">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title" id="branchModalTitle">Add New Branch</h2>
+          <p class="modal-subtitle" id="branchModalSubtitle">Create a new company branch location</p>
+        </div>
+        <button class="btn-close" id="closeBranchModalBtn" aria-label="Close modal">&times;</button>
+      </div>
+
+      <form id="branchForm">
+        <input type="hidden" id="editBranchId" value="">
+        <div class="modal-body space-y-4">
+
+          <div class="grid grid-2 gap-4">
+            <div class="form-group">
+              <label class="form-label" for="branchCodeInput">Branch Code <span class="required">*</span></label>
+              <input type="text" id="branchCodeInput" class="form-control" placeholder="e.g. BR-003" required maxlength="20" style="text-transform: uppercase;">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="branchCityInput">City / Region</label>
+              <input type="text" id="branchCityInput" class="form-control" placeholder="e.g. Madurai" maxlength="50">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="branchNameInput">Branch Name <span class="required">*</span></label>
+            <input type="text" id="branchNameInput" class="form-control" placeholder="e.g. Ritham Designs — Central Branch" required maxlength="100">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="branchAddressInput">Full Address</label>
+            <input type="text" id="branchAddressInput" class="form-control" placeholder="e.g. 15 North Veli Street, Madurai - 625001" maxlength="255">
+          </div>
+
+          <div class="grid grid-2 gap-4">
+            <div class="form-group">
+              <label class="form-label" for="branchPhoneInput">Phone Number</label>
+              <input type="text" id="branchPhoneInput" class="form-control" placeholder="e.g. 9876543210" maxlength="20">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="branchEmailInput">Email Address</label>
+              <input type="email" id="branchEmailInput" class="form-control" placeholder="e.g. madurai@rithamdesigns.com" maxlength="100">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="branchGstInput">GSTIN / Tax Number</label>
+            <input type="text" id="branchGstInput" class="form-control" placeholder="e.g. 33AAAAA0000A1Z7" maxlength="30" style="text-transform: uppercase;">
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="cancelBranchModalBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveBranchBtn">Save Branch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast mount -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../components/toast/toast.js"></script>
+  <script src="../../components/loader/loader.js"></script>
+  <script src="../../components/modal/modal.js"></script>
+  <script src="../../components/sidebar/sidebar.js"></script>
+  <script src="../../components/header/header.js"></script>
+  <script src="branch.js"></script>
+</body>
+</html>

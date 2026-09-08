@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Order Desk — Ritham ERP Desktop Order-Taking Dashboard">
+  <title>Order Desk — Ritham ERP</title>
+
+  <!-- Design System Stylesheets -->
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/utilities.css">
+  <link rel="stylesheet" href="order-desk.css">
+</head>
+<body>
+
+  <div class="app-layout" id="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+      <!-- Header -->
+      <header class="header" id="header"></header>
+
+      <!-- Main Content -->
+      <main class="content" id="content">
+        <div class="content-inner">
+
+          <!-- ── Page Header / Hero ──────────────────────────────────────── -->
+          <div class="page-header od-hero-header">
+            <div class="page-header-left">
+              <div class="od-hero-title-wrap">
+                <h1 class="page-title">Order Desk</h1>
+                <span class="od-live-pill" title="Live real-time order intake">
+                  <span class="od-pulse-dot"></span> Live Intake
+                </span>
+              </div>
+              <p class="page-subtitle">Desktop order-taking, customer intake & real-time production tracking</p>
+            </div>
+
+            <div class="page-header-right od-header-actions">
+              <button class="btn btn-secondary od-action-btn" id="refreshBtn" title="Refresh dashboard data">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span>Refresh</span>
+              </button>
+              <button class="btn btn-primary od-action-btn od-primary-cta" id="newOrderBtn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>New Order</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ── KPI Stats Grid ─────────────────────────────────────────── -->
+          <div class="od-kpi-grid" id="statsRow">
+            <!-- Populated dynamically by JS with skeletons initial state -->
+            <div class="od-kpi-card skeleton-card">
+              <div class="od-kpi-header">
+                <div class="skeleton" style="height:12px; width:90px; border-radius:4px;"></div>
+                <div class="skeleton" style="height:32px; width:32px; border-radius:8px;"></div>
+              </div>
+              <div class="skeleton" style="height:32px; width:60px; border-radius:6px; margin: 12px 0 6px;"></div>
+              <div class="skeleton" style="height:12px; width:120px; border-radius:4px;"></div>
+            </div>
+            <div class="od-kpi-card skeleton-card">
+              <div class="od-kpi-header">
+                <div class="skeleton" style="height:12px; width:90px; border-radius:4px;"></div>
+                <div class="skeleton" style="height:32px; width:32px; border-radius:8px;"></div>
+              </div>
+              <div class="skeleton" style="height:32px; width:60px; border-radius:6px; margin: 12px 0 6px;"></div>
+              <div class="skeleton" style="height:12px; width:120px; border-radius:4px;"></div>
+            </div>
+            <div class="od-kpi-card skeleton-card">
+              <div class="od-kpi-header">
+                <div class="skeleton" style="height:12px; width:90px; border-radius:4px;"></div>
+                <div class="skeleton" style="height:32px; width:32px; border-radius:8px;"></div>
+              </div>
+              <div class="skeleton" style="height:32px; width:60px; border-radius:6px; margin: 12px 0 6px;"></div>
+              <div class="skeleton" style="height:12px; width:120px; border-radius:4px;"></div>
+            </div>
+            <div class="od-kpi-card skeleton-card">
+              <div class="od-kpi-header">
+                <div class="skeleton" style="height:12px; width:90px; border-radius:4px;"></div>
+                <div class="skeleton" style="height:32px; width:32px; border-radius:8px;"></div>
+              </div>
+              <div class="skeleton" style="height:32px; width:60px; border-radius:6px; margin: 12px 0 6px;"></div>
+              <div class="skeleton" style="height:12px; width:120px; border-radius:4px;"></div>
+            </div>
+          </div>
+
+          <!-- ── Main Content Grid ──────────────────────────────────────── -->
+          <div class="od-main-grid">
+
+            <!-- ── Left: Recent Orders Panel ── -->
+            <section class="od-orders-section">
+              <div class="od-card">
+
+                <!-- Card Header -->
+                <div class="od-card-header">
+                  <div class="od-card-title-group">
+                    <div class="od-card-title-row">
+                      <h2 class="od-card-title">Recent Orders</h2>
+                      <span class="od-badge-count" id="ordersCountBadge">0 Orders</span>
+                    </div>
+                    <p class="od-card-subtitle" id="ordersSubtitle">Live intake stream for current branch</p>
+                  </div>
+
+                  <div class="od-card-actions">
+                    <div class="od-search-wrapper">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                      <input type="text" id="orderSearch" class="od-search-input" placeholder="Search order#, customer, mobile…" autocomplete="off">
+                      <button type="button" class="od-search-clear" id="searchClearBtn" title="Clear search" style="display:none;">&times;</button>
+                    </div>
+                    <a href="../order/order.html" class="btn btn-secondary btn-sm od-view-all-btn">
+                      <span>View All</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+
+                <!-- Quick Filter Tabs -->
+                <div class="od-filter-tabs" id="odFilterTabs">
+                  <button class="od-tab-btn active" data-filter="ALL">All Orders</button>
+                  <button class="od-tab-btn" data-filter="PENDING">Pending</button>
+                  <button class="od-tab-btn" data-filter="IN_PROGRESS">In Production</button>
+                  <button class="od-tab-btn" data-filter="COMPLETED">Ready / Completed</button>
+                </div>
+
+                <!-- Table Wrapper -->
+                <div class="od-table-wrapper" id="ordersTableWrapper">
+                  <table class="od-table" id="ordersTable">
+                    <thead>
+                      <tr>
+                        <th class="od-col-orderno">ORDER #</th>
+                        <th class="od-col-customer">CUSTOMER</th>
+                        <th class="od-col-garment">GARMENT / ITEMS</th>
+                        <th class="od-col-date">DUE DATE</th>
+                        <th class="od-col-amount" id="colOrderDeskAmount">AMOUNT</th>
+                        <th class="od-col-status">STATUS</th>
+                        <th class="od-col-action">ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody id="ordersBody">
+                      <!-- Loaded by JS -->
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Table Footer -->
+                <div class="od-table-footer">
+                  <span class="od-footer-info" id="ordersFooterInfo">Showing recent branch orders</span>
+                  <a href="../order/order.html" class="od-footer-link">
+                    Open Full Order Directory &rarr;
+                  </a>
+                </div>
+
+              </div>
+            </section>
+
+          </div><!-- /od-main-grid -->
+
+        </div><!-- /content-inner -->
+      </main>
+    </div><!-- /main-wrapper -->
+  </div><!-- /app-layout -->
+
+  <!-- Scripts -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/stages.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../js/validation.js"></script>
+  <script src="../../components/toast/toast.js"></script>
+  <script src="../../components/loader/loader.js"></script>
+  <script src="../../components/modal/modal.js"></script>
+  <script src="../../components/sidebar/sidebar.js"></script>
+  <script src="../../components/header/header.js"></script>
+  <script src="order-desk.js"></script>
+</body>
+</html>

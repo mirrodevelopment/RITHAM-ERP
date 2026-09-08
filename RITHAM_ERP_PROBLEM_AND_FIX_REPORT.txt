@@ -1,0 +1,114 @@
+Here is a clear, plain-English breakdown of **what the problem was** and **what we fixed** across all 22 tasks, grouped by real-world business impact:
+
+---
+
+### 🛡️ 1. Security & Access Control
+
+#### **TASK-001 — Unauthorized Staff Modifying Employees**
+* ❌ **The Problem:** Any logged-in staff member (like receptionists or tailors) could add, edit, or delete employee accounts and change employee statuses.
+* 🛠️ **What We Fixed:** Restricted employee creation, editing, and deletion strictly to the **Admin** role (`@PreAuthorize("hasRole('ADMIN')")`). Normal staff can now only view employee profiles.
+
+#### **TASK-002 — Password Reset on Server Restart**
+* ❌ **The Problem:** Every time the server restarted, it re-encoded default passwords for users like `admin` and `manager`, wiping out any new passwords they had changed.
+* 🛠️ **What We Fixed:** Added a check so the system preserves existing BCrypt passwords and only initializes passwords if the user account is completely new.
+
+#### **TASK-003 — Cross-Branch Order Snooping**
+* ❌ **The Problem:** Staff in one branch (e.g. Coimbatore) could view, edit, deliver, or accept payments for orders belonging to a different branch (e.g. Chennai).
+* 🛠️ **What We Fixed:** Enforced strict branch isolation in the order service. Branch employees can only see their own branch's orders; global administrators retain full company-wide access.
+
+#### **TASK-004 — Cross-Branch Employee Snooping**
+* ❌ **The Problem:** Branch staff could view and search through employees from other branch locations.
+* 🛠️ **What We Fixed:** Filtered all employee lists and searches by the user's branch ID.
+
+#### **TASK-021 — Brute-Force Password Guessing & DoS**
+* ❌ **The Problem:** The login endpoint had no rate limits. An attacker could run automated password-guessing bots indefinitely, potentially cracking accounts and overloading the server's CPU with password-hashing calculations.
+* 🛠️ **What We Fixed:** Built an in-memory rate limiter that locks out any username after **5 failed attempts** and any IP after **10 failed attempts** for 15 minutes (HTTP 429), bypassing database lookups while locked out.
+
+---
+
+### 💰 2. Money, Payments & Accounting
+
+#### **TASK-005 — Unused Payment Table in Database**
+* ❌ **The Problem:** The database already had an `order_payments` table, but the backend application was ignoring it and storing totals as single numbers on the order.
+* 🛠️ **What We Fixed:** Connected the application directly to the existing `order_payments` table without creating redundant duplicate tables.
+
+#### **TASK-006 — Missing Payment Ledger**
+* ❌ **The Problem:** The system only stored total paid and advance amounts. There was no record of *who* paid, *when*, *how much*, or *by what method* (Cash, UPI, Card).
+* 🛠️ **What We Fixed:** Created an `OrderPayment` ledger entity that logs every single transaction with its exact amount, payment method (Cash, UPI, Card, Bank), type (Advance, Installment, Final), and timestamp.
+
+#### **TASK-007 — Second Payments Overwriting First Payments**
+* ❌ **The Problem:** When a customer paid their balance at delivery, the system overwrote their initial advance payment record instead of keeping both.
+* 🛠️ **What We Fixed:** Made all payment entries immutable. Payment #1 (e.g. ₹1,000 Advance via Cash) and Payment #2 (e.g. ₹2,000 Final via UPI) now exist as separate, permanent ledger rows.
+
+#### **TASK-008 — Wrong Daily Revenue Totals**
+* ❌ **The Problem:** Revenue reports used the *order creation date*. If an order was placed on Monday with ₹1,000 advance and the ₹3,000 balance was paid on Friday, all ₹4,000 was counted as Monday's revenue.
+* 🛠️ **What We Fixed:** Changed revenue calculations to aggregate strictly by the *date money was received*. Monday now records ₹1,000 and Friday records ₹3,000.
+
+---
+
+### 🧵 3. Order Production & Delivery
+
+#### **TASK-009 — Duplicate Order Number Collisions**
+* ❌ **The Problem:** Order numbers were generated using `total_count + 1`. If two staff created orders at the same second, or if orders were deleted, both got the same order number, causing database crash errors.
+* 🛠️ **What We Fixed:** Created a database sequence (`order_number_seq`) generating atomic, unique IDs in format `ORD-yyyyMMdd-XXXX` with automatic duplicate collision protection.
+
+#### **TASK-010 — Illegal Order Stage Skipping**
+* ❌ **The Problem:** Orders could jump randomly between stages (e.g. a `CANCELLED` order could be marked `DELIVERED`, or an order in `FINISHING` could jump back to `PENDING`).
+* 🛠️ **What We Fixed:** Built a strict production state machine: `CANCELLED` and `DELIVERED` are permanent terminal stages, and garments must progress forward through the 12 tailoring stages sequentially.
+
+#### **TASK-011 — Premature Delivery Without Payment**
+* ❌ **The Problem:** Staff could mark an order `DELIVERED` while it was still in early cutting/stitching stages, without checking if the customer had paid the remaining balance or recording who picked it up.
+* 🛠️ **What We Fixed:** Enforced that orders must be in `READY_TO_DELIVERY` before delivery, required receiver information, and automatically calculated and recorded the final settlement payment in the ledger.
+
+---
+
+### 📐 4. Customer Data & Sizing Profiles
+
+#### **TASK-012 — Historical Orders Losing Original Measurements**
+* ❌ **The Problem:** When a customer's measurements were updated for a new dress, the measurements on their *past orders from 6 months ago* automatically changed as well.
+* 🛠️ **What We Fixed:** Made order measurements an immutable historical snapshot. Updating a customer's profile today never touches the measurements recorded on previous orders.
+
+#### **TASK-013 — Deleting Customers with Active Orders**
+* ❌ **The Problem:** Deleting a customer could either crash with database foreign-key errors or accidentally wipe out their past orders and measurement history.
+* 🛠️ **What We Fixed:** Blocked customer deletion if the customer has any active or past orders or sizing records. Also restricted customer deletion strictly to Admins.
+
+#### **TASK-015 — Inconsistent Mobile Phone Numbers**
+* ❌ **The Problem:** The customer screen and order screen accepted different phone formats, allowing invalid or malformed numbers to enter order records.
+* 🛠️ **What We Fixed:** Standardized validation across all customer and order forms to strictly enforce valid 10-digit Indian mobile numbers (`^[6-9]\d{9}$`).
+
+---
+
+### 💻 5. Frontend, Packaging & System Stability
+
+#### **TASK-014 — Slow & Heavy Analytics Reports**
+* ❌ **The Problem:** The reports page downloaded thousands of raw orders to the user's browser, making the page laggy and freezing the user's screen.
+* 🛠️ **What We Fixed:** Built a dedicated `/api/orders/analytics` endpoint where database queries calculate today's revenue, weekly stats, and stage breakdowns on the server, returning only the summary numbers.
+
+#### **TASK-016 — Hardcoded Usernames in User Management**
+* ❌ **The Problem:** The frontend user screen checked for hardcoded names like `'admin'`, `'manager'`, failing to recognize branch accounts like `reception_cbe` or `manager_cbe`.
+* 🛠️ **What We Fixed:** Replaced hardcoded string matching with dynamic role and branch properties.
+
+#### **TASK-017 — Standalone JAR Missing Frontend (404 Not Found)**
+* ❌ **The Problem:** Running the packaged JAR file (`java -jar ritham-erp.jar`) produced 404 errors because the `frontend/` files were left out during the Maven build.
+* 🛠️ **What We Fixed:** Configured Maven to automatically package the `frontend/` folder into `target/classes/static`, so the application runs completely standalone on port 8080.
+
+#### **TASK-018 — Ghost API Routes in Code**
+* ❌ **The Problem:** Frontend code contained dead links to non-existent APIs like `/api/designs` and `/api/materials` from old design mockups.
+* 🛠️ **What We Fixed:** Audited and cleaned up API constants to match real backend endpoints and documented all routes in `API_DOCUMENTATION.md`.
+
+#### **TASK-019 — Crash on Non-Numeric Employee Codes**
+* ❌ **The Problem:** The system parsed employee codes with raw SQL `CAST(SUBSTRING(employee_code, 5) AS int)`. If any employee had a code like `EMP-ADMIN` or `EMP-TEMP`, the entire employee screen crashed with an unrecoverable database syntax error.
+* 🛠️ **What We Fixed:** Replaced SQL casting with a safe Java regular expression (`^EMP-(\d+)$`) that extracts numbers and safely ignores custom text codes without crashing.
+
+#### **TASK-020 — Missing Automated Test Coverage**
+* ❌ **The Problem:** There were almost no automated tests protecting multi-tenancy, order state transitions, or financial calculations.
+* 🛠️ **What We Fixed:** Created 4 dedicated regression test suites, bringing the project to **131 fully passing baseline tests**.
+
+---
+
+### 🔍 6. Compliance & Audit Traceability
+
+#### **TASK-022 — Unaudited Branch Context Switching**
+* ❌ **The Problem:** When an administrator switched branches in the header dropdown (`X-Branch-Id`), there was no record of who viewed what. Additionally, if a branch worker attempted to send `X-Branch-Id` to spy on another branch, the system didn't alert anyone.
+* 🛠️ **What We Fixed:** Added structured `AUDIT` logging in `JwtAuthFilter` capturing the admin username, destination branch, HTTP method, and URL. If a non-admin attempts to tamper with `X-Branch-Id`, the system blocks them and logs an immediate `AUDIT SECURITY ALERT`.
+* **Verification:** Test Suite Status: 143 / 143 Tests Passed (100% BUILD SUCCESS).

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Worker Categories & Production Stages — Ritham ERP">
+  <title>Worker Categories & Stages — Ritham ERP</title>
+
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/utilities.css">
+  <link rel="stylesheet" href="../employee/employee.css">
+  <link rel="stylesheet" href="stage.css">
+</head>
+<body>
+
+  <div class="app-layout" id="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+      <!-- Header -->
+      <header class="header" id="header"></header>
+
+      <!-- Main Content -->
+      <main class="content" id="content">
+        <div class="content-inner">
+
+          <!-- Page Header -->
+          <div class="page-header" style="margin-bottom: 16px;">
+            <div class="page-header-left">
+              <h1 class="page-title">Worker Categories & Production Stages</h1>
+              <p class="page-subtitle">Sequential garment manufacturing workflows, stage assignments, and workforce distribution</p>
+            </div>
+            <div class="page-header-actions" style="display:flex; gap:10px; align-items:center;">
+              <button class="btn btn-primary" id="addStageBtn" style="white-space:nowrap; display:inline-flex; align-items:center; gap:6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Add Custom Stage</span>
+              </button>
+              <button class="btn btn-secondary" id="overallEditBtn" title="Reorder Stage Sequence" style="white-space:nowrap; display:inline-flex; align-items:center; gap:6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="17 11 12 6 7 11"></polyline>
+                  <polyline points="17 18 12 13 7 18"></polyline>
+                </svg>
+                <span>Reorder Sequence</span>
+              </button>
+              <button class="btn btn-secondary btn-icon" id="refreshStagesBtn" title="Refresh Production Stages">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Management Navigation Tabs -->
+          <div style="display:flex; gap:16px; border-bottom:1px solid var(--border-color, #27272a); margin-bottom:20px;">
+            <a href="../employee/employee.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              <span>Employees Directory</span>
+            </a>
+            <a href="../user/user.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              <span>System Users & Logins</span>
+            </a>
+            <a href="../stage/stage.html" style="padding:10px 16px; font-size:14px; font-weight:600; color:var(--color-primary, #6366f1); border-bottom:2px solid var(--color-primary, #6366f1); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              <span>Worker Categories & Stages</span>
+            </a>
+            <a href="../branch/branch.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              <span>🏢 Company Branches</span>
+            </a>
+            <a href="../migration/migration.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              <span>📜 Historical Migration</span>
+            </a>
+          </div>
+
+
+
+          <!-- Sequential Workflow Ribbon (Horizontal Stepper) -->
+          <div class="workflow-stepper-card mb-6">
+            <div class="workflow-stepper-header">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--color-primary, #818cf8);">Manufacturing Process Pipeline</span>
+                <span style="font-size:11px; color:var(--text-muted);">(Sequential Order Flow)</span>
+              </div>
+              <span style="font-size:12px; color:var(--text-muted); cursor:pointer;" id="scrollWorkflowRightBtn" title="Scroll pipeline">Scroll Flow →</span>
+            </div>
+            <div class="workflow-ribbon-scroll" id="workflowRibbon">
+              <!-- Dynamically populated step nodes -->
+            </div>
+          </div>
+
+          <!-- Controls, Filter & Search Bar -->
+          <div class="stage-controls-bar mb-5">
+            <div class="stage-search-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="stage-search-icon">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="stageSearchInput" class="stage-search-input" placeholder="Search stages by name, description, or assigned worker...">
+            </div>
+
+            <div class="stage-filter-wrap">
+              <select id="stageFilterStaff" class="stage-select">
+                <option value="ALL">All Workforce</option>
+                <option value="STAFFED">Staffed Stages</option>
+                <option value="UNSTAFFED">Unassigned Stages</option>
+              </select>
+
+              <select id="stageFilterStatus" class="stage-select">
+                <option value="ALL">All Status</option>
+                <option value="ACTIVE">Active Only</option>
+                <option value="INACTIVE">Inactive Only</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Production Stages Table -->
+          <div class="card mb-8" id="stageTableCard">
+            <div class="table-wrapper">
+              <table class="table" id="stageTable">
+                <thead>
+                  <tr>
+                    <th style="width: 80px;">Seq</th>
+                    <th style="width: 240px;">Stage & Workflow</th>
+                    <th>Assigned Workforce</th>
+                    <th style="width: 140px;">Active Orders</th>
+                    <th style="width: 100px;">Status</th>
+                    <th style="width: 130px; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="stageTableBody">
+                  <!-- Dynamically populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div><!-- /.content-inner -->
+      </main>
+
+    </div><!-- /.main-wrapper -->
+
+  </div><!-- /.app-layout -->
+
+  <!-- Modal for Creating/Editing Custom Stage -->
+  <div id="stageModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal modal-md" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title" id="stageModalTitle">Create Custom Production Stage</h3>
+        <button class="btn btn-ghost btn-icon modal-close" id="stageModalCloseBtn" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <form id="stageForm" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="editStageId">
+
+          <div class="form-group mb-4">
+            <label class="form-label" for="stageTitleInput">Stage Title <span class="required">*</span></label>
+            <input type="text" id="stageTitleInput" class="form-control" placeholder="e.g. Washing & Dyeing" required>
+            <div class="form-error" id="stageTitleInputErr"></div>
+          </div>
+
+          <div class="form-group mb-4">
+            <label class="form-label" for="stageDescInput">Stage Description</label>
+            <textarea id="stageDescInput" class="form-control" rows="2" placeholder="Briefly describe the garment manufacturing step..."></textarea>
+          </div>
+
+          <!-- Color Preset Swatches -->
+          <div class="form-group mb-4">
+            <label class="form-label">Theme Color Accent</label>
+            <div class="color-preset-row">
+              <button type="button" class="color-swatch active" data-color="#6366f1" style="background:#6366f1;"></button>
+              <button type="button" class="color-swatch" data-color="#3b82f6" style="background:#3b82f6;"></button>
+              <button type="button" class="color-swatch" data-color="#10b981" style="background:#10b981;"></button>
+              <button type="button" class="color-swatch" data-color="#f59e0b" style="background:#f59e0b;"></button>
+              <button type="button" class="color-swatch" data-color="#ec4899" style="background:#ec4899;"></button>
+              <button type="button" class="color-swatch" data-color="#8b5cf6" style="background:#8b5cf6;"></button>
+              <button type="button" class="color-swatch" data-color="#14b8a6" style="background:#14b8a6;"></button>
+              <button type="button" class="color-swatch" data-color="#f43f5e" style="background:#f43f5e;"></button>
+            </div>
+            <input type="hidden" id="stageColorInput" value="#6366f1">
+          </div>
+
+          <div class="form-group mb-4" id="stageStatusGroup">
+            <label class="form-label" style="display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:500;">
+              <input type="checkbox" id="stageActiveCheckbox" checked style="width:18px; height:18px; accent-color:var(--color-primary, #6366f1); cursor:pointer;">
+              <span>Stage Active on Production Floor (Visible in workflow)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+          <div style="display:flex; gap:10px;">
+            <button type="button" class="btn btn-danger hidden" id="deleteStageBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Delete</span>
+            </button>
+            <button type="button" class="btn btn-secondary hidden" id="duplicateStageModalBtn" title="Create a duplicate copy of this stage">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>Duplicate</span>
+            </button>
+          </div>
+          <div style="display:flex; gap:10px; margin-left:auto;">
+            <button type="button" class="btn btn-secondary" id="stageCancelBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="saveStageBtn">
+              <span id="saveStageBtnText">Save Stage</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal for Stage Assigned Workers Details -->
+  <div id="stageWorkersModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal modal-lg" role="dialog" aria-modal="true">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 class="modal-title" id="stageWorkersModalTitle">Stage Floor Workers</h3>
+          <p class="modal-subtitle" id="stageWorkersModalSubtitle">Workers assigned to this production category</p>
+        </div>
+        <button class="btn btn-ghost btn-icon modal-close" id="stageWorkersModalCloseBtn" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" id="stageWorkersModalBody">
+        <!-- Loaded dynamically via JS -->
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+        <a href="../employee/employee.html" class="btn btn-ghost btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+          <span>Go to Employee Directory →</span>
+        </a>
+        <button type="button" class="btn btn-secondary" id="stageWorkersModalCloseFooterBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Overall Stage Management & Reordering -->
+  <div id="reorderModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal modal-lg" role="dialog" aria-modal="true">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 class="modal-title">Reorder Production Stages</h3>
+          <p class="modal-subtitle">Drag rows or use arrow buttons to adjust the sequential manufacturing order</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="button" class="btn btn-primary btn-sm" id="modalAddNewStageBtn">
+            + Add New Stage
+          </button>
+          <button class="btn btn-ghost btn-icon modal-close" id="reorderModalCloseBtn" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="reorderStageList" style="display:flex; flex-direction:column; gap:8px; padding-right:4px;">
+          <!-- Loaded dynamically via JS -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="reorderCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveReorderBtn">
+          <span>Save Stage Sequence</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/stages.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../js/validation.js"></script>
+  <script src="../../components/toast/toast.js"></script>
+  <script src="../../components/loader/loader.js"></script>
+  <script src="../../components/modal/modal.js"></script>
+  <script src="../../components/sidebar/sidebar.js"></script>
+  <script src="../../components/header/header.js"></script>
+  <script src="stage.js"></script>
+
+</body>
+</html>

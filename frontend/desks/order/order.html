@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Management — Ritham ERP</title>
+  <meta name="description" content="Manage customer orders — create, track and update order status in Ritham ERP.">
+
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/utilities.css">
+  <link rel="stylesheet" href="order.css">
+</head>
+<body>
+
+  <div class="app-layout" id="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="main-wrapper">
+      <header class="header" id="header"></header>
+
+      <main class="content">
+        <div class="content-inner">
+
+          <!-- ── Page Header ─────────────────────────────────────────── -->
+          <div class="page-header">
+            <div class="page-header-left">
+              <h1 class="page-title">Orders</h1>
+              <p class="page-subtitle" id="orderCountLabel">Loading orders…</p>
+            </div>
+            <div class="page-header-right">
+              <button class="btn btn-ghost" id="refreshBtn" title="Refresh">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+                </svg>
+                Refresh
+              </button>
+              <button class="btn btn-primary" id="newOrderBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                New Order
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Stats Row ───────────────────────────────────────────── -->
+          <div class="order-stats-row" id="statsRow">
+            <div class="order-stat-card active" data-filter="" title="Show all orders">
+              <div class="order-stat-label">Total Orders</div>
+              <div class="order-stat-value" id="statTotal">—</div>
+              <div class="order-stat-sub">All time</div>
+            </div>
+            <div class="order-stat-card" data-filter="PENDING" title="Show pending & intake orders">
+              <div class="order-stat-label">Pending</div>
+              <div class="order-stat-value" id="statPending">—</div>
+              <div class="order-stat-sub">Awaiting production</div>
+            </div>
+            <div class="order-stat-card" data-filter="IN_PROGRESS" title="Show orders in floor production">
+              <div class="order-stat-label">In Production</div>
+              <div class="order-stat-value" id="statInProgress">—</div>
+              <div class="order-stat-sub">Currently processing</div>
+            </div>
+            <div class="order-stat-card" data-filter="COMPLETED" title="Show ready & delivered orders">
+              <div class="order-stat-label">Completed</div>
+              <div class="order-stat-value" id="statCompleted">—</div>
+              <div class="order-stat-sub">Ready / Delivered</div>
+            </div>
+          </div>
+
+          <!-- ── Order Table Card ────────────────────────────────────── -->
+          <div class="order-table-card">
+
+            <!-- Table Header -->
+            <div class="order-table-header">
+              <div class="order-table-title-group">
+                <div class="order-table-title">Order Directory</div>
+                <div class="order-table-subtitle" id="tableSubtitle">All registered orders</div>
+              </div>
+              <div class="order-table-actions">
+                <div class="order-search-wrap">
+                  <svg class="order-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input type="text" id="orderSearch" class="order-search-input"
+                         placeholder="Search order# or mobile…" autocomplete="off">
+                </div>
+              </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="order-filter-tabs" id="filterTabs">
+              <button class="filter-tab active" data-status="">All</button>
+              <button class="filter-tab" data-status="PENDING">Pending</button>
+              <button class="filter-tab" data-status="IN_PROGRESS">In Progress</button>
+              <button class="filter-tab" data-status="COMPLETED">Completed</button>
+              <button class="filter-tab" data-status="CANCELLED">Cancelled</button>
+            </div>
+
+            <!-- Table -->
+            <div style="overflow-x:auto;">
+              <table class="order-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Order Number</th>
+                    <th>Customer</th>
+                    <th>Delivery Date</th>
+                    <th class="finance-col" id="colOrderAmount">Amount</th>
+                    <th>Status</th>
+                    <th class="finance-col" id="colOrderPayment">Payment</th>
+                    <th style="text-align:right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="orderTableBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="order-pagination" id="pagination"></div>
+
+          </div><!-- /order-table-card -->
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ── New Order Modal ─────────────────────────────────────────────── -->
+  <div class="order-modal-backdrop hidden" id="orderModalBackdrop">
+    <div class="order-modal" role="dialog" aria-modal="true" aria-labelledby="orderModalTitle">
+
+      <div class="order-modal-head">
+        <h2 class="order-modal-title" id="orderModalTitle">New Order</h2>
+        <button class="order-modal-close" id="orderModalCloseBtn" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="order-modal-body">
+
+        <!-- Customer Mobile -->
+        <div class="order-field">
+          <label for="fieldCustomerMobile">Customer Mobile Number <span style="color:#EF4444">*</span></label>
+          <input type="tel" id="fieldCustomerMobile" placeholder="Type 10-digit mobile number…"
+                 maxlength="10" inputmode="numeric" autocomplete="off">
+          <div class="field-error" id="errCustomerMobile">Please select a valid customer from the dropdown</div>
+          <div class="customer-lookup-result" id="customerLookupResult">
+            <!-- Auto-filled after selection -->
+          </div>
+
+          <!-- Outstanding Due Alert Banner -->
+          <div id="customerDueAlert" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);border-radius:var(--radius-md);color:#F87171;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:16px;">⚠️</span>
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:#EF4444;display:flex;align-items:center;gap:6px;">
+                    <span>Outstanding Due:</span>
+                    <span id="customerDueTotal" style="font-size:14px;color:#F87171;">₹0.00</span>
+                  </div>
+                  <div id="customerDueDetails" style="font-size:11px;color:#FCA5A5;margin-top:2px;">
+                    Previous unpaid balance detected
+                  </div>
+                </div>
+              </div>
+              <button type="button" id="btnToggleDueOrders" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 8px;border-color:rgba(239,68,68,0.4);color:#FCA5A5;flex-shrink:0;">
+                View Dues ▼
+              </button>
+            </div>
+            <div id="dueOrdersList" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(239,68,68,0.3);font-size:11px;max-height:120px;overflow-y:auto;">
+              <!-- Dynamic list of orders with dues -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Inline New Customer Banner (shown when no customer found) -->
+        <div id="newCustomerBanner" style="display:none;
+             padding:12px 14px;
+             background:rgba(245,158,11,0.08);
+             border:1px solid rgba(245,158,11,0.3);
+             border-radius:var(--radius-md);
+             display:none;
+             flex-direction:column;
+             gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#F59E0B;font-weight:600;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            New customer — enter their name to register &amp; proceed
+          </div>
+          <div class="order-field" style="margin:0;">
+            <input type="text" id="fieldNewCustomerName"
+                   placeholder="Customer full name"
+                   autocomplete="off"
+                   style="background:var(--bg-surface-1);border-color:rgba(245,158,11,0.4);">
+            <div class="field-error" id="errNewCustomerName">Customer name is required</div>
+          </div>
+        </div>
+
+        <!-- Delivery Date -->
+        <div class="order-field">
+          <label for="fieldDeliveryDate">Delivery Date <span style="color:#EF4444">*</span></label>
+          <input type="date" id="fieldDeliveryDate">
+          <div class="field-error" id="errDeliveryDate">Delivery date must be today or in the future</div>
+        </div>
+
+        <!-- Garment & Lining Selection -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="order-field">
+            <label for="fieldGarmentType">Garment Type <span style="color:#818CF8;font-size:11px;font-weight:600;margin-left:4px;">(Specs)</span></label>
+            <select id="fieldGarmentType" class="order-select">
+              <option value="">-- No Garment / Standard --</option>
+              <option value="BLOUSE">Blouse (19 Measurements)</option>
+              <option value="CHUDI">Chudi (18 Measurements)</option>
+            </select>
+          </div>
+          <div class="order-field">
+            <label for="fieldLining">Lining Option</label>
+            <select id="fieldLining" class="order-select">
+              <option value="">-- Select Lining --</option>
+              <option value="WITH_LINING">With Lining</option>
+              <option value="WITHOUT_LINING">Without Lining</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Blouse Measurements Container -->
+        <div id="blouseMeasurementsPanel" class="measurements-section" style="display:none;">
+          <div class="measurements-header">
+            <div class="measurements-title" style="display:flex;align-items:center;gap:8px;">
+              <span class="garment-badge blouse-badge">👗 Blouse Measurements</span>
+              <span id="blouseLoadedBadge" class="badge badge-success" style="display:none;font-size:10px;padding:2px 6px;">✓ Saved Specs</span>
+              <span class="measurements-hint">Inches / Custom</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button type="button" class="btn btn-outline btn-sm" id="editBlouseBtn" style="display:none;font-size:11px;padding:3px 8px;" title="Edit saved measurements">
+                ✏️ Edit Specs
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" id="saveEditBlouseBtn" style="display:none;font-size:11px;padding:3px 9px;" title="Save edited measurements">
+                ✓ Save
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="closeEditBlouseBtn" style="display:none;font-size:11px;padding:3px 9px;" title="Close without saving">
+                ✕ Close
+              </button>
+              <button type="button" class="clear-measurements-btn" id="clearBlouseBtn">Clear</button>
+            </div>
+          </div>
+          <div class="measurements-grid">
+            <div class="m-cell"><label title="Length">LTH <span>(Length)</span></label><input type="text" data-garment="blouse" data-key="LTH" placeholder="e.g. 14"></div>
+            <div class="m-cell"><label title="Shoulder">SHO <span>(Shoulder)</span></label><input type="text" data-garment="blouse" data-key="SHO" placeholder="e.g. 14.5"></div>
+            <div class="m-cell"><label title="Half Shoulder / Hand Size">H.S. <span>(Half Shldr)</span></label><input type="text" data-garment="blouse" data-key="H.S." placeholder="e.g. 6.5"></div>
+            <div class="m-cell"><label title="Hand Length">H.L. <span>(Hand Lth)</span></label><input type="text" data-garment="blouse" data-key="H.L." placeholder="e.g. 10"></div>
+            <div class="m-cell"><label title="Hand Loose">H.LO <span>(Hand Loose)</span></label><input type="text" data-garment="blouse" data-key="H.LO" placeholder="e.g. 11"></div>
+            <div class="m-cell"><label title="Armhole">AK <span>(Armhole)</span></label><input type="text" data-garment="blouse" data-key="AK" placeholder="e.g. 15.5"></div>
+            <div class="m-cell"><label title="Arm">AM <span>(Arm)</span></label><input type="text" data-garment="blouse" data-key="AM" placeholder="e.g. 12"></div>
+            <div class="m-cell"><label title="Back Neck">BN <span>(Back Neck)</span></label><input type="text" data-garment="blouse" data-key="BN" placeholder="e.g. 9"></div>
+            <div class="m-cell"><label title="Front Neck">FN <span>(Front Neck)</span></label><input type="text" data-garment="blouse" data-key="FN" placeholder="e.g. 6.5"></div>
+            <div class="m-cell"><label title="Dart Point 1">DP-1 <span>(Dart Pt 1)</span></label><input type="text" data-garment="blouse" data-key="DP-1" placeholder="e.g. 9.5"></div>
+            <div class="m-cell"><label title="Dart Point 2">DP-2 <span>(Dart Pt 2)</span></label><input type="text" data-garment="blouse" data-key="DP-2" placeholder="e.g. 11"></div>
+            <div class="m-cell"><label title="Bust 1 (Upper)">B-1 <span>(Upper Bust)</span></label><input type="text" data-garment="blouse" data-key="B-1" placeholder="e.g. 34"></div>
+            <div class="m-cell"><label title="Bust 2 (Apex)">B-2 <span>(Full Bust)</span></label><input type="text" data-garment="blouse" data-key="B-2" placeholder="e.g. 36"></div>
+            <div class="m-cell"><label title="Bust 3 (Waist)">B-3 <span>(Under Bust)</span></label><input type="text" data-garment="blouse" data-key="B-3" placeholder="e.g. 30"></div>
+            <div class="m-cell"><label title="Front Hook">F.HOOK <span>(Front Hook)</span></label><input type="text" data-garment="blouse" data-key="F.HOOK" placeholder="Yes / No / Hook"></div>
+            <div class="m-cell"><label title="Back Hook">B.HOOK <span>(Back Hook)</span></label><input type="text" data-garment="blouse" data-key="B.HOOK" placeholder="Yes / No / Knot"></div>
+            <div class="m-cell"><label title="Lining">LINING <span>(Lining)</span></label><input type="text" data-garment="blouse" data-key="LINING" placeholder="Cotton / Heavy / No"></div>
+            <div class="m-cell"><label title="Aari / Extra Work">AV. <span>(Aari/Work)</span></label><input type="text" data-garment="blouse" data-key="AV." placeholder="Work details"></div>
+            <div class="m-cell"><label title="Saree Notes">SARI <span>(Saree)</span></label><input type="text" data-garment="blouse" data-key="SARI" placeholder="Falls / Pico / None"></div>
+          </div>
+        </div>
+
+        <!-- Chudi Measurements Container -->
+        <div id="chudiMeasurementsPanel" class="measurements-section" style="display:none;">
+          <div class="measurements-header">
+            <div class="measurements-title" style="display:flex;align-items:center;gap:8px;">
+              <span class="garment-badge chudi-badge">👘 Chudi Measurements</span>
+              <span id="chudiLoadedBadge" class="badge badge-success" style="display:none;font-size:10px;padding:2px 6px;">✓ Saved Specs</span>
+              <span class="measurements-hint">Inches / Custom</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button type="button" class="btn btn-outline btn-sm" id="editChudiBtn" style="display:none;font-size:11px;padding:3px 8px;" title="Edit saved measurements">
+                ✏️ Edit Specs
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" id="saveEditChudiBtn" style="display:none;font-size:11px;padding:3px 9px;" title="Save edited measurements">
+                ✓ Save
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="closeEditChudiBtn" style="display:none;font-size:11px;padding:3px 9px;" title="Close without saving">
+                ✕ Close
+              </button>
+              <button type="button" class="clear-measurements-btn" id="clearChudiBtn">Clear</button>
+            </div>
+          </div>
+          <div class="measurements-grid">
+            <div class="m-cell"><label title="Front Neck">F.N. <span>(Front Neck)</span></label><input type="text" data-garment="chudi" data-key="F.N." placeholder="e.g. 6"></div>
+            <div class="m-cell"><label title="Back Neck">B.N. <span>(Back Neck)</span></label><input type="text" data-garment="chudi" data-key="B.N." placeholder="e.g. 7"></div>
+            <div class="m-cell"><label title="High Bust">H.B. <span>(High Bust)</span></label><input type="text" data-garment="chudi" data-key="H.B." placeholder="e.g. 34"></div>
+            <div class="m-cell"><label title="Top Length">L <span>(Length)</span></label><input type="text" data-garment="chudi" data-key="L" placeholder="e.g. 42"></div>
+            <div class="m-cell"><label title="Side Slit / Shoulder">S.S. <span>(Side Slit)</span></label><input type="text" data-garment="chudi" data-key="S.S." placeholder="e.g. 18"></div>
+            <div class="m-cell"><label title="Sleeve Length">S.L. <span>(Sleeve Lth)</span></label><input type="text" data-garment="chudi" data-key="S.L." placeholder="e.g. 15"></div>
+            <div class="m-cell"><label title="Sleeve Loose">S.LO <span>(Sleeve Loose)</span></label><input type="text" data-garment="chudi" data-key="S.LO" placeholder="e.g. 10.5"></div>
+            <div class="m-cell"><label title="Arm">AM <span>(Arm)</span></label><input type="text" data-garment="chudi" data-key="AM" placeholder="e.g. 13"></div>
+            <div class="m-cell"><label title="Bust">B <span>(Bust)</span></label><input type="text" data-garment="chudi" data-key="B" placeholder="e.g. 36"></div>
+            <div class="m-cell"><label title="Hip">H <span>(Hip)</span></label><input type="text" data-garment="chudi" data-key="H" placeholder="e.g. 38"></div>
+            <div class="m-cell"><label title="Top Slit">T.S. <span>(Top Slit)</span></label><input type="text" data-garment="chudi" data-key="T.S." placeholder="e.g. 21"></div>
+            <div class="m-cell"><label title="Pant Length">P.L. <span>(Pant Lth)</span></label><input type="text" data-garment="chudi" data-key="P.L." placeholder="e.g. 38"></div>
+            <div class="m-cell"><label title="Seat">S. <span>(Seat)</span></label><input type="text" data-garment="chudi" data-key="S." placeholder="e.g. 24"></div>
+            <div class="m-cell"><label title="Loose / Leg Opening">L. <span>(Leg Loose)</span></label><input type="text" data-garment="chudi" data-key="L." placeholder="e.g. 12"></div>
+            <div class="m-cell"><label title="Side Cut">S.CUT <span>(Side Cut)</span></label><input type="text" data-garment="chudi" data-key="S.CUT" placeholder="Straight / Cut"></div>
+            <div class="m-cell"><label title="Lining">LNG <span>(Lining)</span></label><input type="text" data-garment="chudi" data-key="LNG" placeholder="Full / Half / No"></div>
+            <div class="m-cell"><label title="Shawl">SHALL <span>(Shawl)</span></label><input type="text" data-garment="chudi" data-key="SHALL" placeholder="Provided / Matching"></div>
+            <div class="m-cell"><label title="Bottom Design">B.D. <span>(Bottom Dsgn)</span></label><input type="text" data-garment="chudi" data-key="B.D." placeholder="Palazzo / Pant / Chudi"></div>
+          </div>
+        </div>
+
+        <!-- Amount fields -->
+        <div class="amount-row">
+          <div class="order-field">
+            <label for="fieldTotalAmount">
+              Total Amount (₹) <span style="color:#EF4444">*</span>
+              <span id="oldDueHintBadge" style="display:none;font-size:10px;font-weight:700;color:#F87171;background:rgba(239,68,68,0.14);padding:2px 6px;border-radius:4px;margin-left:6px;"></span>
+            </label>
+            <input type="number" id="fieldTotalAmount" placeholder="0.00" min="0" step="0.01" onwheel="this.blur()">
+            <div class="field-error" id="errTotalAmount">Enter a valid amount</div>
+          </div>
+          <div class="order-field">
+            <label for="fieldAdvanceAmount">Advance / Received (₹)</label>
+            <input type="number" id="fieldAdvanceAmount" placeholder="0.00" min="0" step="0.01" onwheel="this.blur()">
+            <div class="field-hint">Amount paid now</div>
+          </div>
+        </div>
+
+        <!-- Combined Total Summary (shown when customer has old due) -->
+        <div id="combinedTotalRow" style="display:none;margin-top:10px;padding:9px 12px;background:var(--bg-surface-2);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-md);font-size:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <span>This Order: <strong id="summaryThisOrder" style="color:var(--text-primary);">₹0</strong></span>
+            <span style="color:#F87171;">+ Old Due: <strong id="summaryOldDue">₹0</strong></span>
+            <span style="font-weight:700;color:var(--text-primary);padding-left:4px;">Total Payable: <strong id="summaryTotalPayable" style="color:#818CF8;font-size:13px;">₹0</strong></span>
+          </div>
+        </div>
+
+        <!-- Live Calculation Feedback Banner -->
+        <div id="orderCreateFeedback" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:500;"></div>
+
+      </div><!-- /order-modal-body -->
+
+      <div class="order-modal-footer">
+        <button class="btn btn-ghost" id="orderCancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="orderSaveBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Create Order
+        </button>
+      </div>
+
+    </div><!-- /order-modal -->
+  </div><!-- /orderModalBackdrop -->
+
+  <!-- ── View Order Details Modal ──────────────────────────────────────── -->
+  <div class="order-modal-backdrop hidden" id="viewOrderModalBackdrop">
+    <div class="order-modal" style="max-width:560px;" role="dialog" aria-modal="true">
+      <div class="order-modal-head">
+        <div>
+          <h2 class="order-modal-title" id="viewOrderNumber">Order Details</h2>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="viewOrderSub">Customer Order Data</p>
+        </div>
+        <button class="order-modal-close" id="closeViewOrderModalBtn">&times;</button>
+      </div>
+      <div class="order-modal-body" id="viewOrderModalBody">
+        <!-- Loaded via JS -->
+      </div>
+      <div class="order-modal-footer" style="justify-content:flex-end;">
+        <button class="btn btn-secondary" id="closeViewOrderModalFooterBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Delivery Confirmation Modal ────────────────────────────────────── -->
+  <div class="order-modal-backdrop hidden" id="deliveryConfirmModalBackdrop">
+    <div class="order-modal" style="max-width:480px;" role="dialog" aria-modal="true">
+      <div class="order-modal-head">
+        <div>
+          <h2 class="order-modal-title" style="display:flex;align-items:center;gap:8px;">
+            <span style="color:#4ADE80;">📦</span> Confirm Order Delivery
+          </h2>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="dlvConfirmSubtitle">Order #ORD-XXXX</p>
+        </div>
+        <button class="order-modal-close" id="closeDeliveryConfirmModalBtn">&times;</button>
+      </div>
+      <div class="order-modal-body" style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        
+        <!-- Summary Card -->
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:8px;padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;">
+          <div>
+            <div style="color:var(--text-muted);font-size:11px;">Customer</div>
+            <div style="font-weight:600;color:var(--text-primary);margin-top:2px;" id="dlvCustomerSummary">—</div>
+          </div>
+          <div>
+            <div style="color:var(--text-muted);font-size:11px;">Total Amount</div>
+            <div style="font-weight:600;color:var(--text-primary);margin-top:2px;" id="dlvTotalSummary">₹0</div>
+          </div>
+          <div>
+            <div style="color:var(--text-muted);font-size:11px;">Already Paid</div>
+            <div style="font-weight:600;color:#4ADE80;margin-top:2px;" id="dlvPaidSummary">₹0</div>
+          </div>
+          <div>
+            <div style="color:var(--text-muted);font-size:11px;">Balance Due</div>
+            <div style="font-weight:700;color:#F87171;margin-top:2px;" id="dlvBalanceSummary">₹0</div>
+          </div>
+        </div>
+
+        <!-- Receiver Name Field -->
+        <div class="order-field" style="margin:0;">
+          <label for="dlvReceiverName" style="display:flex;justify-content:space-between;font-weight:600;font-size:12px;">
+            <span>Receiver Name <span style="color:#EF4444">*</span></span>
+            <span style="font-weight:400;color:var(--text-muted);font-size:11px;">Person receiving garment</span>
+          </label>
+          <input type="text" id="dlvReceiverName" class="order-input" placeholder="e.g. Ananya Sharma or Courier / Relative" autocomplete="off" style="margin-top:4px;">
+          <div class="field-error" id="errDlvReceiverName" style="display:none;color:#EF4444;font-size:11px;margin-top:4px;">Receiver name is required</div>
+        </div>
+
+        <!-- Discount Field -->
+        <div class="order-field" style="margin:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label for="dlvOrderDiscount" style="margin:0;font-weight:600;font-size:12px;">Discount (₹)</label>
+            <span style="font-size:11px;color:var(--text-muted);">Optional deduction</span>
+          </div>
+          <div style="position:relative;margin-top:4px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-weight:600;">₹</span>
+            <input type="number" id="dlvOrderDiscount" class="order-input" style="padding-left:26px;" min="0" step="1" placeholder="0.00" onwheel="this.blur()">
+          </div>
+        </div>
+
+        <!-- Amount Paid on Delivery Field -->
+        <div class="order-field" style="margin:0;">
+          <label for="dlvAmountPaid" style="display:flex;justify-content:space-between;font-weight:600;font-size:12px;">
+            <span>Amount Received at Delivery (₹)</span>
+            <span style="font-weight:400;color:var(--text-muted);font-size:11px;" id="dlvAmountHelp">Payment collected</span>
+          </label>
+          <div style="position:relative;margin-top:4px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-weight:600;">₹</span>
+            <input type="number" id="dlvAmountPaid" class="order-input" style="padding-left:26px;" min="0" step="1" placeholder="0.00" onwheel="this.blur()">
+          </div>
+          <!-- Live Feedback -->
+          <div id="dlvOrderLiveFeedback" style="display:none;font-size:12px;padding:6px 10px;border-radius:6px;margin-top:6px;font-weight:600;"></div>
+        </div>
+
+        <!-- Payment Mode Field -->
+        <div class="order-field" id="dlvPaymentModeContainer" style="margin:0;">
+          <label for="dlvPaymentMode" style="font-weight:600;font-size:12px;">Payment Mode</label>
+          <select id="dlvPaymentMode" class="order-select" style="margin-top:4px;">
+            <option value="CASH">💵 Cash</option>
+            <option value="UPI">📱 UPI / GPay / PhonePe</option>
+            <option value="CARD">💳 Card</option>
+            <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
+          </select>
+        </div>
+
+      </div>
+      <div class="order-modal-footer" style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-ghost" id="cancelDeliveryConfirmBtn">Cancel</button>
+        <button class="btn btn-primary" id="submitDeliveryConfirmBtn" style="background:linear-gradient(135deg,#16a34a,#15803d);border:none;box-shadow:0 2px 10px rgba(22,163,74,0.3);">
+          ✓ Confirm Delivery
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Scripts -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/stages.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../js/validation.js"></script>
+  <script src="../../components/toast/toast.js"></script>
+  <script src="../../components/loader/loader.js"></script>
+  <script src="../../components/modal/modal.js"></script>
+  <script src="../../components/sidebar/sidebar.js"></script>
+  <script src="../../components/header/header.js"></script>
+  <script src="order.js"></script>
+</body>
+</html>

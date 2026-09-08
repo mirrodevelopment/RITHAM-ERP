@@ -1,0 +1,99 @@
+/* ==========================================================================
+   Ritham ERP — Operations Monitoring Desk Styles (Compact Small KPI Cards)
+   ========================================================================== */
+
+.op-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 1024px) {
+  .op-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .op-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.op-kpi-card {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md, 8px);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.op-kpi-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.op-kpi-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.op-kpi-icon.primary {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818CF8;
+}
+
+.op-kpi-icon.warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #FBBF24;
+}
+
+.op-kpi-icon.info {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60A5FA;
+}
+
+.op-kpi-icon.success {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ADE80;
+}
+
+.op-kpi-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.op-kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #A1A1AA);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.op-kpi-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary, #FFF);
+  line-height: 1.1;
+}
+
+.op-kpi-sub {
+  font-size: 10px;
+  color: var(--text-muted, #71717A);
+  white-space: nowrap;
+}

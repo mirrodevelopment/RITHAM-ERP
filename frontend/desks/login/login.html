@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sign in to Ritham ERP — Enterprise Resource Planning for Tailoring & Garments">
+  <title>Sign In — Ritham ERP</title>
+
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="login.css">
+</head>
+<body>
+
+  <div class="login-page">
+
+    <!-- ── Left Panel: Brand ───────────────────────────────────────────── -->
+    <div class="login-panel-left" aria-hidden="true">
+      <div class="login-left-content">
+
+        <div class="login-left-brand">
+          <div class="login-brand-mark"><img src="../../images/logo/logo.jpg" alt="Ritham Designs"></div>
+          <div>
+            <div class="login-brand-name">RITHAM ERP</div>
+            <div class="login-brand-tagline">Enterprise Resource Planning</div>
+          </div>
+        </div>
+
+        <div class="login-left-hero">
+          <h1>Built for precision.<br>Designed for growth.</h1>
+          <p>The complete management system for tailoring, boutique, and garment manufacturing businesses.</p>
+        </div>
+
+        <div class="login-left-features">
+          <div class="login-feature">
+            <div class="login-feature-dot"></div>
+            <span>Order Management & Tracking</span>
+          </div>
+          <div class="login-feature">
+            <div class="login-feature-dot"></div>
+            <span>Production Workflow Control</span>
+          </div>
+          <div class="login-feature">
+            <div class="login-feature-dot"></div>
+            <span>Measurement & Design Archive</span>
+          </div>
+          <div class="login-feature">
+            <div class="login-feature-dot"></div>
+            <span>Real-time Operations Dashboard</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Decorative dot grid -->
+      <div class="login-left-grid" aria-hidden="true"></div>
+    </div>
+
+    <!-- ── Right Panel: Form ───────────────────────────────────────────── -->
+    <div class="login-panel-right">
+      <div class="login-card">
+
+        <!-- Mobile brand (shown only on small screens) -->
+        <div class="login-mobile-brand">
+          <div class="login-brand-mark"><img src="../../images/logo/logo.jpg" alt="Ritham Designs"></div>
+          <div>
+            <div class="login-brand-name">RITHAM ERP</div>
+            <div class="login-brand-tagline">Enterprise Resource Planning</div>
+          </div>
+        </div>
+
+        <div class="login-form-header">
+          <h2>Welcome back</h2>
+          <p>Sign in to your account to continue</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="login-form" novalidate>
+
+          <div class="login-form-group">
+            <label class="login-label" for="username">Username</label>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              class="login-input"
+              placeholder="Enter your username"
+              autocomplete="username"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+            >
+            <span class="login-field-error" id="usernameError"></span>
+          </div>
+
+          <div class="login-form-group">
+            <label class="login-label" for="password">Password</label>
+            <div class="login-input-wrap">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                class="login-input"
+                placeholder="Enter your password"
+                autocomplete="current-password"
+                required
+              >
+              <button
+                type="button"
+                class="login-pw-toggle"
+                id="togglePassword"
+                aria-label="Toggle password visibility"
+              >
+                <svg id="eyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+            <span class="login-field-error" id="passwordError"></span>
+          </div>
+
+          <!-- Server error -->
+          <div class="login-alert" id="loginError" style="display:none;"></div>
+
+          <!-- Submit -->
+          <button type="submit" class="login-btn" id="loginBtn">
+            <span id="loginBtnText">Sign In</span>
+            <svg id="loginBtnArrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+            <div class="login-spinner hidden" id="loginSpinner"></div>
+          </button>
+
+          <!-- Quick Demo Login Section -->
+          <div class="quick-demo-section">
+            <div class="quick-demo-heading">
+              ⚡ Quick Demo Logins
+            </div>
+
+            <!-- Global Admin -->
+            <button type="button" class="quick-admin-btn quick-login-btn" data-user="admin" data-pass="Admin@123">
+              <span>🔑</span>
+              <span>System Administrator (All Branches / Global)</span>
+            </button>
+
+            <!-- Main Branch (Chennai) -->
+            <div style="margin-bottom: 8px;">
+              <div class="quick-branch-title">
+                <span>🏢</span>
+                <span>Main Branch — Chennai (BR-001)</span>
+              </div>
+              <div class="quick-login-grid">
+                <button type="button" class="quick-login-btn" data-user="reception" data-pass="Reception@123">
+                  <span>📋</span> Reception
+                </button>
+                <button type="button" class="quick-login-btn" data-user="production" data-pass="Production@123">
+                  <span>✂️</span> Production
+                </button>
+                <button type="button" class="quick-login-btn" data-user="manager" data-pass="Manager@123">
+                  <span>📊</span> Manager
+                </button>
+              </div>
+            </div>
+
+            <!-- City Branch (Coimbatore) -->
+            <div>
+              <div class="quick-branch-title">
+                <span>🏢</span>
+                <span>City Branch — Coimbatore (BR-002)</span>
+              </div>
+              <div class="quick-login-grid" style="margin-bottom: 0;">
+                <button type="button" class="quick-login-btn" data-user="reception_cbe" data-pass="Reception@123">
+                  <span>📋</span> Reception
+                </button>
+                <button type="button" class="quick-login-btn" data-user="production_cbe" data-pass="Production@123">
+                  <span>✂️</span> Production
+                </button>
+                <button type="button" class="quick-login-btn" data-user="manager_cbe" data-pass="Manager@123">
+                  <span>📊</span> Manager
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </form>
+
+        <div class="login-footer">
+          <span>Ritham ERP v1.0</span>
+          <span>&copy; 2026 Ritham Garments</span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scripts — load order matters -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="login.js"></script>
+
+</body>
+</html>

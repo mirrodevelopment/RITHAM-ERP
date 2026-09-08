@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sign in to Ritham ERP — Enterprise Resource Planning for Tailoring & Garments">
+  <title>Sign In — Ritham ERP</title>
+
+  <link rel="stylesheet" href="theme/theme.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+
+  <!-- ── Embedded Login Styles ───────────────────────────────────────── -->
+  <style>
+    /* Page Layout */
+    .login-page {
+      display: flex;
+      min-height: 100vh;
+      background-color: var(--bg-page);
+      width: 100%;
+    }
+
+    /* Left Panel */
+    .login-panel-left {
+      position: relative;
+      width: 45%;
+      flex-shrink: 0;
+      background-color: var(--bg-page);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      overflow: hidden;
+    }
+
+    .login-left-grid {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+    }
+
+    .login-panel-left::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 120px;
+      height: 100%;
+      background: linear-gradient(to right, transparent, var(--bg-page));
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .login-left-content {
+      position: relative;
+      z-index: 2;
+      max-width: 400px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+    }
+
+    .login-left-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .login-brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    .login-brand-mark img {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+    }
+
+    .login-brand-name {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-semibold);
+      color: var(--text-primary);
+      letter-spacing: var(--tracking-widest);
+    }
+
+    .login-brand-tagline {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: 2px;
+      letter-spacing: var(--tracking-wide);
+    }
+
+    .login-left-hero h1 {
+      font-size: var(--text-3xl);
+      font-weight: var(--weight-bold);
+      color: var(--text-primary);
+      letter-spacing: var(--tracking-tight);
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .login-left-hero p {
+      font-size: var(--text-base);
+      color: var(--text-secondary);
+      line-height: var(--leading-relaxed);
+      max-width: 340px;
+    }
+
+    .login-left-features {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .login-feature {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+
+    .login-feature-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--border-strong);
+      flex-shrink: 0;
+    }
+
+    /* Right Panel */
+    .login-panel-right {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 32px;
+      background-color: var(--bg-surface);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .login-mobile-brand {
+      display: none;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Form Header */
+    .login-form-header h2 {
+      font-size: var(--text-2xl);
+      font-weight: var(--weight-bold);
+      color: var(--text-primary);
+      letter-spacing: var(--tracking-tight);
+      margin-bottom: 6px;
+    }
+
+    .login-form-header p {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+
+    /* Form */
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .login-form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .login-label {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+      color: var(--text-secondary);
+      letter-spacing: var(--tracking-tight);
+    }
+
+    .login-input {
+      width: 100%;
+      padding: 11px 14px;
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: var(--text-sm);
+      font-family: var(--font-sans);
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+      box-sizing: border-box;
+    }
+
+    .login-input::placeholder { color: var(--text-placeholder); }
+    .login-input:hover { border-color: var(--border-strong); }
+    .login-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(240, 240, 240, 0.06);
+      outline: none;
+    }
+    .login-input.error { border-color: var(--border-error); }
+
+    .login-input-wrap { position: relative; }
+    .login-input-wrap .login-input { padding-right: 44px; }
+
+    .login-pw-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      padding: 4px;
+      cursor: pointer;
+      transition: color 150ms ease;
+      display: flex;
+      align-items: center;
+    }
+    .login-pw-toggle:hover { color: var(--text-secondary); }
+
+    .login-field-error {
+      font-size: var(--text-xs);
+      color: var(--status-delayed);
+      min-height: 16px;
+      display: block;
+    }
+
+    .login-alert {
+      padding: 10px 14px;
+      background-color: var(--status-delayed-bg);
+      border: 1px solid var(--status-delayed-border);
+      border-radius: var(--radius-md);
+      color: var(--status-delayed);
+      font-size: var(--text-sm);
+      line-height: var(--leading-snug);
+    }
+
+    /* Submit Button */
+    .login-btn {
+      width: 100%;
+      padding: 12px 20px;
+      background-color: var(--text-primary);
+      color: var(--text-inverse);
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      font-weight: var(--weight-semibold);
+      font-family: var(--font-sans);
+      letter-spacing: var(--tracking-tight);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 150ms ease, opacity 150ms ease;
+      margin-top: 4px;
+    }
+    .login-btn:hover { background-color: #d8d8d8; }
+    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+    .login-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0, 0, 0, 0.2);
+      border-top-color: var(--text-inverse);
+      border-radius: 50%;
+      animation: loginSpin 0.7s linear infinite;
+    }
+    .login-spinner.hidden { display: none; }
+
+    @keyframes loginSpin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* Footer */
+    .login-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      padding-top: 8px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* Quick demo */
+    .quick-demo-section {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .quick-demo-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .quick-demo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .quick-login-btn {
+      font-size: 11px;
+      padding: 6px 8px;
+      justify-content: center;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid #333;
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 150ms ease, border-color 150ms ease;
+    }
+    .quick-login-btn:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: #555;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .login-panel-left { display: none; }
+      .login-panel-right { background-color: var(--bg-page); }
+      .login-mobile-brand { display: flex; }
+      .login-card { gap: 28px; }
+    }
+    @media (max-width: 480px) {
+      .login-panel-right { padding: 32px 20px; align-items: flex-start; padding-top: 48px; }
+      .login-card { max-width: 100%; }
+    }
+
+    /* Body reset for SPA */
+    body {
+      display: block;
+      min-height: 100vh;
+      font-family: var(--font-sans);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Login Page ──────────────────────────────────────────────────────── -->
+  <div class="login-page">
+
+    <!-- Left Panel: Brand -->
+    <div class="login-panel-left" aria-hidden="true">
+      <div class="login-left-content">
+
+        <div class="login-left-brand">
+          <div class="login-brand-mark"><img src="images/logo/logo.jpg" alt="Ritham Designs"></div>
+          <div>
+            <div class="login-brand-name">RITHAM ERP</div>
+            <div class="login-brand-tagline">Enterprise Resource Planning</div>
+          </div>
+        </div>
+
+        <div class="login-left-hero">
+          <h1>Built for precision.<br>Designed for growth.</h1>
+          <p>The complete management system for tailoring, boutique, and garment manufacturing businesses.</p>
+        </div>
+
+        <div class="login-left-features">
+          <div class="login-feature">
+            <div class="login-feature-dot"></div>
+            <span>Order Management &amp; Tracking</span>
+          </div>
+          <div class="login-feature">
+            <div class="login-feature-dot"></div>
+            <span>Production Workflow Control</span>
+          </div>
+          <div class="login-feature">
+            <div class="login-feature-dot"></div>
+            <span>Measurement &amp; Design Archive</span>
+          </div>
+          <div class="login-feature">
+            <div class="login-feature-dot"></div>
+            <span>Real-time Operations Dashboard</span>
+          </div>
+        </div>
+
+      </div>
+      <div class="login-left-grid" aria-hidden="true"></div>
+    </div>
+
+    <!-- Right Panel: Form -->
+    <div class="login-panel-right">
+      <div class="login-card">
+
+        <!-- Mobile brand -->
+        <div class="login-mobile-brand">
+          <div class="login-brand-mark"><img src="images/logo/logo.jpg" alt="Ritham Designs"></div>
+          <div>
+            <div class="login-brand-name">RITHAM ERP</div>
+            <div class="login-brand-tagline">Enterprise Resource Planning</div>
+          </div>
+        </div>
+
+        <div class="login-form-header">
+          <h2>Welcome back</h2>
+          <p>Sign in to your account to continue</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="login-form" novalidate>
+
+          <div class="login-form-group">
+            <label class="login-label" for="username">Username</label>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              class="login-input"
+              placeholder="Enter your username"
+              autocomplete="username"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+            >
+            <span class="login-field-error" id="usernameError"></span>
+          </div>
+
+          <div class="login-form-group">
+            <label class="login-label" for="password">Password</label>
+            <div class="login-input-wrap">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                class="login-input"
+                placeholder="Enter your password"
+                autocomplete="current-password"
+                required
+              >
+              <button type="button" class="login-pw-toggle" id="togglePassword" aria-label="Toggle password visibility">
+                <svg id="eyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+            <span class="login-field-error" id="passwordError"></span>
+          </div>
+
+          <!-- Server error -->
+          <div class="login-alert" id="loginError" style="display:none;"></div>
+
+          <!-- Submit -->
+          <button type="submit" class="login-btn" id="loginBtn">
+            <span id="loginBtnText">Sign In</span>
+            <svg id="loginBtnArrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+            <div class="login-spinner hidden" id="loginSpinner"></div>
+          </button>
+
+          <!-- Quick Demo Logins -->
+          <div class="quick-demo-section">
+            <div class="quick-demo-label">Quick Demo Logins</div>
+            <div class="quick-demo-grid">
+              <button type="button" class="quick-login-btn" data-user="admin" data-pass="Admin@123">Admin (D1)</button>
+              <button type="button" class="quick-login-btn" data-user="reception" data-pass="Reception@123">Reception (D1)</button>
+              <button type="button" class="quick-login-btn" data-user="production" data-pass="Production@123">Production (D2)</button>
+              <button type="button" class="quick-login-btn" data-user="manager" data-pass="Manager@123">Manager (D3)</button>
+            </div>
+          </div>
+
+        </form>
+
+        <div class="login-footer">
+          <span>Ritham ERP v1.0</span>
+          <span>&copy; 2026 Ritham Garments</span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/constants.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    'use strict';
+
+    // ── Hash Router — redirect / to /#login ────────────────────────────────
+    (function() {
+      const hash = window.location.hash;
+      // Set canonical hash if missing
+      if (!hash || hash === '#') {
+        history.replaceState(null, '', '/#login');
+      }
+    })();
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+      const form         = document.getElementById('loginForm');
+      const usernameEl   = document.getElementById('username');
+      const passwordEl   = document.getElementById('password');
+      const usernameErr  = document.getElementById('usernameError');
+      const passwordErr  = document.getElementById('passwordError');
+      const loginError   = document.getElementById('loginError');
+      const loginBtn     = document.getElementById('loginBtn');
+      const loginBtnText = document.getElementById('loginBtnText');
+      const loginBtnArrow= document.getElementById('loginBtnArrow');
+      const loginSpinner = document.getElementById('loginSpinner');
+      const togglePwd    = document.getElementById('togglePassword');
+      const eyeIcon      = document.getElementById('eyeIcon');
+
+      // Password toggle
+      const EYE_OPEN = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
+      const EYE_CLOSED = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>`;
+
+      togglePwd?.addEventListener('click', () => {
+        const isPassword = passwordEl.type === 'password';
+        passwordEl.type = isPassword ? 'text' : 'password';
+        eyeIcon.innerHTML = isPassword ? EYE_CLOSED : EYE_OPEN;
+      });
+
+      function clearErrors() {
+        usernameErr.textContent  = '';
+        passwordErr.textContent  = '';
+        loginError.style.display = 'none';
+        usernameEl.classList.remove('error');
+        passwordEl.classList.remove('error');
+      }
+
+      function showFieldError(input, errorEl, message) {
+        input.classList.add('error');
+        errorEl.textContent = message;
+      }
+
+      function showServerError(message) {
+        loginError.textContent   = message;
+        loginError.style.display = 'block';
+      }
+
+      function validateInputs() {
+        let valid = true;
+        if (!usernameEl.value.trim()) {
+          showFieldError(usernameEl, usernameErr, 'Username is required');
+          valid = false;
+        }
+        if (!passwordEl.value) {
+          showFieldError(passwordEl, passwordErr, 'Password is required');
+          valid = false;
+        } else if (passwordEl.value.length < 6) {
+          showFieldError(passwordEl, passwordErr, 'Password must be at least 6 characters');
+          valid = false;
+        }
+        return valid;
+      }
+
+      function setLoading(loading) {
+        loginBtn.disabled = loading;
+        loginSpinner.classList.toggle('hidden', !loading);
+        loginBtnText.textContent = loading ? 'Signing in...' : 'Sign In';
+        if (loginBtnArrow) loginBtnArrow.style.display = loading ? 'none' : 'block';
+      }
+
+      usernameEl.addEventListener('input', () => { usernameEl.classList.remove('error'); usernameErr.textContent = ''; });
+      passwordEl.addEventListener('input', () => { passwordEl.classList.remove('error'); passwordErr.textContent = ''; loginError.style.display = 'none'; });
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearErrors();
+        if (!validateInputs()) return;
+
+        const username = usernameEl.value.trim();
+        const password = passwordEl.value;
+        setLoading(true);
+
+        try {
+          await Auth.login(username, password);
+          Auth.redirectToDashboard();
+        } catch (err) {
+          setLoading(false);
+          if (err?.status === 401) {
+            showServerError('Incorrect username or password. Please try again.');
+            passwordEl.value = '';
+            passwordEl.focus();
+          } else if (err?.status === 0) {
+            showServerError('Cannot connect to the server. Please ensure the application is running.');
+          } else {
+            showServerError(err?.message || 'Login failed. Please try again.');
+          }
+        }
+      });
+
+      // Quick Demo Login Buttons
+      document.querySelectorAll('.quick-login-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          usernameEl.value = btn.getAttribute('data-user');
+          passwordEl.value = btn.getAttribute('data-pass');
+          clearErrors();
+          form.requestSubmit();
+        });
+      });
+
+      usernameEl?.focus();
+    });
+  </script>
+
+</body>
+</html>
+

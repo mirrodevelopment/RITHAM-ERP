@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Customer Tailoring Measurement Records — Ritham ERP">
+  <title>Measurement Records — Ritham ERP</title>
+
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/utilities.css">
+  <link rel="stylesheet" href="measurement.css">
+</head>
+<body>
+
+  <div class="app-layout" id="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="main-wrapper">
+      <header class="header" id="header"></header>
+
+      <main class="content">
+        <div class="content-inner">
+
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header-left">
+              <h1 class="page-title">Measurement Records</h1>
+              <p class="page-subtitle">Customer Garment Sizing Specifications &amp; Profiles</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-secondary" id="refreshBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                Refresh Records
+              </button>
+              <button class="btn btn-primary" id="newMeasurementBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                New Customer Measurement
+              </button>
+            </div>
+          </div>
+
+          <!-- Stats Overview -->
+          <div class="msr-stats-row">
+            <div class="msr-stat-card">
+              <div class="msr-stat-label">TOTAL MEASURED PROFILES</div>
+              <div class="msr-stat-value" id="statTotalProfiles">0</div>
+              <div class="msr-stat-sub">Archived customer measurements</div>
+            </div>
+            <div class="msr-stat-card">
+              <div class="msr-stat-label">BLOUSE PROFILES (19 SPECS)</div>
+              <div class="msr-stat-value" style="color:#F472B6;" id="statBlouseProfiles">0</div>
+              <div class="msr-stat-sub">Custom blouse patterns</div>
+            </div>
+            <div class="msr-stat-card">
+              <div class="msr-stat-label">CHUDI PROFILES (18 SPECS)</div>
+              <div class="msr-stat-value" style="color:#60A5FA;" id="statChudiProfiles">0</div>
+              <div class="msr-stat-sub">Churidar &amp; kurti patterns</div>
+            </div>
+          </div>
+
+          <!-- Filter & Search Toolbar -->
+          <div class="msr-toolbar">
+            <div class="msr-tabs">
+              <button class="msr-tab active" data-filter="ALL">All Garments (<span id="countAll">0</span>)</button>
+              <button class="msr-tab" data-filter="BLOUSE">👗 Blouse (<span id="countBlouse">0</span>)</button>
+              <button class="msr-tab" data-filter="CHUDI">👘 Chudi (<span id="countChudi">0</span>)</button>
+            </div>
+            <div class="msr-search-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="msr-search-icon">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="msrSearchInput" class="msr-search-input" placeholder="Search customer, mobile, order #...">
+            </div>
+          </div>
+
+          <!-- Measurement Cards Grid -->
+          <div class="msr-grid" id="msrCardsGrid">
+            <!-- Rendered by measurement.js -->
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Measurement Sheet Print / Fullscreen Modal -->
+  <div class="msr-modal-backdrop hidden" id="printSheetModalBackdrop">
+    <div class="msr-modal" role="dialog" aria-modal="true">
+      <div class="msr-modal-head">
+        <div>
+          <h2 class="msr-modal-title" id="sheetModalTitle">Tailoring Specification Sheet</h2>
+          <p class="msr-modal-sub" id="sheetModalSub">Workshop Cutting &amp; Stitching Reference</p>
+        </div>
+        <button class="msr-modal-close" id="closeSheetModalBtn">&times;</button>
+      </div>
+      <div class="msr-modal-body" id="sheetModalBody">
+        <!-- Rendered by JS -->
+      </div>
+      <div class="msr-modal-footer">
+        <button class="btn btn-secondary" id="closeSheetFooterBtn">Close</button>
+        <button class="btn btn-primary" id="triggerPrintBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Print Spec Card
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Record / Edit Customer Measurements Modal ──────────────────────── -->
+  <div class="msr-modal-backdrop hidden" id="recordMeasurementModalBackdrop">
+    <div class="msr-modal" style="max-width:760px;" role="dialog" aria-modal="true">
+      <div class="msr-modal-head">
+        <div>
+          <h2 class="msr-modal-title" id="recordModalTitle">Record Customer Measurements</h2>
+          <p class="msr-modal-sub" id="recordModalSub">Save customer garment sizing specifications according to mobile number and name</p>
+        </div>
+        <button class="msr-modal-close" id="closeRecordModalBtn">&times;</button>
+      </div>
+
+      <div class="msr-modal-body" style="padding:20px 24px;">
+        <form id="recordMeasurementForm" autocomplete="off" onsubmit="return false;">
+          
+          <!-- Customer Details Row -->
+          <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:14px;margin-bottom:16px;">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-secondary);">
+                Customer Mobile Number <span style="color:#EF4444;">*</span>
+              </label>
+              <div style="position:relative;">
+                <input type="tel" id="modalCustomerMobile" maxlength="10" placeholder="10-digit mobile number"
+                  style="width:100%;height:38px;padding:8px 12px;font-family:monospace;font-size:13px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-surface-2);color:var(--text-primary);">
+                <span id="custLookupStatus" style="font-size:11px;font-weight:600;display:block;margin-top:4px;"></span>
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-secondary);">
+                Customer Name <span style="color:#EF4444;">*</span>
+              </label>
+              <input type="text" id="modalCustomerName" placeholder="Full name of customer"
+                style="width:100%;height:38px;padding:8px 12px;font-size:13px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-surface-2);color:var(--text-primary);">
+            </div>
+          </div>
+
+          <!-- Garment Selection -->
+          <div style="margin-bottom:18px;">
+            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-secondary);">
+              Garment Type <span style="color:#818CF8;font-size:11px;font-weight:600;">(Specifications)</span>
+            </label>
+            <select id="modalGarmentType" style="width:100%;height:38px;padding:6px 12px;font-size:13px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-surface-2);color:var(--text-primary);">
+              <option value="BLOUSE">👗 Blouse (19 Specifications)</option>
+              <option value="CHUDI">👘 Chudi (18 Specifications)</option>
+            </select>
+          </div>
+
+          <!-- Blouse Measurement Inputs Container -->
+          <div id="modalBlousePanel" style="background:var(--bg-surface-2);padding:16px;border-radius:8px;border:1px solid var(--border-default);margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <span style="font-size:12px;font-weight:700;color:#F472B6;">👗 Blouse Specifications (Inches / Custom)</span>
+              <button type="button" class="btn btn-ghost btn-sm" id="clearModalBlouseBtn" style="font-size:11px;padding:2px 8px;">Clear Blouse Fields</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:10px;">
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">LTH (Length)</label><input type="text" data-garment="blouse" data-key="LTH" placeholder="e.g. 14" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">SHO (Shoulder)</label><input type="text" data-garment="blouse" data-key="SHO" placeholder="e.g. 14.5" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">H.S. (Half Shldr)</label><input type="text" data-garment="blouse" data-key="H.S." placeholder="e.g. 6.5" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">H.L. (Hand Lth)</label><input type="text" data-garment="blouse" data-key="H.L." placeholder="e.g. 10" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">H.LO (Hand Loose)</label><input type="text" data-garment="blouse" data-key="H.LO" placeholder="e.g. 11" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">AK (Armhole)</label><input type="text" data-garment="blouse" data-key="AK" placeholder="e.g. 15.5" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">AM (Arm)</label><input type="text" data-garment="blouse" data-key="AM" placeholder="e.g. 12" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">BN (Back Neck)</label><input type="text" data-garment="blouse" data-key="BN" placeholder="e.g. 9" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">FN (Front Neck)</label><input type="text" data-garment="blouse" data-key="FN" placeholder="e.g. 6.5" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">DP-1 (Dart Pt 1)</label><input type="text" data-garment="blouse" data-key="DP-1" placeholder="e.g. 9.5" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">DP-2 (Dart Pt 2)</label><input type="text" data-garment="blouse" data-key="DP-2" placeholder="e.g. 11" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">B-1 (Upper Bust)</label><input type="text" data-garment="blouse" data-key="B-1" placeholder="e.g. 34" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">B-2 (Full Bust)</label><input type="text" data-garment="blouse" data-key="B-2" placeholder="e.g. 36" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">B-3 (Under Bust)</label><input type="text" data-garment="blouse" data-key="B-3" placeholder="e.g. 30" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">F.HOOK (Front Hook)</label><input type="text" data-garment="blouse" data-key="F.HOOK" placeholder="Yes / No / Hook" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">B.HOOK (Back Hook)</label><input type="text" data-garment="blouse" data-key="B.HOOK" placeholder="Yes / No / Knot" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">LINING (Lining)</label><input type="text" data-garment="blouse" data-key="LINING" placeholder="Cotton / Heavy / No" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">AV. (Aari / Work)</label><input type="text" data-garment="blouse" data-key="AV." placeholder="Work notes" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">SARI (Saree Notes)</label><input type="text" data-garment="blouse" data-key="SARI" placeholder="Falls / Pico / None" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+            </div>
+          </div>
+
+          <!-- Chudi Measurement Inputs Container -->
+          <div id="modalChudiPanel" style="display:none;background:var(--bg-surface-2);padding:16px;border-radius:8px;border:1px solid var(--border-default);margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <span style="font-size:12px;font-weight:700;color:#60A5FA;">👘 Chudithar Specifications (Inches / Custom)</span>
+              <button type="button" class="btn btn-ghost btn-sm" id="clearModalChudiBtn" style="font-size:11px;padding:2px 8px;">Clear Chudi Fields</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:10px;">
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">F.N. (Front Neck)</label><input type="text" data-garment="chudi" data-key="F.N." placeholder="e.g. 6" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">B.N. (Back Neck)</label><input type="text" data-garment="chudi" data-key="B.N." placeholder="e.g. 7" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">H.B. (High Bust)</label><input type="text" data-garment="chudi" data-key="H.B." placeholder="e.g. 34" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">L (Top Length)</label><input type="text" data-garment="chudi" data-key="L" placeholder="e.g. 42" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">S.S. (Side Slit)</label><input type="text" data-garment="chudi" data-key="S.S." placeholder="e.g. 18" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">S.L. (Sleeve Lth)</label><input type="text" data-garment="chudi" data-key="S.L." placeholder="e.g. 15" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">S.LO (Sleeve Loose)</label><input type="text" data-garment="chudi" data-key="S.LO" placeholder="e.g. 10.5" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">AM (Arm)</label><input type="text" data-garment="chudi" data-key="AM" placeholder="e.g. 13" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">B (Bust)</label><input type="text" data-garment="chudi" data-key="B" placeholder="e.g. 36" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">H (Hip)</label><input type="text" data-garment="chudi" data-key="H" placeholder="e.g. 38" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">T.S. (Top Slit)</label><input type="text" data-garment="chudi" data-key="T.S." placeholder="e.g. 21" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">P.L. (Pant Lth)</label><input type="text" data-garment="chudi" data-key="P.L." placeholder="e.g. 38" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">S. (Seat)</label><input type="text" data-garment="chudi" data-key="S." placeholder="e.g. 24" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">L. (Leg Loose)</label><input type="text" data-garment="chudi" data-key="L." placeholder="e.g. 12" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">S.CUT (Side Cut)</label><input type="text" data-garment="chudi" data-key="S.CUT" placeholder="Straight / Cut" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">LNG (Lining)</label><input type="text" data-garment="chudi" data-key="LNG" placeholder="Full / Half / No" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">SHALL (Shawl)</label><input type="text" data-garment="chudi" data-key="SHALL" placeholder="Provided / Matching" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+              <div class="m-input-box"><label style="font-size:10px;color:var(--text-muted);display:block;font-weight:700;">B.D. (Bottom Dsgn)</label><input type="text" data-garment="chudi" data-key="B.D." placeholder="Palazzo / Pant" style="width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-surface-1);color:var(--text-primary);font-size:12px;"></div>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-secondary);">
+              Tailoring Notes &amp; Styling Preferences
+            </label>
+            <input type="text" id="modalNotes" placeholder="e.g. Princess cut, boat neck, elbow sleeve, lace border..."
+              style="width:100%;height:38px;padding:8px 12px;font-size:12px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-surface-2);color:var(--text-primary);">
+          </div>
+
+        </form>
+      </div>
+
+      <div class="msr-modal-footer">
+        <button class="btn btn-ghost" id="cancelRecordModalBtn">Cancel</button>
+        <button class="btn btn-primary" id="saveMeasurementBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Save Customer Measurements
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../components/toast/toast.js"></script>
+  <script src="../../components/loader/loader.js"></script>
+  <script src="../../components/modal/modal.js"></script>
+  <script src="../../components/sidebar/sidebar.js"></script>
+  <script src="../../components/header/header.js"></script>
+  <script src="measurement.js"></script>
+</body>
+</html>

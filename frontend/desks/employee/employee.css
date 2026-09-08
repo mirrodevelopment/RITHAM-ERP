@@ -1,0 +1,54 @@
+/* ==========================================================================
+   Ritham ERP — Employee Management Page Styles
+   ========================================================================== */
+
+/* Search and Filters */
+.employee-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+/* User Code Mono Style */
+.emp-code-badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  background-color: var(--bg-surface-3);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  letter-spacing: 0.05em;
+}
+
+/* Action Icon Buttons */
+.emp-action-btn {
+  padding: var(--space-1);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), background-color var(--transition);
+}
+
+.emp-action-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.emp-action-btn.danger:hover {
+  color: var(--status-delayed);
+  background-color: var(--status-delayed-bg);
+}
+
+/* Table Responsive Adjustments */
+@media (max-width: 992px) {
+  .card-body-sm.flex-wrap {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-bar {
+    width: 100% !important;
+  }
+}

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Production Department Workstations — Ritham ERP Stage Progression">
+  <title>Production Department Workstations — Ritham ERP</title>
+
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/utilities.css">
+  <link rel="stylesheet" href="production.css">
+</head>
+<body>
+
+  <div class="app-layout" id="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+      <!-- Header -->
+      <header class="header" id="header"></header>
+
+      <!-- Main Content -->
+      <main class="content">
+        <div class="content-inner">
+
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header-left">
+              <h1 class="page-title">Production Department Workstations</h1>
+              <p class="page-subtitle">Separate Department Pages &amp; Stage Progression Tracking</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-secondary" id="refreshBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                Refresh Stages
+              </button>
+            </div>
+          </div>
+
+          <!-- Department Stage Selection Grid -->
+          <div class="stage-cards-grid" id="stageCardsGrid">
+            <!-- Loaded dynamically by production.js -->
+          </div>
+
+          <!-- Active Department Workstation View -->
+          <div class="card mt-6" id="workstationContainer" style="margin-top:20px;">
+            <div class="card-header flex items-center justify-between" style="padding:16px 20px;">
+              <div>
+                <div class="card-title" id="currentStageTitle" style="font-size:16px;font-weight:700;">
+                  📐 Pattern Making Workstation
+                </div>
+                <div class="card-subtitle" id="currentStageSubtitle">
+                  Department Workstation — 0 Jobs active
+                </div>
+              </div>
+              <div class="search-bar" style="width:240px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="stageOrderSearch" placeholder="Search orders in stage...">
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table class="table" id="stageOrdersTable">
+                <thead>
+                  <tr>
+                    <th>Order #</th>
+                    <th>Customer</th>
+                    <th>Garment</th>
+                    <th>Staff</th>
+                    <th>Delivery Date</th>
+                    <th style="text-align:right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="stageOrdersBody">
+                  <!-- Loaded by production.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div><!-- /content-inner -->
+      </main>
+
+    </div><!-- /main-wrapper -->
+  <!-- Modal Container for Advance Stage & Employee Assignment -->
+  <div id="advanceStageModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal modal-md" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title" id="advanceModalTitle">Advance Stage & Assign Staff</h3>
+        <button class="btn btn-ghost btn-icon modal-close" id="advanceModalCloseBtn" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <form id="advanceStageForm" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="advanceOrderId">
+          <input type="hidden" id="advanceTargetStage">
+
+          <div style="background:rgba(255,255,255,0.03); padding:14px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:16px;">
+            <div style="font-size:12px; color:var(--text-muted);">Advancing Order:</div>
+            <div id="advanceOrderInfo" style="font-weight:700; font-size:14px; color:var(--text-primary); margin-top:2px;">#ORD-001 — Customer</div>
+            <div id="advanceStageTransition" style="font-size:12px; color:#818CF8; font-weight:600; margin-top:4px;">Pattern Making ➔ Fabric Cutting</div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:14px;">
+            <label class="form-label" for="advanceTargetStageSelect">Target Production Stage <span class="required">*</span></label>
+            <select id="advanceTargetStageSelect" class="form-control" required>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="stageEmployeeSelect">Assign Stage Employee <span class="required">*</span></label>
+            <select id="stageEmployeeSelect" class="form-control" required>
+              <option value="">Select Employee for Stage</option>
+            </select>
+            <div class="form-error" id="stageEmployeeErr"></div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="advanceModalCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="confirmAdvanceBtn">
+            <span>Confirm & Assign</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Workstation Garment Measurement Modal -->
+  <div id="workstationMeasurementModalBackdrop" class="modal-backdrop hidden" style="backdrop-filter:blur(4px);z-index:1050;">
+    <div class="modal modal-lg" role="dialog" aria-modal="true" style="max-width:680px;background:var(--bg-surface-1);border:1px solid var(--border-default);border-radius:16px;">
+      <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--border-default);">
+        <div>
+          <h3 class="modal-title" id="wsMsrModalTitle" style="font-size:16px;font-weight:700;color:var(--text-primary);">Garment Measurements</h3>
+          <p class="modal-subtitle" id="wsMsrModalSub" style="font-size:12px;color:var(--text-muted);margin-top:2px;">Floor Tailoring &amp; Cutting Reference</p>
+        </div>
+        <button class="btn btn-ghost btn-icon modal-close" id="closeWsMsrModalBtn" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" id="wsMsrModalBody" style="padding:20px 24px;max-height:70vh;overflow-y:auto;">
+        <!-- Loaded dynamically -->
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--border-default);">
+        <button type="button" class="btn btn-secondary" id="closeWsMsrFooterBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../components/toast/toast.js"></script>
+  <script src="../../components/loader/loader.js"></script>
+  <script src="../../components/modal/modal.js"></script>
+  <script src="../../components/sidebar/sidebar.js"></script>
+  <script src="../../components/header/header.js"></script>
+  <script src="production.js"></script>
+</body>
+</html>

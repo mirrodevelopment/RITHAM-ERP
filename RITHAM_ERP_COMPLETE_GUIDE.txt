@@ -1,0 +1,964 @@
+================================================================================
+          RITHAM ERP — COMPLETE SYSTEM GUIDE
+          For Ritham Garments (Tailoring & Garment Business)
+          Version 1.0  |  Written for Non-Technical Readers
+================================================================================
+
+This document explains how the Ritham ERP (Enterprise Resource Planning) system
+works — from how it is built, to what each screen does, to how every order moves
+through the production floor. No technical knowledge is required.
+
+================================================================================
+SECTION 1 — WHAT IS RITHAM ERP?
+================================================================================
+
+Ritham ERP is a computer software system built specifically for Ritham Garments.
+It runs inside a web browser (like Chrome or Edge) on any computer connected to
+your local network. It manages everything from taking a customer's order, tracking
+that order through every stitching stage, collecting payment, and finally marking
+delivery as complete.
+
+Think of it like a digital notebook that every team member can read and update
+from their own computer — but with rules about who can change what.
+
+--------------------------------------------------------------------------------
+HOW THE SYSTEM RUNS
+--------------------------------------------------------------------------------
+
+The system has two main parts working together:
+
+  1. THE BACK-END (The Engine)
+     - Built with Java and Spring Boot (a professional server framework)
+     - Runs on a server computer at port 8080
+       (meaning: you open a browser and go to http://localhost:8080)
+     - Stores all data in a PostgreSQL database named "ritham_erp"
+     - The database has a user called "ritham" with password "ritham123"
+     - All the business rules live here (who can do what, how orders are saved,
+       how payments work, etc.)
+
+  2. THE FRONT-END (What You See)
+     - Built with plain HTML, CSS, and JavaScript
+     - Files are stored in the "frontend" folder
+     - Every page is served directly from the back-end server
+     - No separate app needs to be installed — just open a browser
+
+  HOW TO START THE SYSTEM:
+  - Double-click "start.bat" in the main folder, OR
+  - Run the command: mvnw.cmd spring-boot:run
+  - Wait about 30 seconds for the server to start
+  - Open your browser and go to: http://localhost:8080
+
+================================================================================
+SECTION 2 — THE DATABASE (WHERE ALL INFORMATION IS SAVED)
+================================================================================
+
+All information is permanently saved in a database. The database is built up
+step by step using "migration files" (numbered V1, V2, V3, etc.). Each file
+adds new tables or data. Here is what each table stores:
+
+  TABLE: roles
+  - The four job roles in the system:
+    1. ROLE_ADMIN                → Administrator (full access to everything)
+    2. ROLE_OPERATIONS_MANAGER   → Operations Manager (monitoring only, view-only)
+    3. ROLE_PRODUCTION_EMPLOYEE  → Production floor worker (assigned to a stage)
+    4. ROLE_RECEPTION            → Reception desk (registers customers, creates orders)
+
+  TABLE: departments
+  - Four departments: Administration, Production, Operations, Reception
+
+  TABLE: employees
+  - Every person who uses the system has a record here
+  - Stores: employee code, full name, mobile number, email,
+            username (for login), password (encrypted), role, department,
+            production stage, and active/inactive status
+  - The password is NEVER stored as plain text — it is encrypted using BCrypt
+  - The "stage" column tells which production stage a physical staff member works in
+
+  TABLE: customers
+  - Every customer who places an order
+  - Stores: mobile number (used as the unique ID), customer name, date added
+  - The mobile number is the primary way to find a customer
+
+  TABLE: customer_orders
+  - Every garment order placed by a customer
+  - Stores: order number (like ORD-20260810-0001), customer mobile,
+            delivery date, current status (which production stage),
+            payment status, total amount, advance paid, amount paid,
+            assigned employee ID and name (who is currently working on it)
+
+  TABLE: order_designs
+  - Design details attached to an order (design name, notes, images)
+
+  TABLE: order_measurements
+  - Body measurements for the garment (stored as JSON text)
+
+  TABLE: order_materials
+  - Materials used for the order — either supplied by the company or by the customer
+
+  TABLE: production_tracking
+  - A record of every production stage each order passes through
+  - Tracks: which stage, which employee handled it, when it started and ended,
+            status (Pending / In Progress / Completed)
+
+  TABLE: order_payments
+  - Every individual payment received for an order
+  - Stores: payment type (Advance or Final), payment method
+            (Cash, UPI, Google Pay, Bank Transfer), amount, date
+
+  TABLE: order_deliveries
+  - Records when an order was delivered, who delivered it, and whether
+    the receipt was printed
+
+  TABLE: refresh_tokens
+  - Security records: when a user logs in, the system saves a special
+    "refresh token" so they stay logged in for 7 days without re-entering
+    their password every 15 minutes
+
+--------------------------------------------------------------------------------
+HOW THE DATABASE GROWS (MIGRATION FILES)
+--------------------------------------------------------------------------------
+
+The system automatically runs these files in order every time it starts:
+
+  V1  - Creates the roles, departments, employees, and token tables
+        Seeds the 4 roles, 4 departments, and creates the admin login
+  V2  - Creates customer, order, design, measurement, material, production
+        tracking, payment, and delivery tables
+  V3  - Added 3 demo customers (for testing)
+  V4  - Removed the demo customers
+  V5  - Added an "order count" column to customers (tracks how many orders each customer has)
+  V6  - Seeded 5 real test customers with sample orders
+  V8  - Added "payment mode" column to orders (Cash, UPI, etc.)
+  V9  - Added physical staff employee accounts (initial seed)
+  V10 - Added "stage" column to employees table
+        Deleted old test employees
+        Added 16 physical staff employees — 2 for each of the 8 production stages
+  V11 - Added "assigned employee" columns to orders (to track who is working on each order)
+
+================================================================================
+SECTION 3 — USER ACCOUNTS & LOGIN
+================================================================================
+
+--------------------------------------------------------------------------------
+THE FOUR TYPES OF USERS
+--------------------------------------------------------------------------------
+
+  1. ADMIN (System Administrator)
+     - Username: admin
+     - Password: Admin@123 (set automatically on first start)
+     - Can do EVERYTHING in the system
+     - Can add, edit, delete employees
+     - Can view all pages
+     - After login → goes to the Order Desk (Dashboard 1)
+
+  2. RECEPTION (Reception Desk Staff)
+     - Can register new customers
+     - Can create new orders
+     - Can view orders
+     - After login → goes to the Order Desk (Dashboard 1)
+
+  3. OPERATIONS MANAGER
+     - VIEW-ONLY access to monitor orders and production
+     - Cannot make changes (the system shows "View Only" mode for them)
+     - After login → goes to Operations Monitoring Desk (Dashboard 3)
+
+  4. PRODUCTION EMPLOYEE (Physical Floor Worker)
+     - Can view their work on the Production Floor Desk (Dashboard 2)
+     - Each worker is assigned to ONE production stage
+       (e.g., Aarav Sharma works only Pattern Making)
+     - After login → goes to the Production Floor Desk (Dashboard 2)
+
+--------------------------------------------------------------------------------
+THE SYSTEM USER ACCOUNTS (Logins That Are Not Physical Workers)
+--------------------------------------------------------------------------------
+
+These are the special login accounts — NOT production floor workers:
+
+  - admin      (EMP-001, Administrator role)
+  - reception  (Reception role)
+  - production (Production Employee role — for shared use at production area)
+  - manager    (Operations Manager role)
+
+  NOTE: These 4 accounts are protected — they CANNOT be deleted from the
+  Employee page. Only their passwords can be changed.
+
+--------------------------------------------------------------------------------
+THE 16 PHYSICAL STAFF EMPLOYEES (Production Floor Workers)
+--------------------------------------------------------------------------------
+
+These workers are assigned to specific production stages:
+
+  PATTERN MAKING:        Aarav Sharma (EMP-201),  Meera Joshi (EMP-202)
+  FABRIC CUTTING:        Ramesh Kumar (EMP-203),  Suresh Patel (EMP-204)
+  EMBROIDERY & WORK:     Fatima Begum (EMP-205),  Zainab Khan (EMP-206)
+  MAIN SEWING:           Sunita Devi (EMP-207),   Rajesh Verma (EMP-208)
+  BUTTON & FITTING:      Ankit Verma (EMP-209),   Pooja Rani (EMP-210)
+  QUALITY CHECK (QC):    Vikram Singh (EMP-211),  Neha Gupta (EMP-212)
+  IRONING & PRESS:       Manoj Kumar (EMP-213),   Deepak Yadav (EMP-214)
+  PACKAGING & READY:     Priya Nair (EMP-215),    Sanjay Verma (EMP-216)
+
+  All passwords are the same temporary password (set during seeding).
+  These workers can only see the Production Floor Desk.
+
+--------------------------------------------------------------------------------
+HOW LOGIN WORKS (THE SECURITY SYSTEM)
+--------------------------------------------------------------------------------
+
+1. User opens http://localhost:8080 in the browser
+   → They see the Login Page (index.html)
+
+2. User types their username and password and clicks "Sign In"
+
+3. The system sends the username and password to the server
+   → Server checks: Is this username correct? Is the password correct?
+   → Server checks: Is the account active?
+
+4. If correct, the server sends back two things:
+   a) ACCESS TOKEN — a temporary pass, valid for 15 minutes
+   b) REFRESH TOKEN — a long-term key, valid for 7 days
+   Both are stored in the browser's memory (not on disk for safety)
+
+5. The system also reads the user's ROLE and sends them to the correct dashboard:
+   - Admin → Order Desk
+   - Reception → Order Desk
+   - Operations Manager → Operations Monitoring Desk
+   - Production Employee → Production Floor Desk
+
+6. Every 15 minutes, the access token automatically renews using the refresh token
+   (the user never needs to log in again as long as they are active)
+
+7. When the user clicks "Logout" → the refresh token is cancelled on the server,
+   and the user is sent back to the login page
+
+================================================================================
+SECTION 4 — THE SIDEBAR NAVIGATION
+================================================================================
+
+Every page has a sidebar (left side) with navigation links. What you can see
+depends on your role:
+
+  ALL ROLES see:
+  - Dashboard 1: Order Desk
+  - Dashboard 2: Production Floor Desk
+  - Dashboard 3: Operations Monitoring Desk
+
+  ADMIN ALSO SEES:
+  - Customers
+  - Orders
+  - Employees
+  - User Management
+  - Production
+  - Payments
+  - Delivery
+  - Reports & Analytics
+
+  The sidebar also shows:
+  - The logged-in user's name and role
+  - A "Logout" button at the bottom
+
+================================================================================
+SECTION 5 — THE THREE DASHBOARDS
+================================================================================
+
+--------------------------------------------------------------------------------
+DASHBOARD 1: ORDER DESK (D1)
+--------------------------------------------------------------------------------
+
+WHO SEES IT: Admin, Reception, Operations Manager, Production Employee
+FILE: frontend/desks/order-desk/order-desk.html + order-desk.js
+
+This is the main command center. It shows:
+
+  TOP STATS (4 counter cards):
+  - Total Orders today
+  - Orders In Production
+  - Ready for Delivery
+  - Total Order Value (in Rupees)
+
+  QUICK ACTION BUTTONS:
+  - "New Order" → goes to the Order page to create a new order
+  - "New Customer" → goes to Customer page to add a new customer
+  - "Search Customer" → goes to Customer page with search focused
+
+  RECENT ORDERS TABLE:
+  - Shows the last 10-15 orders with their current stage
+  - The stage is shown as a coloured badge (e.g., "Pattern Making" in purple,
+    "Fabric Cutting" in pink, "Completed" in green)
+
+  PRODUCTION STAGE OVERVIEW:
+  - Shows how many orders are in each of the 8 stages
+  - Updates automatically every 10 seconds (live refresh)
+  - Also refreshes when you switch back to this browser tab
+
+--------------------------------------------------------------------------------
+DASHBOARD 2: PRODUCTION FLOOR DESK (D2)
+--------------------------------------------------------------------------------
+
+WHO SEES IT: Admin, Production Employee, Operations Manager, Reception
+FILE: frontend/desks/production-desk/production-desk.html + production-desk.js
+
+This is the work floor screen where production staff advance orders through stages.
+
+  TOP STATS (4 counters):
+  - Active Jobs (total orders currently in production)
+  - In Cutting & Pattern (orders in first 2 stages)
+  - In Sewing (orders in Embroidery and Main Sewing stages)
+  - In QC & Ironing (orders in Quality Check and Ironing stages)
+
+  STAGE FILTER TABS:
+  - "All" tab shows every active order
+  - Individual tabs for each of the 8 stages (Pattern Making, Fabric Cutting,
+    Embroidery, Main Sewing, Button & Fitting, Quality Check, Ironing & Press,
+    Packaging)
+  - Each tab shows a count badge (how many orders are in that stage)
+
+  MAIN PRODUCTION TABLE:
+  Each row shows one order with:
+  - Order Number (e.g., ORD-20260810-0001)
+  - Customer Name
+  - Current Production Stage (shown as a coloured badge with emoji)
+  - Assigned Staff Employee (the worker currently handling this order)
+  - Delivery Date
+  - Priority level (HIGH if order value > Rs.5,000, otherwise NORMAL)
+  - Action Button: "Advance to [Next Stage]"
+
+  HOW TO ADVANCE AN ORDER TO THE NEXT STAGE:
+  1. Find the order in the table
+  2. Click "Advance to [Next Stage]" button
+  3. A pop-up window appears showing:
+     - Which order it is (order number + customer name)
+     - The stage transition (e.g., "Pattern Making to Fabric Cutting")
+     - A dropdown list of employees who work at the NEXT stage
+       (only employees assigned to that specific stage appear)
+  4. SELECT one of the employees from the dropdown (REQUIRED — cannot skip)
+  5. Click "Confirm & Advance"
+  6. The system saves: the new stage, and the assigned employee's name
+  7. The order list refreshes automatically showing the new stage
+
+  IMPORTANT RULE: You CANNOT advance an order without selecting an employee.
+  The system will show an error if no employee is selected.
+
+  VIEW-ONLY MODE:
+  - If the logged-in user is Operations Manager, the "Advance" button is hidden
+    and replaced with a "View Only Mode" label
+  - Operations Managers can see everything but cannot make changes
+
+  AUTO-REFRESH: The board refreshes automatically every 10 seconds, and also
+  whenever the browser tab is brought back into focus.
+
+--------------------------------------------------------------------------------
+DASHBOARD 3: OPERATIONS MONITORING DESK (D3)
+--------------------------------------------------------------------------------
+
+WHO SEES IT: Admin, Operations Manager, Reception, Production Employee
+FILE: frontend/desks/operations-desk/operations-desk.html + operations-desk.js
+
+This is the executive view — a read-only overview of the entire business.
+
+  TOP STATS (4 counters):
+  - Total Orders (all time)
+  - Orders In Production (not yet completed)
+  - Ready for Delivery (completed but not yet delivered)
+  - Total Order Value (in Rupees)
+
+  STAGE PIPELINE (colour-coded):
+  Shows how many orders are in each of the 8 stages — giving a quick overview
+  of where the bottlenecks are.
+
+  FULL ORDERS TABLE:
+  - Shows all orders with their current stage
+  - Each stage has a distinctive colour and emoji icon
+  - Can search and filter orders by name, order number, or mobile
+
+  NOTE: No editing or advancing is possible from this desk — it is for
+  monitoring and reporting only.
+
+================================================================================
+SECTION 6 — THE FULL PAGES (ACCESSIBLE FROM SIDEBAR)
+================================================================================
+
+--------------------------------------------------------------------------------
+PAGE: CUSTOMERS
+--------------------------------------------------------------------------------
+
+FILE: frontend/desks/customer/customer.html + customer.js
+WHO: Admin, Reception (and other roles)
+
+This page shows all registered customers.
+
+  WHAT YOU SEE:
+  - Search bar to find a customer by name or mobile number
+  - Table showing: avatar initials, customer name, mobile number,
+                   date registered, total orders placed
+  - Pagination (20 customers per page)
+
+  WHAT YOU CAN DO:
+  - Add a new customer (Enter name + mobile number)
+  - Search for a customer
+  - Delete a customer (if they have no orders — for safety)
+
+  HOW SEARCH WORKS:
+  - As you type, the system automatically waits 400 milliseconds
+    and then sends a search to the server
+  - Results show instantly without clicking a button
+
+  WHY MOBILE NUMBER MATTERS:
+  - The mobile number is the unique ID for each customer
+  - When creating an order, you must first find the customer by their mobile
+  - If a customer does not exist, you must add them first
+
+--------------------------------------------------------------------------------
+PAGE: ORDERS
+--------------------------------------------------------------------------------
+
+FILE: frontend/desks/order/order.html + order.js
+WHO: Admin, Reception
+
+This is the master order management page.
+
+  TOP STATS (4 counters):
+  - Total orders
+  - Pending orders
+  - In Progress orders
+  - Completed orders
+
+  FILTER TABS:
+  - All / Pending / In Progress / Completed / Cancelled
+
+  ORDER TABLE shows for each order:
+  - Row number, Order number, Customer name & mobile
+  - Delivery date
+  - Total amount (and remaining balance if not fully paid)
+  - Status badge (which production stage)
+  - Payment badge (Unpaid / Partial / Paid)
+  - "View" button to see full order details
+  - "Cancel" button (only available if order is not yet completed)
+
+  CREATING A NEW ORDER:
+  1. Click "New Order" button
+  2. Enter the customer's mobile number
+  3. Click "Lookup Customer" — the system finds the customer automatically
+  4. Set the delivery date
+  5. Enter the total order amount
+  6. If the customer is paying an advance now, enter the advance amount
+     and select the payment method (Cash / UPI / Google Pay / Bank Transfer)
+  7. Click "Create Order"
+  8. The system generates a unique order number (e.g., ORD-20260810-0001)
+  9. The order starts with status "PENDING" (which maps to Pattern Making stage)
+
+  VIEWING AN ORDER:
+  - Click "View" to see all order details including:
+    design notes, measurements, materials, payment history
+
+  CANCELLING AN ORDER:
+  - Only possible if the order is still "Pending" or "In Progress"
+  - Cannot cancel a Completed or Delivered order
+
+  HOW ORDER NUMBERS ARE GENERATED:
+  - Format: ORD-YYYYMMDD-NNNN
+  - Example: ORD-20260810-0001
+  - The date is today's date, NNNN is a sequential number
+  - The system checks for duplicates and adjusts if needed
+
+--------------------------------------------------------------------------------
+PAGE: EMPLOYEES
+--------------------------------------------------------------------------------
+
+FILE: frontend/desks/employee/employee.html + employee.js
+WHO: Admin, Operations Manager (view-only)
+
+This page shows all physical production floor workers.
+
+  NOTE: System users (admin, reception, production, manager) are NOT shown
+  here — this page is specifically for production floor staff.
+
+  WHAT YOU SEE (TABLE COLUMNS):
+  - Employee Code (e.g., EMP-201)
+  - Employee Name
+  - Mobile Number
+  - Production Stage (which stage they are assigned to, shown as a badge)
+  - Department
+  - Status (Active / Inactive toggle)
+  - Actions: Edit or toggle active status
+
+  WHAT ADMIN CAN DO:
+  - Add a new employee
+  - Edit an employee (name, mobile, email, password, role, department, stage)
+  - Toggle Active / Inactive status
+
+  WHAT THE SYSTEM DOES AUTOMATICALLY:
+  - Generates employee codes sequentially (EMP-001, EMP-002, etc.)
+  - Encrypts passwords before saving
+  - Links employees to their department and role
+
+  PRODUCTION STAGE BADGES:
+  Each stage has a unique colour and emoji:
+  - Pattern Making   (purple)
+  - Fabric Cutting   (pink)
+  - Embroidery       (light purple)
+  - Main Sewing      (blue)
+  - Button & Fitting (yellow)
+  - Quality Check    (orange)
+  - Ironing & Press  (teal)
+  - Packaging        (green)
+
+--------------------------------------------------------------------------------
+PAGE: USER MANAGEMENT
+--------------------------------------------------------------------------------
+
+FILE: frontend/desks/user/user.html + user.js
+WHO: Admin only (Add button), Others can view only
+
+This page shows SYSTEM USER accounts (admin, reception, production, manager).
+These are the login accounts for staff who need dashboard access.
+
+  WHAT YOU SEE:
+  - Name, role, department, status
+  - Filter by role, department, or status
+
+  WHAT ADMIN CAN DO:
+  - Add a new system user (full name, username, mobile, password, role, department)
+  - Edit an existing user (change password)
+    → Cannot change: username or employee code (these are fixed)
+  - Toggle Active / Inactive
+
+  WHAT OTHERS CAN DO:
+  - View only (no add/edit buttons)
+
+  PASSWORD RULES:
+  - Minimum 6 characters
+  - Must match confirmation password
+  - Stored encrypted, never visible in plain text
+
+--------------------------------------------------------------------------------
+PAGE: PRODUCTION
+--------------------------------------------------------------------------------
+
+FILE: frontend/desks/production/production.html
+WHO: Admin, Production staff
+
+Shows production tracking records — which stage each order is in,
+when it started, when it finished, and who worked on it.
+
+--------------------------------------------------------------------------------
+PAGE: PAYMENTS
+--------------------------------------------------------------------------------
+
+FILE: frontend/desks/payment/payment.html
+WHO: Admin, Operations Manager
+
+Shows payment records for all orders.
+
+  Payment methods accepted:
+  - Cash
+  - UPI
+  - Google Pay
+  - Bank Transfer
+
+  When collecting final payment (at delivery time through the Delivery page),
+  the system automatically:
+  - Adds the payment amount to the order's "paid amount"
+  - Updates payment status to PAID if fully paid, or PARTIAL if still a balance
+  - Records the payment method
+
+--------------------------------------------------------------------------------
+PAGE: DELIVERY
+--------------------------------------------------------------------------------
+
+FILE: frontend/desks/delivery/delivery.html + delivery.js
+WHO: Admin, Operations Manager, Reception
+
+Two-tab interface:
+
+  TAB 1: "READY TO DELIVER"
+  - Shows orders that have status FINAL_PACKAGING or COMPLETED
+  - These are garments that are finished and waiting for the customer to pick up
+  - Each row shows: order number, customer name, delivery date, total amount,
+                    balance remaining, payment status, stage badge
+  - "Mark as Delivered" button — to record that the customer received the garment
+  - If there is a balance due, a payment collection box appears before marking delivered
+
+  TAB 2: "COMPLETED ORDERS"
+  - Shows orders with status DELIVERED
+  - Historical record of all successfully delivered garments
+  - Can search by order number, customer name, or mobile
+
+  WHAT HAPPENS WHEN YOU MARK AN ORDER AS DELIVERED:
+  1. If balance is still due → enter the payment amount and method
+  2. The system records the final payment
+  3. The order status changes to "DELIVERED"
+  4. The payment status updates to "PAID" if fully paid
+
+--------------------------------------------------------------------------------
+PAGE: REPORTS & ANALYTICS
+--------------------------------------------------------------------------------
+
+FILE: frontend/desks/report/report.html
+WHO: Admin, Operations Manager
+
+(Under development — framework is in place)
+
+================================================================================
+SECTION 7 — THE PRODUCTION WORKFLOW (HOW AN ORDER TRAVELS)
+================================================================================
+
+This section explains the entire journey of a garment order from start to finish.
+
+--------------------------------------------------------------------------------
+STEP 1: CUSTOMER VISITS / CALLS
+--------------------------------------------------------------------------------
+
+The reception person:
+  1. Opens the system → goes to Customers page
+  2. Searches for the customer by mobile number
+  3. If new → adds the customer (name + mobile)
+  4. If existing → confirms the customer is found
+
+--------------------------------------------------------------------------------
+STEP 2: CREATING THE ORDER
+--------------------------------------------------------------------------------
+
+  1. Goes to Orders page → clicks "New Order"
+  2. Enters the customer's mobile → system auto-fills customer name
+  3. Enters delivery date (when the customer wants the garment)
+  4. Enters total amount agreed
+  5. If customer is paying advance → enters advance amount + payment method
+  6. Clicks "Create Order"
+  7. System generates order number and saves with status "PENDING"
+  8. The order is now visible on:
+     - Order Desk (Dashboard 1) as a new entry
+     - Production Floor Desk (Dashboard 2) in the Pattern Making stage
+
+--------------------------------------------------------------------------------
+STEP 3: PRODUCTION STAGES (8 STAGES)
+--------------------------------------------------------------------------------
+
+Every order passes through these stages in order:
+
+  STAGE 1: PATTERN MAKING
+  - Workers: Aarav Sharma, Meera Joshi
+  - Job: Create the pattern/template for the garment
+
+  STAGE 2: FABRIC CUTTING
+  - Workers: Ramesh Kumar, Suresh Patel
+  - Job: Cut the fabric according to the pattern
+
+  STAGE 3: EMBROIDERY & WORK
+  - Workers: Fatima Begum, Zainab Khan
+  - Job: Do embroidery, zari work, or other decorative stitching
+
+  STAGE 4: MAIN SEWING
+  - Workers: Sunita Devi, Rajesh Verma
+  - Job: Main stitching to assemble the garment
+
+  STAGE 5: BUTTON & FITTING
+  - Workers: Ankit Verma, Pooja Rani
+  - Job: Attach buttons, hooks, zipper, and final fitting adjustments
+
+  STAGE 6: QUALITY CHECK (QC)
+  - Workers: Vikram Singh, Neha Gupta
+  - Job: Inspect the garment for defects and quality issues
+
+  STAGE 7: IRONING & PRESS
+  - Workers: Manoj Kumar, Deepak Yadav
+  - Job: Iron and press the garment to a finished look
+
+  STAGE 8: PACKAGING
+  - Workers: Priya Nair, Sanjay Verma
+  - Job: Fold, pack, and prepare the garment for pickup
+
+HOW ADVANCING STAGES WORKS:
+
+  A person with the right access goes to:
+  Production Floor Desk (Dashboard 2)
+
+  Finds the order in the table and clicks "Advance to [Next Stage]"
+
+  A popup appears:
+  - Shows the order details
+  - Shows the stage transition (e.g., Pattern Making to Fabric Cutting)
+  - MANDATORY: Select an employee from the list
+    → Only employees assigned to that specific NEXT stage appear
+    → Must select one — system refuses to proceed without selection
+
+  After selecting and confirming:
+  - The order's status is updated in the database to the new stage
+  - The selected employee's name is saved as "assigned to this order"
+  - The table refreshes and shows the new stage
+
+  When the FINAL stage (Packaging) is advanced:
+  - The order status changes to "COMPLETED"
+  - It moves to the Delivery page "Ready to Deliver" tab
+  - It disappears from the Production Floor board
+
+--------------------------------------------------------------------------------
+STEP 4: DELIVERY
+--------------------------------------------------------------------------------
+
+  The reception or admin person goes to the Delivery page.
+
+  Under "Ready to Deliver" tab they see the order.
+
+  Clicks "Mark as Delivered":
+  - If balance is owed → system asks for payment amount and method
+  - Enters payment → clicks "Mark Delivered"
+  - Order status changes to "DELIVERED"
+  - Payment status updates to "PAID" if fully paid
+  - The order moves to the "Completed Orders" tab
+
+  The customer receives their garment. Done!
+
+--------------------------------------------------------------------------------
+THE COMPLETE ORDER STATUS FLOW
+--------------------------------------------------------------------------------
+
+  PENDING
+  (Pattern Making stage — first stage on Production Floor)
+
+  PATTERN_MAKING
+  (advance button clicked, employee selected)
+
+  FABRIC_CUTTING
+  (advance button clicked, employee selected)
+
+  EMBROIDERY_STITCHING
+  (advance button clicked, employee selected)
+
+  MAIN_SEWING
+  (advance button clicked, employee selected)
+
+  BUTTON_FITTING
+  (advance button clicked, employee selected)
+
+  QUALITY_CHECK
+  (advance button clicked, employee selected)
+
+  IRONING_PRESS
+  (advance button clicked, employee selected)
+
+  FINAL_PACKAGING
+  (advance button clicked, employee selected)
+
+  COMPLETED
+  (appears in Delivery — "Ready to Deliver")
+
+  DELIVERED
+  (final state — appears in Delivery — "Completed Orders")
+
+  [OR at any early stage]
+  CANCELLED  (only Admin/Reception can cancel, only if not yet completed)
+
+================================================================================
+SECTION 8 — PAYMENT SYSTEM
+================================================================================
+
+Payments can be collected at two points:
+
+  1. WHEN ORDER IS CREATED (Advance Payment):
+     - Enter advance amount when creating the order
+     - Payment status becomes: PARTIAL (if advance < total) or PAID (if full)
+
+  2. AT DELIVERY (Final Payment):
+     - Collect remaining balance when customer picks up garment
+     - Payment status becomes PAID if fully settled
+
+  PAYMENT METHODS:
+  - Cash
+  - UPI
+  - Google Pay (also treated as UPI)
+  - Bank Transfer
+  - Card
+
+  PAYMENT STATUS LABELS:
+  - PENDING   → "Unpaid"  (no payment received yet)
+  - PARTIAL   → "Partial" (advance paid, balance remaining)
+  - PAID      → "Paid"    (fully paid)
+  - REFUNDED  → "Refunded" (money returned to customer)
+
+  The "Balance Due" is calculated automatically:
+  Balance = Total Amount minus Amount Paid
+
+================================================================================
+SECTION 9 — PRIORITY SYSTEM
+================================================================================
+
+Each order gets a priority level automatically:
+
+  HIGH   → Order total amount is more than Rs.5,000
+  NORMAL → Order total amount is Rs.5,000 or less
+
+  This helps production staff focus on high-value orders.
+  Priority is shown as a coloured badge on the Production Floor Desk.
+
+================================================================================
+SECTION 10 — SECURITY SYSTEM
+================================================================================
+
+  1. ENCRYPTED PASSWORDS
+     - No password is ever stored as plain text
+     - BCrypt encryption (industry standard) is used
+     - Even the database administrator cannot read passwords
+
+  2. JWT TOKENS (Digital Passes)
+     - When you log in, you receive a "digital pass" (JWT token)
+     - This pass expires in 15 minutes
+     - It automatically renews every 15 minutes using a "refresh token"
+     - The refresh token lasts 7 days
+     - If you log out, the refresh token is cancelled immediately
+
+  3. ROLE-BASED ACCESS CONTROL
+     - Every page and every action checks your role first
+     - If you try to access a page you're not allowed to → you are redirected to login
+     - Examples:
+       * Only Admin can add/delete employees
+       * Operations Manager sees everything but cannot make changes
+       * Production Employee can only see the Production Floor Desk
+
+  4. CORS (Cross-Origin Security)
+     - Only connections from approved addresses are allowed
+     - The system is set up for local network use
+
+================================================================================
+SECTION 11 — TECHNICAL FILE STRUCTURE (FOR REFERENCE)
+================================================================================
+
+  d:\ritham-erp\
+  |
+  |-- start.bat                  (Double-click to start the server)
+  |-- pom.xml                    (Java project configuration)
+  |
+  |-- frontend\                  (Everything the browser sees)
+  |   |-- index.html             (Login page — first page you see)
+  |   |-- favicon.ico            (The small icon in browser tab)
+  |   |
+  |   |-- css\                   (Visual styling files)
+  |   |   |-- variables.css      (Colour and spacing definitions)
+  |   |   |-- reset.css          (Browser style reset)
+  |   |
+  |   |-- theme\
+  |   |   |-- theme.css          (Main dark theme definitions)
+  |   |
+  |   |-- js\                    (Shared JavaScript used by all pages)
+  |   |   |-- constants.js       (All API URLs and route paths)
+  |   |   |-- utils.js           (Helper functions — format dates, show loading, etc.)
+  |   |   |-- api.js             (Handles all server communication)
+  |   |   |-- auth.js            (Login, logout, token management)
+  |   |   |-- router.js          (Page access control by role)
+  |   |
+  |   |-- components\            (Reusable page parts)
+  |   |   |-- sidebar.js         (Left navigation sidebar)
+  |   |   |-- header.js          (Top page header)
+  |   |   |-- toast.js           (Pop-up notification messages)
+  |   |
+  |   |-- desks\                 (Each section of the application)
+  |       |-- login\             (Login page)
+  |       |-- order-desk\        (Dashboard 1 — Order Desk)
+  |       |-- production-desk\   (Dashboard 2 — Production Floor)
+  |       |-- operations-desk\   (Dashboard 3 — Operations Monitor)
+  |       |-- customer\          (Customer management)
+  |       |-- order\             (Order management)
+  |       |-- employee\          (Employee directory — floor workers)
+  |       |-- user\              (System user accounts)
+  |       |-- production\        (Production tracking)
+  |       |-- payment\           (Payment records)
+  |       |-- delivery\          (Delivery management)
+  |       |-- report\            (Reports and analytics)
+  |
+  |-- src\main\
+      |-- java\com\ritham\erp\           (Java back-end code)
+      |   |-- module\
+      |   |   |-- auth\                  (Login, logout, token management)
+      |   |   |-- customer\              (Customer records)
+      |   |   |-- employee\              (Employee records)
+      |   |   |-- order\                 (Order management and payment)
+      |   |-- security\                  (JWT security configuration)
+      |   |-- common\                    (Shared utilities and error handling)
+      |
+      |-- resources\
+          |-- application.yaml           (Server configuration)
+          |-- db\migration\              (Database setup files V1 to V11)
+
+================================================================================
+SECTION 12 — COMMON TASKS (QUICK REFERENCE)
+================================================================================
+
+  TASK                                  HOW TO DO IT
+  ------------------------------------------------------------------
+  Start the system                      Double-click start.bat
+  Open the system                       Browser go to http://localhost:8080
+  Admin login                           username: admin / password: Admin@123
+  Add a new customer                    Customers page → Add Customer
+  Create a new order                    Orders page → New Order
+  Check order status                    Order Desk Dashboard or Orders page
+  Advance order to next stage           Production Floor Desk → Advance button
+  Mark order as delivered               Delivery page → Mark as Delivered
+  Add a production floor worker         Employee page → Add Employee
+  Change a user's password              User Management → Edit → Password
+  See all orders in one stage           Production Floor Desk → Stage tabs
+  Monitor overall business              Operations Monitoring Desk (D3)
+  View payment status of orders         Orders page → Payment badge column
+  ------------------------------------------------------------------
+
+================================================================================
+SECTION 13 — WHAT HAPPENS AUTOMATICALLY (NO ACTION NEEDED)
+================================================================================
+
+  1. LIVE REFRESH: All dashboards refresh automatically every 10 seconds
+     → You don't need to press Refresh manually
+
+  2. TOKEN RENEWAL: Login stays active for 7 days automatically
+     → No need to log in every day
+
+  3. ORDER NUMBERS: Generated automatically (ORD-YYYYMMDD-NNNN)
+     → No need to manually assign numbers
+
+  4. EMPLOYEE CODES: Generated automatically (EMP-001, EMP-002, etc.)
+     → No need to manually assign codes
+
+  5. PAYMENT STATUS: Updates automatically based on amounts
+     → PENDING to PARTIAL to PAID is calculated automatically
+
+  6. FOCUS REFRESH: When you switch back to a browser tab, data refreshes
+     → Always shows current information
+
+  7. SEARCH DEBOUNCE: Search waits 400ms before sending to server
+     → Prevents too many requests while you're still typing
+
+================================================================================
+SECTION 14 — TROUBLESHOOTING
+================================================================================
+
+  PROBLEM: Cannot open the system / browser shows error
+  SOLUTION: Make sure start.bat was run and wait 30 seconds for startup
+            Check that no other program is using port 8080
+
+  PROBLEM: Login fails with correct password
+  SOLUTION: Check the username is correct (lowercase only)
+            Check if the account is set to "Active"
+            Contact admin to reset password
+
+  PROBLEM: "Advance" button not working or showing "View Only"
+  SOLUTION: You may be logged in as Operations Manager (view-only role)
+            Log in with Admin or Production Employee account instead
+
+  PROBLEM: No employees showing in the advance stage popup
+  SOLUTION: Check that employees are added and set as "Active" in the
+            Employee page for the relevant stage
+
+  PROBLEM: Order not showing on Production Floor Desk
+  SOLUTION: Check the order status — if CANCELLED or DELIVERED, it won't show
+            Only active (non-cancelled, non-delivered) orders appear
+
+  PROBLEM: Customer not found when creating order
+  SOLUTION: The customer must be added first in the Customers page
+            Search is exact mobile number match — check for typos
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+
+Document created: August 2026
+System: Ritham ERP v1.0
+Company: Ritham Garments
+
+For technical support or changes, contact the system developer.

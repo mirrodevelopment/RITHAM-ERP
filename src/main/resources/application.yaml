@@ -1,0 +1,117 @@
+spring:
+  application:
+    name: ritham-erp
+  profiles:
+    active: dev
+
+  # ── DataSource ─────────────────────────────────────────────────────────────
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:ritham_erp}}
+    username: ${DB_USERNAME:ritham}
+    password: ${DB_PASSWORD:ritham123}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: RithamHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+
+  # ── JPA / Hibernate ─────────────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  # ── Flyway ──────────────────────────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true    # detect altered migration files on restart
+    repair-on-migrate: true      # auto-repair failed migrations before migrating
+
+  # ── Security ─────────────────────────────────────────────────────────────────
+  security:
+    filter:
+      order: 10
+
+  # ── Jackson ──────────────────────────────────────────────────────────────────
+  jackson:
+    default-property-inclusion: non_null
+
+  # ── Multipart file uploads ───────────────────────────────────────────────────
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+# ── Server ────────────────────────────────────────────────────────────────────
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+
+# ── Actuator ──────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,flyway,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.ritham.erp: DEBUG
+    org.springframework.security: INFO
+    org.flywaydb: INFO
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{36}) - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# ── Application custom properties ─────────────────────────────────────────────
+app:
+  jwt:
+    # BUG-9 FIX: Secret read from env variable. Set JWT_SECRET in production.
+    # Fallback dev secret is ONLY for local development — never use in production.
+    secret: ${JWT_SECRET:Uml0aGFtRVJQU3VwZXJTZWNyZXRKV1RTaWduaW5nS2V5Rm9yUHJvZHVjdGlvblVzZTI1NmJpdA==}
+    access-token-expiry-ms: 900000       # 15 minutes
+    refresh-token-expiry-ms: 604800000   # 7 days
+  cors:
+    # BUG-10 FIX: Production origins read from env variable. Set CORS_ORIGINS in deployment.
+    # Example: CORS_ORIGINS=https://myapp.example.com,http://localhost:8080
+    allowed-origins:
+      - "${CORS_ORIGIN_1:http://localhost:3000}"
+      - "${CORS_ORIGIN_2:http://localhost:5173}"
+      - "${CORS_ORIGIN_3:http://localhost:4200}"
+
+  # 📜 Historical Data Migration 📜
+  migration:
+    # Directory where uploaded scan files are stored on disk.
+    # Set MIGRATION_UPLOAD_DIR env variable in production to a persistent volume path.
+    upload-dir: ${MIGRATION_UPLOAD_DIR:D:/ritham-erp-uploads/migration}
+
+    # Tesseract OCR data path - must contain eng.traineddata (and tam.traineddata for Tamil).
+    # Default Windows Tesseract installation path.
+    # Set TESSERACT_DATA_PATH env variable if installed elsewhere.
+    tesseract-data-path: ${TESSERACT_DATA_PATH:D:/ritham-erp/tessdata}
+
+    # Primary OCR language(s). Use '+' to combine:  eng+tam  for English + Tamil.
+    ocr-language: ${OCR_LANGUAGE:eng}
+
+    # Confidence threshold (0.0 - 1.0) below which a field is flagged for human review.
+    ocr-confidence-threshold: 0.85

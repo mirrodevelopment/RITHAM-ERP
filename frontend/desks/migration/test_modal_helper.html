@@ -1,0 +1,28 @@
+﻿<!DOCTYPE html>
+<html>
+<head><title>Test Modal</title></head>
+<body>
+<script>
+fetch('/api/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ username: 'admin', password: 'Admin@123' })
+})
+.then(r => r.json())
+.then(data => {
+  const d = data.data;
+  localStorage.setItem('ritham_access_token', d.accessToken);
+  localStorage.setItem('ritham_refresh_token', d.refreshToken);
+  localStorage.setItem('ritham_user', JSON.stringify({
+    employeeId: d.employeeId,
+    fullName: d.fullName,
+    username: d.username,
+    role: d.role,
+    isGlobalAdmin: true
+  }));
+  localStorage.setItem('ritham_theme', 'white-black');
+  window.location.replace('migration.html');
+});
+</script>
+</body>
+</html>

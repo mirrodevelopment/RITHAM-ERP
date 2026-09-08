@@ -1,0 +1,250 @@
+/* ── Production Floor Desk (D2) Styles ─────────────────────────────────────── */
+
+.d2-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Floor Stats Grid */
+.d2-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+@media (max-width: 1024px) {
+  .d2-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .d2-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Stage Columns Board */
+.d2-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+  overflow-x: auto;
+  padding-bottom: var(--space-4);
+}
+
+.d2-stage-column {
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: 720px;
+}
+
+.d2-stage-header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.d2-stage-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.d2-stage-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wider);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.d2-stage-count {
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.d2-stage-body {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Production Job Card */
+.d2-job-card {
+  background-color: var(--color-bg-base);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  transition: all var(--transition-fast);
+}
+
+.d2-job-card:hover {
+  border-color: var(--color-border-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.d2-job-card.is-urgent {
+  border-left: 3px solid var(--color-danger);
+}
+
+.d2-job-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.d2-job-order-id {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.d2-job-garment {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.d2-job-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.d2-job-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.d2-job-actions .btn {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.d2-empty-column {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* ── Stage Tabs Bar ─────────────────────────────────────────────────── */
+
+.stage-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-surface-2, rgba(255,255,255,0.03));
+  border: 1px solid var(--color-border-subtle, rgba(255,255,255,0.1));
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-secondary, #A1A1AA);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.stage-tab:hover {
+  background: var(--bg-surface-3, rgba(255,255,255,0.06));
+  color: var(--color-text-primary, #FFF);
+  border-color: var(--border-strong, rgba(255,255,255,0.2));
+}
+
+.stage-tab.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #6366F1;
+  color: #FFF;
+  font-weight: 600;
+}
+
+.stage-tab-badge {
+  background: rgba(255,255,255,0.1);
+  color: var(--color-text-muted, #94A3B8);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.stage-tab.active .stage-tab-badge {
+  background: #6366F1;
+  color: #FFF;
+}
+
+/* ── Numbered Pagination Controls ────────────────────────────────────────── */
+.card-footer .pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-footer .pagination-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.card-footer .pagination-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.card-footer .pagination-btn.active {
+  background: var(--text-primary) !important;
+  border-color: var(--text-primary) !important;
+  color: var(--text-inverse) !important;
+  box-shadow: none;
+}
+
+.card-footer .pagination-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.card-footer .pagination-ellipsis {
+  color: var(--text-muted, #64748B);
+  padding: 0 4px;
+  font-size: 12px;
+  user-select: none;
+}

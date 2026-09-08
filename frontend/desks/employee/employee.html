@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Employee Management — Ritham ERP">
+  <title>Employees — Ritham ERP</title>
+
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/utilities.css">
+  <link rel="stylesheet" href="employee.css">
+</head>
+<body>
+
+  <div class="app-layout" id="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+      <!-- Header -->
+      <header class="header" id="header"></header>
+
+      <!-- Main Content -->
+      <main class="content" id="content">
+        <div class="content-inner">
+
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header-left">
+              <h1 class="page-title">Employees</h1>
+              <p class="page-subtitle">Manage staff accounts, roles, and department assignments</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-primary" id="addEmployeeBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Add Employee
+              </button>
+            </div>
+          </div>
+
+          <!-- Management Navigation Tabs -->
+          <div style="display:flex; gap:16px; border-bottom:1px solid var(--border-color, #27272a); margin-bottom:20px;">
+            <a href="../employee/employee.html" style="padding:10px 16px; font-size:14px; font-weight:600; color:var(--color-primary, #6366f1); border-bottom:2px solid var(--color-primary, #6366f1); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              Employees Directory
+            </a>
+            <a href="../user/user.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              System Users & Logins
+            </a>
+            <a href="../stage/stage.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              Worker Categories & Stages
+            </a>
+            <a href="../branch/branch.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              🏢 Company Branches
+            </a>
+            <a href="../migration/migration.html" style="padding:10px 16px; font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              📜 Historical Migration
+            </a>
+          </div>
+
+          <!-- Controls / Filter bar -->
+          <div class="card mb-6">
+            <div class="card-body-sm flex-wrap gap-4 items-center justify-between">
+              <!-- Search bar -->
+              <div class="search-bar" style="width: 280px; max-width: 100%;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="searchInput" placeholder="Search by name, mobile, code...">
+              </div>
+
+              <!-- Filter options -->
+              <div class="flex gap-3 items-center flex-wrap">
+                <select class="form-control" id="stageFilter" style="width: 190px;">
+                  <option value="">All Production Stages</option>
+                </select>
+
+                <select class="form-control" id="deptFilter" style="width: 160px;">
+                  <option value="">All Departments</option>
+                </select>
+
+                <select class="form-control" id="statusFilter" style="width: 140px;">
+                  <option value="">All Status</option>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+
+                <button class="btn btn-secondary btn-icon" id="refreshBtn" title="Refresh List">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table View Card -->
+          <div class="card">
+            <div class="table-wrapper">
+              <table class="table" id="employeeTable">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Employee Name</th>
+                    <th>Mobile</th>
+                    <th>Production Stage</th>
+                    <th>Department</th>
+                    <th style="text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="employeeTableBody">
+                  <!-- Loaded via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Card Footer / Pagination -->
+            <div class="card-footer justify-between items-center" id="paginationWrapper">
+              <div class="pagination-info" id="paginationInfo">Showing 0 of 0 employees</div>
+              <div class="pagination" id="paginationControls">
+                <!-- Loaded via JS -->
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /.content-inner -->
+      </main>
+
+    </div><!-- /.main-wrapper -->
+
+  </div><!-- /.app-layout -->
+
+  <!-- Modal Container for Create/Edit -->
+  <div id="employeeModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal modal-lg" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Add New Employee</h3>
+        <button class="btn btn-ghost btn-icon modal-close" id="modalCloseBtn" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <form id="employeeForm" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="employeeId">
+
+          <div class="form-row mb-4">
+            <div class="form-group">
+              <label class="form-label" for="fullName">Full Name <span class="required">*</span></label>
+              <input type="text" id="fullName" class="form-control" placeholder="e.g. Ramesh Kumar" required>
+              <div class="form-error" id="fullNameErr"></div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="mobileNumber">Mobile Number <span class="required">*</span></label>
+              <input type="tel" id="mobileNumber" class="form-control" placeholder="e.g. 9876543210" maxlength="10" required>
+              <div class="form-error" id="mobileNumberErr"></div>
+            </div>
+          </div>
+
+          <div class="form-row mb-4">
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label" for="stageSelect">Production Stage</label>
+              <select id="stageSelect" class="form-control">
+                <option value="">Select Production Stage (Optional)</option>
+                <option value="PATTERN_MAKING">Pattern Making</option>
+                <option value="FABRIC_CUTTING">Fabric Cutting</option>
+                <option value="EMBROIDERY_STITCHING">Embroidery & Handwork</option>
+                <option value="MAIN_SEWING">Main Sewing</option>
+                <option value="BUTTON_FITTING">Button & Fitting</option>
+                <option value="QUALITY_CHECK">Quality Check (QC)</option>
+                <option value="IRONING_PRESS">Ironing & Pressing</option>
+                <option value="FINAL_PACKAGING">Packaging & Pickup</option>
+              </select>
+              <div class="form-error" id="stageSelectErr"></div>
+            </div>
+
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label" for="departmentId">Department</label>
+              <select id="departmentId" class="form-control">
+                <option value="">Select Department (Optional)</option>
+              </select>
+              <div class="form-error" id="departmentIdErr"></div>
+            </div>
+          </div>
+
+          <div class="form-row mb-4">
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label" for="advance">Advance (₹)</label>
+              <input type="number" id="advance" class="form-control" placeholder="0" min="0" step="1" onwheel="this.blur()">
+              <div class="field-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Initial advance amount (in ₹)</div>
+              <div class="form-error" id="advanceErr"></div>
+            </div>
+
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label" for="joiningDate">Joining Date</label>
+              <input type="date" id="joiningDate" class="form-control">
+              <div class="field-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Date when employee joined</div>
+              <div class="form-error" id="joiningDateErr"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="modalCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveEmployeeBtn">
+            <span id="saveBtnText">Save Employee</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- View Employee Details Modal -->
+  <div id="viewEmployeeModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal modal-md" role="dialog" aria-modal="true" style="max-width:540px;">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 class="modal-title" id="viewModalTitle">Employee Details</h3>
+          <span id="viewModalCode" class="emp-code-badge" style="margin-top:4px; display:inline-block;"></span>
+        </div>
+        <button class="btn btn-ghost btn-icon modal-close" id="viewModalCloseBtn" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Employee Profile Header -->
+        <div style="display: flex; align-items: center; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid var(--border-default);">
+          <div id="viewAvatar" style="width: 48px; height: 48px; border-radius: 50%; background: var(--color-primary-subtle, rgba(37,99,235,0.12)); color: var(--color-primary, #2563EB); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px;">
+            --
+          </div>
+          <div>
+            <h4 id="viewFullName" style="margin: 0; font-size: 17px; font-weight: 600; color: var(--text-primary);"></h4>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;" id="viewRoleLabel"></div>
+          </div>
+          <div style="margin-left: auto;" id="viewStatusBadge"></div>
+        </div>
+
+        <!-- Details Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 13px;">
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Mobile Number</span>
+            <span id="viewMobile" style="font-weight: 500; color: var(--text-primary);">—</span>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Department</span>
+            <span id="viewDept" style="font-weight: 500; color: var(--text-primary);">—</span>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Production Stage</span>
+            <span id="viewStage" style="font-weight: 500; color: var(--text-primary);">—</span>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Email</span>
+            <span id="viewEmail" style="font-weight: 500; color: var(--text-primary);">—</span>
+          </div>
+        </div>
+
+        <!-- Advance & Joining Date Highlight Card -->
+        <div style="background: var(--bg-surface-2); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 14px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Advance Amount</span>
+            <span id="viewAdvance" style="font-size: 18px; font-weight: 700; color: var(--color-primary, #2563EB);">₹0</span>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Joining Date</span>
+            <span id="viewJoiningDate" style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin-top: 2px; display: block;">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn btn-secondary" id="viewModalCloseFooterBtn">Close</button>
+        <button type="button" class="btn btn-primary" id="viewModalEditBtn" style="display:none;">Edit Employee</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/stages.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../js/validation.js"></script>
+  <script src="../../components/toast/toast.js"></script>
+  <script src="../../components/loader/loader.js"></script>
+  <script src="../../components/modal/modal.js"></script>
+  <script src="../../components/sidebar/sidebar.js"></script>
+  <script src="../../components/header/header.js"></script>
+  <script src="employee.js"></script>
+
+</body>
+</html>
