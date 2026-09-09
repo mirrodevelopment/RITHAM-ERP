@@ -60,12 +60,12 @@ public class BlouseFormDefinition implements MeasurementFormDefinition {
     // ── Canonical key list (spec order, matches physical form top-to-bottom) ──
 
     private static final List<String> KEYS = List.of(
-            "LTH", "SHO", "HS", "HL", "HLO",
+            "LTH", "SHO", "H.S.", "H.L.", "H.LO",
             "AK", "AM", "BN", "FN",
-            "DP1_1", "DP1_2",
-            "B1", "B2", "B3",
-            "F_HOOK", "B_HOOK",
-            "LINING", "AV", "SARI"
+            "DP-1-1", "DP-1-2",
+            "B-1", "B-2", "B-3",
+            "F-HOOK", "B-HOOK",
+            "LINING", "AV.", "SARI"
     );
 
     // ── Alias map: OCR label → canonical key ──────────────────────────────────
@@ -83,21 +83,21 @@ public class BlouseFormDefinition implements MeasurementFormDefinition {
         m.put("SHO",           "SHO");  m.put("SH",           "SHO");
         m.put("SHOULDER",      "SHO");  m.put("SHOUL",        "SHO");
 
-        // HS — Half Shoulder (printed H.S.)
-        m.put("HS",            "HS");   m.put("H.S.",         "HS");
-        m.put("H.S",           "HS");   m.put("HALFSHOULDER", "HS");
-        m.put("HALFSHO",       "HS");   m.put("HS.",          "HS");
+        // H.S. — Half Shoulder (printed H.S.)
+        m.put("HS",            "H.S."); m.put("H.S.",         "H.S.");
+        m.put("H.S",           "H.S."); m.put("HALFSHOULDER", "H.S.");
+        m.put("HALFSHO",       "H.S."); m.put("HS.",          "H.S.");
 
-        // HL — Hand Length / Sleeve Length (printed H.L.)
-        m.put("HL",            "HL");   m.put("H.L.",         "HL");
-        m.put("H.L",           "HL");   m.put("HANDLENGTH",   "HL");
-        m.put("SLEEVELENGTH",  "HL");   m.put("HL.",          "HL");
-        m.put("HANDLEN",       "HL");
+        // H.L. — Hand Length / Sleeve Length (printed H.L.)
+        m.put("HL",            "H.L."); m.put("H.L.",         "H.L.");
+        m.put("H.L",           "H.L."); m.put("HANDLENGTH",   "H.L.");
+        m.put("SLEEVELENGTH",  "H.L."); m.put("HL.",          "H.L.");
+        m.put("HANDLEN",       "H.L.");
 
-        // HLO — Hand Loose / Sleeve Loose (printed H.LO)
-        m.put("HLO",           "HLO");  m.put("H.LO",         "HLO");
-        m.put("HANDLOOSE",     "HLO");  m.put("SLEEVELOOSE",  "HLO");
-        m.put("HLOOSE",        "HLO");  m.put("H.LO.",        "HLO");
+        // H.LO — Hand Loose / Sleeve Loose (printed H.LO)
+        m.put("HLO",           "H.LO"); m.put("H.LO",         "H.LO");
+        m.put("HANDLOOSE",     "H.LO"); m.put("SLEEVELOOSE",  "H.LO");
+        m.put("HLOOSE",        "H.LO"); m.put("H.LO.",        "H.LO");
 
         // AK — Armhole
         m.put("AK",            "AK");   m.put("ARMHOLE",      "AK");
@@ -116,46 +116,48 @@ public class BlouseFormDefinition implements MeasurementFormDefinition {
         m.put("FRONTNECK",     "FN");   m.put("FRONT NECK",   "FN");
         m.put("F.N",           "FN");
 
-        // DP1 — Dart Point row 1 and 2 (both printed "DP-1" on the form)
-        // Position-aware extractor resolves first→DP1_1, second→DP1_2
-        m.put("DP-1",          "DP1_1"); m.put("DP1",         "DP1_1");
-        m.put("DP",            "DP1_1"); m.put("DP-2",        "DP1_2");
-        m.put("DP2",           "DP1_2"); m.put("DP1.",        "DP1_1");
-        m.put("DP-1.",         "DP1_1");
+        // DP-1-1 / DP-1-2 — Dart Point row 1 and 2 (both printed "DP-1" on the form)
+        // Position-aware extractor resolves first→DP-1-1, second→DP-1-2
+        m.put("DP-1",          "DP-1-1"); m.put("DP1",         "DP-1-1");
+        m.put("DP",            "DP-1-1"); m.put("DP-2",        "DP-1-2");
+        m.put("DP2",           "DP-1-2"); m.put("DP1.",        "DP-1-1");
+        m.put("DP-1.",         "DP-1-1"); m.put("DP1_1",       "DP-1-1");
+        m.put("DP1_2",         "DP-1-2"); m.put("DP-1-1",      "DP-1-1");
+        m.put("DP-1-2",        "DP-1-2");
 
-        // B1 — Upper Bust (printed B-1)
-        m.put("B1",            "B1");   m.put("B-1",          "B1");
-        m.put("UPPERBUST",     "B1");   m.put("UPPER BUST",   "B1");
-        m.put("UB",            "B1");
+        // B-1 — Upper Bust (printed B-1)
+        m.put("B1",            "B-1");  m.put("B-1",          "B-1");
+        m.put("UPPERBUST",     "B-1");  m.put("UPPER BUST",   "B-1");
+        m.put("UB",            "B-1");
 
-        // B2 — Full Bust (printed B-2)
-        m.put("B2",            "B2");   m.put("B-2",          "B2");
-        m.put("FULLBUST",      "B2");   m.put("FULL BUST",    "B2");
-        m.put("CHEST",         "B2");   m.put("BUST",         "B2");
+        // B-2 — Full Bust (printed B-2)
+        m.put("B2",            "B-2");  m.put("B-2",          "B-2");
+        m.put("FULLBUST",      "B-2");  m.put("FULL BUST",    "B-2");
+        m.put("CHEST",         "B-2");  m.put("BUST",         "B-2");
 
-        // B3 — Under Bust (printed B-3)
-        m.put("B3",            "B3");   m.put("B-3",          "B3");
-        m.put("UNDERBUST",     "B3");   m.put("UNDER BUST",   "B3");
-        m.put("WAIST",         "B3");
+        // B-3 — Under Bust (printed B-3)
+        m.put("B3",            "B-3");  m.put("B-3",          "B-3");
+        m.put("UNDERBUST",     "B-3");  m.put("UNDER BUST",   "B-3");
+        m.put("WAIST",         "B-3");
 
-        // F_HOOK — Front Hook (printed F.HOOK)
-        m.put("F_HOOK",        "F_HOOK"); m.put("F.HOOK",     "F_HOOK");
-        m.put("FHOOK",         "F_HOOK"); m.put("FRONTHOOK",  "F_HOOK");
-        m.put("F.HOOK.",       "F_HOOK");
+        // F-HOOK — Front Hook (printed F.HOOK)
+        m.put("F_HOOK",        "F-HOOK"); m.put("F.HOOK",     "F-HOOK");
+        m.put("F-HOOK",        "F-HOOK"); m.put("FHOOK",      "F-HOOK");
+        m.put("FRONTHOOK",     "F-HOOK"); m.put("F.HOOK.",    "F-HOOK");
 
-        // B_HOOK — Back Hook (printed B.HOOK)
-        m.put("B_HOOK",        "B_HOOK"); m.put("B.HOOK",     "B_HOOK");
-        m.put("BHOOK",         "B_HOOK"); m.put("BACKHOOK",   "B_HOOK");
-        m.put("B.HOOK.",       "B_HOOK");
+        // B-HOOK — Back Hook (printed B.HOOK)
+        m.put("B_HOOK",        "B-HOOK"); m.put("B.HOOK",     "B-HOOK");
+        m.put("B-HOOK",        "B-HOOK"); m.put("BHOOK",      "B-HOOK");
+        m.put("BACKHOOK",      "B-HOOK"); m.put("B.HOOK.",    "B-HOOK");
 
         // LINING
         m.put("LINING",        "LINING"); m.put("LINER",      "LINING");
         m.put("LNG",           "LINING"); // only for BLOUSE — CHUDI uses LNG for its own "Lining" field
 
-        // AV — Aari Work (printed AV.)
-        m.put("AV",            "AV");   m.put("AV.",          "AV");
-        m.put("AARI",          "AV");   m.put("WORK",         "AV");
-        m.put("AARIVORK",      "AV");   m.put("AW",           "AV");
+        // AV. — Aari Work (printed AV.)
+        m.put("AV",            "AV.");  m.put("AV.",          "AV.");
+        m.put("AARI",          "AV.");  m.put("WORK",         "AV.");
+        m.put("AARIVORK",      "AV.");  m.put("AW",           "AV.");
 
         // SARI
         m.put("SARI",          "SARI"); m.put("SAREE",        "SARI");
@@ -317,7 +319,7 @@ public class BlouseFormDefinition implements MeasurementFormDefinition {
         // Filter boxes in MEASUREMENT_LEFT zone (left side of page, below header)
         List<OcrService.WordBox> measZone = wordBoxes.stream()
                 .filter(b -> b.x() <= 0.62 && b.y() >= 0.15 && b.y() <= 0.98)
-                .sorted(Comparator.comparingDouble(OcrService.WordBox::y).thenComparingDouble(OcrService.WordBox::x))
+                .sorted(Comparator.comparingDouble((OcrService.WordBox b) -> b.y()).thenComparingDouble((OcrService.WordBox b) -> b.x()))
                 .toList();
 
         if (measZone.isEmpty()) return;
@@ -360,17 +362,17 @@ public class BlouseFormDefinition implements MeasurementFormDefinition {
             }
         }
 
-        // Sort labels top-to-bottom and resolve DP1_1 vs DP1_2 ordinally
-        labels.sort(Comparator.comparingDouble(DetectedLabel::y));
+        // Sort labels top-to-bottom and resolve DP-1-1 vs DP-1-2 ordinally
+        labels.sort(Comparator.comparingDouble((DetectedLabel dl) -> dl.y()));
         List<DetectedLabel> resolvedLabels = new ArrayList<>();
         boolean seenDp1 = false;
         for (DetectedLabel dl : labels) {
             String k = dl.key();
-            if ("DP1_1".equals(k)) {
+            if ("DP-1-1".equals(k)) {
                 if (!seenDp1) {
                     seenDp1 = true;
                 } else {
-                    k = "DP1_2";
+                    k = "DP-1-2";
                 }
             }
             resolvedLabels.add(new DetectedLabel(k, dl.x(), dl.y(), dl.w(), dl.h()));
@@ -435,9 +437,9 @@ public class BlouseFormDefinition implements MeasurementFormDefinition {
             key = ALIASES.get(rawLabel.replaceAll("[.\\-\\s]+", ""));
         }
         if (key != null) {
-            // Position-aware duplicate resolution for DP1_1 / DP1_2
-            if ("DP1_1".equals(key) && raw.containsKey("DP1_1")) {
-                return "DP1_2";
+            // Position-aware duplicate resolution for DP-1-1 / DP-1-2
+            if ("DP-1-1".equals(key) && raw.containsKey("DP-1-1")) {
+                return "DP-1-2";
             }
         }
         return key;

@@ -72,6 +72,18 @@ public class MigrationDocument {
     @Column(name = "ocr_processed_image_path", length = 1000)
     private String ocrProcessedImagePath;
 
+    @Column(name = "ocr_version", length = 20)
+    @Builder.Default
+    private String ocrVersion = "2.0";
+
+    @Column(name = "template_version", length = 20)
+    @Builder.Default
+    private String templateVersion = "2.0";
+
+    @Column(name = "preprocessing_version", length = 20)
+    @Builder.Default
+    private String preprocessingVersion = "2.0";
+
     // ── Pipeline status ───────────────────────────────────────────────────────
 
     @Column(name = "ocr_status", nullable = false, length = 30)

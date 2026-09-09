@@ -11,7 +11,9 @@ import static org.assertj.core.api.Assertions.*;
 
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.Map;
+import com.ritham.erp.module.migration.service.OcrService;
 
 /**
  * Unit tests for {@link ExtractionService}.
@@ -199,25 +201,36 @@ class ExtractionServiceTest {
         }
     }
 
-    // ── Erode Field ──────────────────────────────────────────────────────────
+    // ── Order ID Field ───────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("Erode field extraction")
-    class ErodeExtraction {
+    @DisplayName("Order ID field extraction")
+    class OrderIdExtraction {
 
         @Test
-        @DisplayName("Extracts Erode number from 'Erode: 353' header line")
-        void extractsErode() {
+        @DisplayName("Extracts Order ID from 'Erode: 353' header line")
+        void extractsOrderIdFromErodeLabel() {
             ExtractedData result = service.extract(CHUDI_FULL_OCR);
-            assertThat(result.order().erode()).isEqualTo("353");
+            assertThat(result.orderId()).isEqualTo("353");
+            assertThat(result.order().orderId()).isEqualTo("353");
         }
 
         @Test
-        @DisplayName("Returns null erode when Erode label is absent")
-        void nullErodeWhenAbsent() {
+        @DisplayName("Extracts Order ID from 'Order ID: 2576' header line")
+        void extractsOrderIdFromOrderIdLabel() {
+            String ocr = "BLOUSE\nName: Test\nOrder ID: 2576\nPh. No.: 9111111111\n";
+            ExtractedData result = service.extract(ocr);
+            assertThat(result.orderId()).isEqualTo("2576");
+            assertThat(result.order().orderId()).isEqualTo("2576");
+        }
+
+        @Test
+        @DisplayName("Returns null orderId when label is absent")
+        void nullOrderIdWhenAbsent() {
             String ocr = "CHUDI\nName: Test\nPh. No.: 9111111111\n";
             ExtractedData result = service.extract(ocr);
-            assertThat(result.order().erode()).isNull();
+            assertThat(result.orderId()).isNull();
+            assertThat(result.order().orderId()).isNull();
         }
     }
 
@@ -237,59 +250,58 @@ class ExtractionServiceTest {
         @Test void fn()    { assertThat(measurements).containsEntry("FN",   "14"); }
         @Test void bn()    { assertThat(measurements).containsEntry("BN",   "13"); }
         @Test void hb()    { assertThat(measurements).containsEntry("HB",   "15"); }
-        @Test void l1()    { assertThat(measurements).containsEntry("L_1",  "40"); }
+        @Test void l1()    { assertThat(measurements).containsEntry("L",    "40"); }
         @Test void ss()    { assertThat(measurements).containsEntry("SS",   "10"); }
-        @Test void am()    { assertThat(measurements).containsEntry("AM",    "9"); }
+        @Test void am()    { assertThat(measurements).containsEntry("AM",   "9"); }
         @Test void b()     { assertThat(measurements).containsEntry("B",    "12"); }
         @Test void h()     { assertThat(measurements).containsEntry("H",    "14"); }
         @Test void ts()    { assertThat(measurements).containsEntry("TS",   "16"); }
         @Test void pl()    { assertThat(measurements).containsEntry("PL",   "40"); }
-        @Test void s()     { assertThat(measurements).containsEntry("S",     "8"); }
-        @Test void l2()    { assertThat(measurements).containsEntry("L_2",  "38"); }
-        @Test void scut()  { assertThat(measurements).containsEntry("SCUT",  "9"); }
+        @Test void s()     { assertThat(measurements).containsEntry("S",    "8"); }
+        @Test void l2()    { assertThat(measurements).containsEntry("L-2",  "38"); }
+        @Test void scut()  { assertThat(measurements).containsEntry("SCUT", "9"); }
         @Test void lng()   { assertThat(measurements).containsEntry("LNG",  "44"); }
         @Test void shall() { assertThat(measurements).containsEntry("SHALL", "2"); }
-        @Test void bd()    { assertThat(measurements).containsEntry("BD",    "6"); }
+        @Test void bd()    { assertThat(measurements).containsEntry("BD",   "6"); }
 
         // ── Duplicate field preservation ──────────────────────────────────────
 
         @Test
-        @DisplayName("SL_1 (first sleeve row) is distinct from SL_2 (second sleeve row)")
+        @DisplayName("SL-1 (first sleeve row) is distinct from SL-2 (second sleeve row)")
         void sl1AndSl2AreSeparate() {
-            assertThat(measurements).containsKey("SL_1");
-            assertThat(measurements).containsKey("SL_2");
+            assertThat(measurements).containsKey("SL-1");
+            assertThat(measurements).containsKey("SL-2");
         }
 
         @Test
-        @DisplayName("SL_1 value is correctly assigned to first SL row")
+        @DisplayName("SL-1 value is correctly assigned to first SL row")
         void sl1Value() {
-            assertThat(measurements.get("SL_1")).isEqualTo("11");
+            assertThat(measurements.get("SL-1")).isEqualTo("11");
         }
 
         @Test
-        @DisplayName("SL_2 value is correctly assigned to second SL row")
+        @DisplayName("SL-2 value is correctly assigned to second SL row")
         void sl2Value() {
-            assertThat(measurements.get("SL_2")).isEqualTo("11");
+            assertThat(measurements.get("SL-2")).isEqualTo("11");
         }
 
         @Test
-        @DisplayName("L_1 (top length) is distinct from L_2 (leg loose)")
+        @DisplayName("L (top length) is distinct from L-2 (leg loose)")
         void l1AndL2AreSeparate() {
-            assertThat(measurements).containsKey("L_1");
-            assertThat(measurements).containsKey("L_2");
+            assertThat(measurements).containsKey("L");
+            assertThat(measurements).containsKey("L-2");
         }
 
         @Test
-        @DisplayName("L_1 (top length) and L_2 (leg loose) have different values")
+        @DisplayName("L (top length) and L-2 (leg loose) have different values")
         void l1AndL2HaveDifferentValues() {
-            assertThat(measurements.get("L_1")).isEqualTo("40");
-            assertThat(measurements.get("L_2")).isEqualTo("38");
+            assertThat(measurements.get("L")).isEqualTo("40");
+            assertThat(measurements.get("L-2")).isEqualTo("38");
         }
 
         @Test
-        @DisplayName("Measurement map contains exactly 18 CHUDI fields")
+        @DisplayName("Measurement map contains up to 18 CHUDI fields")
         void measurementCountIsEighteen() {
-            // Some fields may be absent if OCR produced no value, so we check ≤ 18
             assertThat(measurements.size()).isLessThanOrEqualTo(18);
         }
     }
@@ -310,35 +322,35 @@ class ExtractionServiceTest {
         }
 
         @Test void garmentType() { assertThat(result.order().garmentType()).isEqualTo("BLOUSE"); }
-        @Test void erode()       { assertThat(result.order().erode()).isEqualTo("2576"); }
+        @Test void orderId()     { assertThat(result.orderId()).isEqualTo("2576"); }
 
         @Test void lth()   { assertThat(measurements).containsEntry("LTH",    "14.5"); }
         @Test void sho()   { assertThat(measurements).containsEntry("SHO",    "14"); }
-        @Test void hs()    { assertThat(measurements).containsEntry("HS",     "6.5"); }
-        @Test void hl()    { assertThat(measurements).containsEntry("HL",     "7"); }
-        @Test void hlo()   { assertThat(measurements).containsEntry("HLO",    "12"); }
+        @Test void hs()    { assertThat(measurements).containsEntry("H.S.",   "6.5"); }
+        @Test void hl()    { assertThat(measurements).containsEntry("H.L.",   "7"); }
+        @Test void hlo()   { assertThat(measurements).containsEntry("H.LO",   "12"); }
         @Test void ak()    { assertThat(measurements).containsEntry("AK",     "16"); }
         @Test void am()    { assertThat(measurements).containsEntry("AM",     "13"); }
         @Test void bn()    { assertThat(measurements).containsEntry("BN",     "8.5"); }
         @Test void fn()    { assertThat(measurements).containsEntry("FN",     "6.5"); }
-        @Test void b1()    { assertThat(measurements).containsEntry("B1",     "34"); }
-        @Test void b2()    { assertThat(measurements).containsEntry("B2",     "36"); }
-        @Test void b3()    { assertThat(measurements).containsEntry("B3",     "31"); }
-        @Test void fhook() { assertThat(measurements).containsEntry("F_HOOK", "1"); }
-        @Test void bhook() { assertThat(measurements).containsEntry("B_HOOK", "0"); }
+        @Test void b1()    { assertThat(measurements).containsEntry("B-1",    "34"); }
+        @Test void b2()    { assertThat(measurements).containsEntry("B-2",    "36"); }
+        @Test void b3()    { assertThat(measurements).containsEntry("B-3",    "31"); }
+        @Test void fhook() { assertThat(measurements).containsEntry("F-HOOK", "1"); }
+        @Test void bhook() { assertThat(measurements).containsEntry("B-HOOK", "0"); }
         @Test void lining(){ assertThat(measurements).containsEntry("LINING", "1"); }
-        @Test void av()    { assertThat(measurements).containsEntry("AV",     "1"); }
+        @Test void av()    { assertThat(measurements).containsEntry("AV.",    "1"); }
         @Test void sari()  { assertThat(measurements).containsEntry("SARI",   "Green silk"); }
 
         // ── Duplicate DP-1 row preservation ───────────────────────────────────
 
         @Test
-        @DisplayName("DP1_1 (first DP-1 row) is distinct from DP1_2 (second DP-1 row)")
+        @DisplayName("DP-1-1 (first DP-1 row) is distinct from DP-1-2 (second DP-1 row)")
         void dp1AndDp2AreSeparate() {
-            assertThat(measurements).containsKey("DP1_1");
-            assertThat(measurements).containsKey("DP1_2");
-            assertThat(measurements.get("DP1_1")).isEqualTo("9.5");
-            assertThat(measurements.get("DP1_2")).isEqualTo("12.5");
+            assertThat(measurements).containsKey("DP-1-1");
+            assertThat(measurements).containsKey("DP-1-2");
+            assertThat(measurements.get("DP-1-1")).isEqualTo("9.5");
+            assertThat(measurements.get("DP-1-2")).isEqualTo("12.5");
         }
     }
 
@@ -401,10 +413,114 @@ class ExtractionServiceTest {
                     .isEqualTo(original.order().garmentType());
             assertThat(restored.order().measurements())
                     .isEqualTo(original.order().measurements());
-            assertThat(restored.order().erode())
-                    .isEqualTo(original.order().erode());
-            assertThat(restored.customer().customerMobile())
-                    .isEqualTo(original.customer().customerMobile());
+            assertThat(restored.orderId())
+                    .isEqualTo(original.orderId());
+            assertThat(restored.customerName())
+                    .isEqualTo(original.customerName());
+            assertThat(restored.mobileNo())
+                    .isEqualTo(original.mobileNo());
+        }
+    }
+
+    // ── Cloth Field Not Extracted ─────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Cloth field is not extracted")
+    class ClothNotExtracted {
+
+        @Test
+        @DisplayName("Does not extract cloth even if present in header")
+        void ignoresClothHeader() {
+            String ocr = """
+                    BLOUSE
+                    Name: Sangeetha
+                    Cloth: Pure Silk
+                    Ph. No.: 9842109876
+                    LTH 14.5
+                    """;
+            ExtractedData result = service.extract(ocr);
+            assertThat(result.measurements()).doesNotContainKey("CLOTH");
+            String json = service.toJson(result);
+            assertThat(json).doesNotContain("\"cloth\"");
+        }
+    }
+
+    // ── Strict Top-Center Garment Detection ──────────────────────────────────
+
+    @Nested
+    @DisplayName("Strict Top-Center Garment Detection")
+    class StrictTopCenterGarmentDetection {
+
+        @Test
+        @DisplayName("Does NOT infer garment type from measurement names when header is missing")
+        void doesNotInferGarmentFromMeasurements() {
+            // Document has classic blouse measurement names, but NO garment type in the header
+            String ocrWithoutGarmentHeader = """
+                    Name: Anitha
+                    Ph. No.: 9876543210
+                    Date: 01/05/2024
+                    LTH    14.5
+                    SHO    14
+                    F.HOOK 1
+                    B.HOOK 0
+                    LINING 1
+                    """;
+            ExtractedData result = service.extract(ocrWithoutGarmentHeader);
+            // Per spec: must NOT infer from measurement names, must mark as NEEDS_REVIEW
+            assertThat(result.order().garmentType()).isEqualTo("NEEDS_REVIEW");
+            assertThat(result.order().garmentTypeConfidence()).isEqualTo(0.0);
+        }
+    }
+
+    // ── Spatial Coordinates and Color-coded Regions ──────────────────────────
+
+    @Nested
+    @DisplayName("Spatial Coordinates and Color-coded Regions")
+    class SpatialAndColorBoundingBoxes {
+
+        @Test
+        @DisplayName("Produces exact color regions and micro-regions from WordBoxes")
+        void producesColorCodedRegions() {
+            List<OcrService.WordBox> wordBoxes = List.of(
+                    new OcrService.WordBox("BLOUSE", 0.45, 0.05, 0.12, 0.03, 95.0f),
+                    new OcrService.WordBox("Name:", 0.05, 0.12, 0.08, 0.02, 95.0f),
+                    new OcrService.WordBox("Radhika", 0.14, 0.12, 0.10, 0.02, 95.0f),
+                    new OcrService.WordBox("Erode:", 0.05, 0.16, 0.07, 0.02, 95.0f),
+                    new OcrService.WordBox("452", 0.13, 0.16, 0.05, 0.02, 95.0f),
+                    new OcrService.WordBox("9876543210", 0.65, 0.12, 0.12, 0.02, 95.0f),
+                    new OcrService.WordBox("LTH", 0.05, 0.28, 0.06, 0.02, 95.0f),
+                    new OcrService.WordBox("14.5", 0.15, 0.28, 0.05, 0.02, 95.0f)
+            );
+
+            String rawOcr = "BLOUSE\nName: Radhika\nErode: 452\n9876543210\nLTH 14.5\n";
+            ExtractedData result = service.extract(rawOcr, wordBoxes, "PORTRAIT");
+
+            assertThat(result.order().garmentType()).isEqualTo("BLOUSE");
+            assertThat(result.customer().customerName()).isEqualToIgnoringCase("Radhika");
+            assertThat(result.orderId()).isEqualTo("452");
+            assertThat(result.customer().customerMobile()).isEqualTo("9876543210");
+
+            // Verify color palettes:
+            // BLUE: #2563eb (Customer Info)
+            // GREEN: #16a34a (Order ID)
+            // PURPLE: #9333ea (Garment Type)
+            // RED: #dc2626 (Phone & Dates)
+            // ORANGE: #ea580c (Measurements)
+            Map<String, ExtractedData.RegionBox> regions = result.regions();
+            assertThat(regions).isNotNull();
+            assertThat(regions.get("customerRegion").color()).isEqualTo("#2563eb");
+            assertThat(regions.get("garmentRegion").color()).isEqualTo("#9333ea");
+            assertThat(regions.get("dateMobileRegion").color()).isEqualTo("#dc2626");
+            assertThat(regions.get("measurementRegion").color()).isEqualTo("#ea580c");
+
+            // Verify micro-regions for click-to-highlight
+            assertThat(regions).containsKey("field_revCustomerName");
+            assertThat(regions).containsKey("field_revOrderId");
+            assertThat(regions.get("field_revOrderId").color()).isEqualTo("#16a34a");
+            assertThat(regions).containsKey("field_revGarmentType");
+            assertThat(regions.get("field_revGarmentType").color()).isEqualTo("#9333ea");
+            assertThat(regions).containsKey("field_revCustomerMobile");
+            assertThat(regions).containsKey("meas_LTH");
         }
     }
 }

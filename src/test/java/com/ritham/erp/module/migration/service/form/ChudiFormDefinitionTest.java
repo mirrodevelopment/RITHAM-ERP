@@ -33,8 +33,8 @@ class ChudiFormDefinitionTest {
     void canonicalKeysCount() {
         List<String> keys = def.canonicalKeys();
         assertThat(keys).containsExactly(
-                "FN", "BN", "HB", "L_1", "SS", "SL_1", "SL_2",
-                "AM", "B", "H", "TS", "PL", "S", "L_2",
+                "FN", "BN", "HB", "L", "SS", "SL-1", "SL-2",
+                "AM", "B", "H", "TS", "PL", "S", "L-2",
                 "SCUT", "LNG", "SHALL", "BD"
         );
     }
@@ -68,17 +68,17 @@ class ChudiFormDefinitionTest {
         assertThat(meas).containsEntry("FN", "14");
         assertThat(meas).containsEntry("BN", "13");
         assertThat(meas).containsEntry("HB", "15");
-        assertThat(meas).containsEntry("L_1", "40");
+        assertThat(meas).containsEntry("L", "40");
         assertThat(meas).containsEntry("SS", "10");
-        assertThat(meas).containsEntry("SL_1", "11");
-        assertThat(meas).containsEntry("SL_2", "11");
+        assertThat(meas).containsEntry("SL-1", "11");
+        assertThat(meas).containsEntry("SL-2", "11");
         assertThat(meas).containsEntry("AM", "9");
         assertThat(meas).containsEntry("B", "12");
         assertThat(meas).containsEntry("H", "14");
         assertThat(meas).containsEntry("TS", "16");
         assertThat(meas).containsEntry("PL", "40");
         assertThat(meas).containsEntry("S", "8");
-        assertThat(meas).containsEntry("L_2", "38");
+        assertThat(meas).containsEntry("L-2", "38");
         assertThat(meas).containsEntry("SCUT", "9");
         assertThat(meas).containsEntry("LNG", "44");
         assertThat(meas).containsEntry("SHALL", "2");

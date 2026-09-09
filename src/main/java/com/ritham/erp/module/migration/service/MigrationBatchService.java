@@ -214,6 +214,17 @@ public class MigrationBatchService {
             Path storedPath = dir.resolve(fileName);
             Files.write(storedPath, file.getBytes());
 
+            // Measurement slips are landscape forms — if image was uploaded in portrait (h > w), rotate 270 deg to landscape
+            try {
+                java.awt.image.BufferedImage uploadedImg = javax.imageio.ImageIO.read(storedPath.toFile());
+                if (uploadedImg != null && uploadedImg.getHeight() > uploadedImg.getWidth()) {
+                    ocrService.rotateImageOnDisk(storedPath, 270);
+                    log.info("Auto-rotated uploaded portrait image {} to landscape", fileName);
+                }
+            } catch (Exception ex) {
+                log.warn("Could not check/orient uploaded image {}: {}", fileName, ex.getMessage());
+            }
+
             MigrationDocument doc = MigrationDocument.builder()
                     .batch(batch)
                     .documentCode(docCode)
@@ -329,6 +340,18 @@ public class MigrationBatchService {
         int normAngle = ((rotateAngle % 360) + 360) % 360;
         if (normAngle != 0) {
             ocrService.rotateImageOnDisk(Paths.get(doc.getFilePath()), normAngle);
+        } else {
+            // Ensure document on disk is in landscape orientation (h > w -> rotate 270)
+            try {
+                Path fp = Paths.get(doc.getFilePath());
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(fp.toFile());
+                if (img != null && img.getHeight() > img.getWidth()) {
+                    ocrService.rotateImageOnDisk(fp, 270);
+                    log.info("Rescan auto-rotated portrait image {} to landscape", doc.getDocumentCode());
+                }
+            } catch (Exception ex) {
+                log.warn("Could not check/orient image on rescan for {}: {}", doc.getDocumentCode(), ex.getMessage());
+            }
         }
 
         // runOcr will execute OCR and automatically runExtraction with wordBoxes
@@ -398,7 +421,7 @@ public class MigrationBatchService {
         MigrationDocument doc = getDocument(documentId);
 
         String status = switch (req.action().toUpperCase(Locale.ROOT)) {
-            case "APPROVED" -> {
+            case "APPROVED", "VERIFIED" -> {
                 // Enforce minimum 50% field completion before allowing approval
                 String dataJson = req.correctedDataJson() != null && !req.correctedDataJson().isBlank()
                         ? req.correctedDataJson() : doc.effectiveDataJson();

@@ -436,6 +436,79 @@ public class MigrationController {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // PAGE CONVENIENCE ENDPOINTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * POST /api/migration/pages/{id}/review
+     * Review/update page extraction.
+     */
+    @PostMapping("/pages/{id}/review")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    public ResponseEntity<ApiResponse<MigrationDocumentResponse>> savePageReview(
+            @PathVariable Long id,
+            @RequestBody MigrationReviewRequest req) {
+        return saveReview(id, req);
+    }
+
+    /**
+     * POST /api/migration/pages/{id}/verify
+     * Verify/Approve a page.
+     */
+    @PostMapping("/pages/{id}/verify")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    public ResponseEntity<ApiResponse<MigrationDocumentResponse>> verifyPage(
+            @PathVariable Long id,
+            @RequestBody(required = false) MigrationReviewRequest req) {
+        if (req == null) {
+            req = new MigrationReviewRequest(MigrationDocumentStatus.VERIFIED.name(), null, "Page verified by reviewer", null, false);
+        } else if (req.action() == null || req.action().isBlank()) {
+            req = new MigrationReviewRequest(MigrationDocumentStatus.VERIFIED.name(), req.correctedDataJson(), req.remarks(), req.matchedCustomerMobile(), req.updateCustomerProfile());
+        }
+        return saveReview(id, req);
+    }
+
+    /**
+     * POST /api/migration/pages/{id}/reject
+     * Reject a page.
+     */
+    @PostMapping("/pages/{id}/reject")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    public ResponseEntity<ApiResponse<MigrationDocumentResponse>> rejectPage(
+            @PathVariable Long id,
+            @RequestBody(required = false) MigrationReviewRequest req) {
+        if (req == null) {
+            req = new MigrationReviewRequest(MigrationDocumentStatus.REJECTED.name(), null, "Page rejected by reviewer", null, false);
+        } else if (req.action() == null || req.action().isBlank()) {
+            req = new MigrationReviewRequest(MigrationDocumentStatus.REJECTED.name(), req.correctedDataJson(), req.remarks(), req.matchedCustomerMobile(), req.updateCustomerProfile());
+        }
+        return saveReview(id, req);
+    }
+
+    /**
+     * GET /api/migration/pages/{id}/matches
+     * Matches for a page.
+     */
+    @GetMapping("/pages/{id}/matches")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    public ResponseEntity<ApiResponse<CustomerMatchingService.MatchResult>> getPageMatches(
+            @PathVariable Long id) {
+        return getMatches(id);
+    }
+
+    /**
+     * POST /api/migration/pages/{id}/import
+     * Import a verified page.
+     */
+    @PostMapping("/pages/{id}/import")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER')")
+    public ResponseEntity<ApiResponse<MigrationImportSummary>> importPage(
+            @PathVariable Long id,
+            @RequestBody(required = false) MigrationReviewRequest req) {
+        return importDocument(id, req);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // INLINE SUMMARY RECORDS  (avoid extra DTO files)
     // ═══════════════════════════════════════════════════════════════════════
 

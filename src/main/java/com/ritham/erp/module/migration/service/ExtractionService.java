@@ -6,7 +6,6 @@ import com.ritham.erp.module.migration.dto.ExtractedData.ExtractedCustomerData;
 import com.ritham.erp.module.migration.dto.ExtractedData.ExtractedOrderData;
 import com.ritham.erp.module.migration.service.form.FormDefinitionRegistry;
 import com.ritham.erp.module.migration.service.form.MeasurementFormDefinition;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -64,7 +63,7 @@ public class ExtractionService {
             Pattern.compile("(?<![\\d])([6-9]\\d{9})(?![\\d])");
 
     private static final Pattern DATE_PATTERN =
-            Pattern.compile("(\\d{1,2})[/\\-\\.\\|](\\d{1,2})[/\\-\\.\\|](\\d{2,4})");
+            Pattern.compile("(\\d{1,2})[/\\-\\.\\|\\]\\[\\}\\)\\s]+(\\d{1,2})[/\\-\\.\\|\\]\\[\\}\\)\\s]+(\\d{2,4})");
 
     private static final Pattern AMOUNT_PATTERN =
             Pattern.compile("(?:Rs\\.?|₹|INR)?\\s*(\\d+(?:[.,]\\d{1,2})?)");
@@ -178,11 +177,8 @@ public class ExtractionService {
         double orderDateConf    = orderDate != null ? 0.82 : 0.0;
         double deliveryDateConf = deliveryDate != null ? 0.80 : 0.0;
 
-        // ── Erode (Header field) ──────────────────────────────────────────────
-        String erode = extractErode(rawText, wordBoxes);
-
-        // ── Cloth (Header center field) ───────────────────────────────────────
-        String cloth = extractCloth(lines, wordBoxes, rawText);
+        // ── Order ID (Header field, physical label often Erode : or Order ID :) ─────
+        String orderId = extractOrderId(rawText, wordBoxes);
 
         // ── Garment ───────────────────────────────────────────────────────────
         // Strictly detected from the TOP-CENTER / header area.
@@ -247,57 +243,38 @@ public class ExtractionService {
                 advance, advConf,
                 paymentDateKnown,
                 orderNeedsReview,
-                erode,
-                cloth
+                orderId
         );
 
         double overall = calculateCompletionRatio(new ExtractedData(customer, order, 0.0));
 
-        // ── Dynamic Annotation Regions (Orientation-Aware & Text-Anchored) ────
+        // ── Dynamic Annotation Regions (Text-Anchored) ───────────────────────
         Map<String, ExtractedData.RegionBox> dynamicRegions = computeDynamicRegions(
-                wordBoxes, orientation, garment, measurements, name, mobile, orderDate, deliveryDate, erode, cloth);
+                wordBoxes, garment, measurements, name, mobile, orderDate, deliveryDate, orderId);
 
         return new ExtractedData(customer, order, overall, dynamicRegions, orientation != null ? orientation : "PORTRAIT");
     }
 
     private Map<String, ExtractedData.RegionBox> computeDynamicRegions(
             List<OcrService.WordBox> wordBoxes,
-            String orientation,
             String garmentType,
             Map<String, String> measurements,
             String customerName,
             String customerMobile,
             String orderDate,
             String deliveryDate,
-            String erode,
-            String cloth
+            String orderId
     ) {
         Map<String, ExtractedData.RegionBox> regions = new LinkedHashMap<>();
-        boolean isLandscape = "LANDSCAPE".equalsIgnoreCase(orientation);
-
-        // Auto-detect if raw OCR text indicates sideways scan
-        if (!isLandscape && wordBoxes != null && !wordBoxes.isEmpty()) {
-            int validCount = 0;
-            int totalLen = 0;
-            for (OcrService.WordBox wb : wordBoxes) {
-                if (wb.text() != null && !wb.text().isBlank()) {
-                    validCount++;
-                    totalLen += wb.text().trim().length();
-                }
-            }
-            double avgLen = validCount > 0 ? (double) totalLen / validCount : 20.0;
-            if (validCount >= 6 && avgLen < 8.0) {
-                isLandscape = true;
-            }
-        }
 
         final String COLOR_BLUE = "#2563eb";
         final String COLOR_GREEN = "#16a34a";
+        final String COLOR_PURPLE = "#9333ea";
         final String COLOR_RED = "#dc2626";
         final String COLOR_ORANGE = "#ea580c";
 
-        if (wordBoxes != null && !wordBoxes.isEmpty() && !isLandscape) {
-            // ── 1. Customer Name & Erode (BLUE #2563eb) ──────────────────────────
+        if (wordBoxes != null && !wordBoxes.isEmpty()) {
+            // ── 1. Customer Name (BLUE #2563eb) & Order ID (GREEN #16a34a) ───────
             List<OcrService.WordBox> custNameBoxes = new ArrayList<>();
             Set<String> nameWords = new HashSet<>();
             if (customerName != null) {
@@ -326,31 +303,31 @@ public class ExtractionService {
                 regions.put("field_revCustomerName", fieldCustName);
             }
 
-            List<OcrService.WordBox> erodeBoxes = new ArrayList<>();
+            List<OcrService.WordBox> orderIdBoxes = new ArrayList<>();
             for (OcrService.WordBox wb : wordBoxes) {
                 if (wb.y() <= 0.35 && wb.x() <= 0.60) {
                     String u = wb.text().toUpperCase();
-                    if (u.contains("ERODE") || (erode != null && !erode.isBlank() && wb.text().contains(erode))) {
-                        erodeBoxes.add(wb);
+                    if (u.contains("ORDER") || u.contains("ERODE") || (orderId != null && !orderId.isBlank() && wb.text().contains(orderId))) {
+                        orderIdBoxes.add(wb);
                     }
                 }
             }
-            ExtractedData.RegionBox fieldErode = createBoundingBox(erodeBoxes, 0.02, 0.01,
-                    COLOR_BLUE, "Erode #", List.of("revErode"));
-            if (fieldErode != null) {
-                regions.put("field_revErode", fieldErode);
+            ExtractedData.RegionBox fieldOrderId = createBoundingBox(orderIdBoxes, 0.02, 0.01,
+                    COLOR_GREEN, "Order ID", List.of("revOrderId"));
+            if (fieldOrderId != null) {
+                regions.put("field_revOrderId", fieldOrderId);
             }
 
             List<OcrService.WordBox> allCustBoxes = new ArrayList<>();
             allCustBoxes.addAll(custNameBoxes);
-            allCustBoxes.addAll(erodeBoxes);
+            allCustBoxes.addAll(orderIdBoxes);
             ExtractedData.RegionBox custRegion = createBoundingBox(allCustBoxes, 0.025, 0.015,
-                    COLOR_BLUE, "Customer Info (Name / Erode)", List.of("revCustomerName", "revErode"));
+                    COLOR_BLUE, "Customer Info (Name / Order ID)", List.of("revCustomerName", "revOrderId"));
             if (custRegion != null) {
                 regions.put("customerRegion", custRegion);
             }
 
-            // ── 2. Garment Type & Cloth (GREEN #16a34a) ──────────────────────────
+            // ── 2. Garment Type (PURPLE #9333ea) ──────────────────────────────────
             List<OcrService.WordBox> garmBoxes = new ArrayList<>();
             String gKey = (garmentType != null && !"NEEDS_REVIEW".equals(garmentType)) ? garmentType.toUpperCase() : "CHUDI";
             for (OcrService.WordBox wb : wordBoxes) {
@@ -362,7 +339,7 @@ public class ExtractionService {
                 }
             }
             ExtractedData.RegionBox fieldGarment = createBoundingBox(garmBoxes, 0.02, 0.01,
-                    COLOR_GREEN, "Garment Type", List.of("revGarmentType"));
+                    COLOR_PURPLE, "Garment Type", List.of("revGarmentType"));
             if (fieldGarment != null) {
                 if (fieldGarment.h() > 0.18) {
                     fieldGarment = new ExtractedData.RegionBox(
@@ -371,36 +348,7 @@ public class ExtractionService {
                     );
                 }
                 regions.put("field_revGarmentType", fieldGarment);
-            }
-
-            List<OcrService.WordBox> clothBoxes = new ArrayList<>();
-            for (OcrService.WordBox wb : wordBoxes) {
-                if (wb.y() <= 0.35) {
-                    String u = wb.text().toUpperCase();
-                    if (u.contains("CLOTH") || (cloth != null && !cloth.isBlank() && u.contains(cloth.toUpperCase()))) {
-                        clothBoxes.add(wb);
-                    }
-                }
-            }
-            ExtractedData.RegionBox fieldCloth = createBoundingBox(clothBoxes, 0.02, 0.01,
-                    COLOR_GREEN, "Cloth", List.of("revCloth"));
-            if (fieldCloth != null) {
-                regions.put("field_revCloth", fieldCloth);
-            }
-
-            List<OcrService.WordBox> allGarmentBoxes = new ArrayList<>();
-            allGarmentBoxes.addAll(garmBoxes);
-            allGarmentBoxes.addAll(clothBoxes);
-            ExtractedData.RegionBox garmRegion = createBoundingBox(allGarmentBoxes, 0.02, 0.01,
-                    COLOR_GREEN, "Garment Type & Cloth", List.of("revGarmentType", "revCloth"));
-            if (garmRegion != null) {
-                if (garmRegion.h() > 0.20) {
-                    garmRegion = new ExtractedData.RegionBox(
-                            garmRegion.x(), garmRegion.y(), garmRegion.w(), 0.10,
-                            garmRegion.color(), garmRegion.label(), garmRegion.fields()
-                    );
-                }
-                regions.put("garmentRegion", garmRegion);
+                regions.put("garmentRegion", fieldGarment);
             }
 
             // ── 3. Phone & Dates (RED #dc2626) ───────────────────────────────────
@@ -525,40 +473,25 @@ public class ExtractionService {
             }
             double spanH = textMaxY - textMinY;
 
-            if (isLandscape) {
-                regions.putIfAbsent("dateMobileRegion", new ExtractedData.RegionBox(
-                        0.015, 0.020, 0.140, 0.350, COLOR_RED, "Phone & Dates", List.of("revOrderDate", "revCustomerMobile", "revDeliveryDate")
-                ));
-                regions.putIfAbsent("garmentRegion", new ExtractedData.RegionBox(
-                        0.015, 0.380, 0.140, 0.170, COLOR_GREEN, "Garment Type & Cloth", List.of("revGarmentType", "revCloth")
-                ));
-                regions.putIfAbsent("customerRegion", new ExtractedData.RegionBox(
-                        0.015, 0.560, 0.140, 0.400, COLOR_BLUE, "Customer Info (Name / Erode)", List.of("revCustomerName", "revErode")
-                ));
-                regions.putIfAbsent("measurementRegion", new ExtractedData.RegionBox(
-                        0.165, 0.020, 0.815, 0.940, COLOR_ORANGE, "Measurements", Collections.emptyList()
-                ));
-            } else {
-                double rGarmentY = Math.round((textMinY) * 1000.0) / 1000.0;
-                double rGarmentH = Math.round((spanH * 0.09) * 1000.0) / 1000.0;
-                double rHeaderY = Math.round((textMinY + spanH * 0.11) * 1000.0) / 1000.0;
-                double rHeaderH = Math.round((spanH * 0.16) * 1000.0) / 1000.0;
-                double rMeasY = Math.round((textMinY + spanH * 0.29) * 1000.0) / 1000.0;
-                double rMeasH = Math.round((spanH * 0.70) * 1000.0) / 1000.0;
+            double rGarmentY = Math.round((textMinY) * 1000.0) / 1000.0;
+            double rGarmentH = Math.round((spanH * 0.09) * 1000.0) / 1000.0;
+            double rHeaderY = Math.round((textMinY + spanH * 0.11) * 1000.0) / 1000.0;
+            double rHeaderH = Math.round((spanH * 0.16) * 1000.0) / 1000.0;
+            double rMeasY = Math.round((textMinY + spanH * 0.29) * 1000.0) / 1000.0;
+            double rMeasH = Math.round((spanH * 0.70) * 1000.0) / 1000.0;
 
-                regions.putIfAbsent("garmentRegion", new ExtractedData.RegionBox(
-                        0.25, rGarmentY, 0.50, rGarmentH, COLOR_GREEN, "Garment Type & Cloth", List.of("revGarmentType", "revCloth")
-                ));
-                regions.putIfAbsent("customerRegion", new ExtractedData.RegionBox(
-                        0.04, rHeaderY, 0.44, rHeaderH, COLOR_BLUE, "Customer Info (Name / Erode)", List.of("revCustomerName", "revErode")
-                ));
-                regions.putIfAbsent("dateMobileRegion", new ExtractedData.RegionBox(
-                        0.50, rHeaderY, 0.46, rHeaderH, COLOR_RED, "Phone & Dates", List.of("revOrderDate", "revCustomerMobile", "revDeliveryDate")
-                ));
-                regions.putIfAbsent("measurementRegion", new ExtractedData.RegionBox(
-                        0.02, rMeasY, 0.96, rMeasH, COLOR_ORANGE, "Measurements", Collections.emptyList()
-                ));
-            }
+            regions.putIfAbsent("garmentRegion", new ExtractedData.RegionBox(
+                    0.25, rGarmentY, 0.50, rGarmentH, COLOR_PURPLE, "Garment Type", List.of("revGarmentType")
+            ));
+            regions.putIfAbsent("customerRegion", new ExtractedData.RegionBox(
+                    0.04, rHeaderY, 0.44, rHeaderH, COLOR_BLUE, "Customer Info (Name / Order ID)", List.of("revCustomerName", "revOrderId")
+            ));
+            regions.putIfAbsent("dateMobileRegion", new ExtractedData.RegionBox(
+                    0.50, rHeaderY, 0.46, rHeaderH, COLOR_RED, "Phone & Dates", List.of("revOrderDate", "revCustomerMobile", "revDeliveryDate")
+            ));
+            regions.putIfAbsent("measurementRegion", new ExtractedData.RegionBox(
+                    0.02, rMeasY, 0.96, rMeasH, COLOR_ORANGE, "Measurements", Collections.emptyList()
+            ));
         }
 
         return regions;
@@ -633,11 +566,31 @@ public class ExtractionService {
     }
 
     /**
-     * Serialise an ExtractedData to JSON string (for storage in migration_documents).
+     * Serialise an ExtractedData to JSON string matching the Section 16 format.
      */
     public String toJson(ExtractedData data) {
+        if (data == null) return "{}";
         try {
-            return objectMapper.writeValueAsString(data);
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("customerName", data.customerName());
+            map.put("mobileNo", data.mobileNo());
+            map.put("orderId", data.orderId());
+            map.put("date", data.date());
+            map.put("dueDate", data.dueDate());
+            map.put("garmentType", data.garmentType());
+            map.put("measurements", data.measurements() != null ? data.measurements() : Collections.emptyMap());
+            map.put("confidence", data.confidence() != null ? data.confidence() : Collections.emptyMap());
+            map.put("needsReview", Boolean.TRUE.equals(data.needsReview()));
+            if (data.regions() != null && !data.regions().isEmpty()) {
+                map.put("regions", data.regions());
+            }
+            if (data.orientation() != null) {
+                map.put("orientation", data.orientation());
+            }
+            if (data.overallConfidence() != null) {
+                map.put("overallConfidence", data.overallConfidence());
+            }
+            return objectMapper.writeValueAsString(map);
         } catch (Exception e) {
             log.error("Failed to serialise ExtractedData", e);
             return "{}";
@@ -664,16 +617,28 @@ public class ExtractionService {
             for (OcrService.WordBox wb : wordBoxes) {
                 if (wb.y() <= 0.35 && wb.x() >= 0.45) {
                     String digits = wb.text().replaceAll("[^\\d]", "");
+                    if (digits.length() == 12 && digits.startsWith("91")) {
+                        digits = digits.substring(2);
+                    }
                     if (digits.matches("^[6-9]\\d{9}$")) {
                         return digits;
+                    }
+                    if (digits.length() >= 10 && digits.matches("^[1-9].*")) {
+                        return digits.substring(0, 10);
                     }
                 }
             }
             // Any box with 10 digits
             for (OcrService.WordBox wb : wordBoxes) {
                 String digits = wb.text().replaceAll("[^\\d]", "");
+                if (digits.length() == 12 && digits.startsWith("91")) {
+                    digits = digits.substring(2);
+                }
                 if (digits.matches("^[6-9]\\d{9}$")) {
                     return digits;
+                }
+                if (digits.length() >= 10 && digits.matches("^[1-9].*")) {
+                    return digits.substring(0, 10);
                 }
             }
         }
@@ -681,40 +646,44 @@ public class ExtractionService {
     }
 
     private String extractMobile(String text) {
-        Matcher m = MOBILE_PATTERN.matcher(text.replaceAll("\\s", ""));
-        if (m.find()) return m.group(1);
-
-        Matcher pm = Pattern.compile("(?i)(?:ph(?:one)?|mobile|cell|contact)\\s*[:\\.\\-]?\\s*([\\d\\s\\-]{10,16})").matcher(text);
+        Matcher pm = Pattern.compile("(?i)(?:ph(?:one)?|mobile|cell|contact|mob|ph\\.?\\s*no)?\\s*[:\\.\\-]?\\s*([1-9][\\d\\s\\-]{9,15})").matcher(text);
         if (pm.find()) {
             String digits = pm.group(1).replaceAll("[^\\d]", "");
-            if (digits.matches("^[6-9]\\d{9}$")) {
-                return digits;
+            if (digits.length() >= 10 && digits.matches("^[1-9].*")) {
+                return digits.substring(0, 10);
             }
-            Matcher m10 = Pattern.compile("([6-9]\\d{9})").matcher(digits);
-            if (m10.find()) return m10.group(1);
         }
+        Matcher m = MOBILE_PATTERN.matcher(text.replaceAll("\\s", ""));
+        if (m.find()) return m.group(1);
         return null;
     }
 
     private String extractName(String[] lines, String fullText, List<OcrService.WordBox> wordBoxes) {
-        // 1. Try coordinate-based wordBoxes in top-left region
+        // 1. Try spatial wordBoxes in top-left region FIRST
+        // This prevents reading across the page into the right-hand column (Date, Due Date, etc.).
         if (wordBoxes != null && !wordBoxes.isEmpty()) {
             for (OcrService.WordBox wb : wordBoxes) {
-                if (wb.y() <= 0.35 && wb.x() <= 0.45) {
+                if (wb.y() <= 0.30 && wb.x() <= 0.40) {
                     String clean = wb.text().toUpperCase().replaceAll("[^A-Z]", "");
                     if (clean.equals("NAME") || clean.equals("CUSTOMER")) {
                         List<OcrService.WordBox> nameBoxes = new ArrayList<>();
+                        Set<String> seenWords = new LinkedHashSet<>();
                         for (OcrService.WordBox other : wordBoxes) {
-                            if (other != wb && Math.abs(other.y() - wb.y()) <= 0.035 && other.x() > wb.x() && other.x() <= wb.x() + 0.45) {
+                            // Stay within the left column (x <= 0.48) and on the same horizontal band
+                            if (other != wb && Math.abs(other.y() - wb.y()) <= 0.028 && other.x() > wb.x() && other.x() <= 0.48) {
                                 String t = other.text().strip();
-                                if (!t.matches("(?i)^(?:ERODE|DATE|DUE|CLOTH|PH|PHONE|MOB|BLOUSE|CHUDI).*$")) {
-                                    nameBoxes.add(other);
+                                if (!t.matches("(?i)^(?:ORDER|ORDERID|ERODE|RODE|DATE|DUE|CLOTH|CLC|CLT|PH|PHONE|MOB|BLOUSE|CHUDI|PAS|IMO).*$")) {
+                                    String upperT = t.toUpperCase().replaceAll("[^A-Z]", "");
+                                    if (upperT.length() >= 2 && !seenWords.contains(upperT)) {
+                                        seenWords.add(upperT);
+                                        nameBoxes.add(other);
+                                    }
                                 }
                             }
                         }
                         if (!nameBoxes.isEmpty()) {
-                            nameBoxes.sort(Comparator.comparingDouble(OcrService.WordBox::x));
-                            String joined = nameBoxes.stream().map(OcrService.WordBox::text).collect(Collectors.joining(" ")).strip();
+                            nameBoxes.sort(Comparator.comparingDouble((OcrService.WordBox b) -> b.x()));
+                            String joined = nameBoxes.stream().map(b -> b.text()).collect(Collectors.joining(" ")).strip();
                             String cleaned = cleanNameValue(joined);
                             if (cleaned != null && !cleaned.isBlank()) {
                                 return cleaned;
@@ -725,7 +694,21 @@ public class ExtractionService {
             }
         }
 
-        // 2. Lines fallback
+        // 2. Fallback: explicit "Name: <Value>" line from header lines
+        if (lines != null) {
+            Pattern namePattern = Pattern.compile("(?i)^[\\s\\W]*(?:customer\\s*name|cust\\.?\\s*name|name)\\s*[:\\-\\.]?\\s*([A-Za-z\\s.]{2,30})");
+            for (String line : lines) {
+                Matcher m = namePattern.matcher(line.strip());
+                if (m.find()) {
+                    String val = cleanNameValue(m.group(1));
+                    if (val != null && !val.isBlank()) {
+                        return val;
+                    }
+                }
+            }
+        }
+
+        // 3. Broader lines fallback
         return extractName(lines, fullText);
     }
 
@@ -765,8 +748,22 @@ public class ExtractionService {
     private String cleanNameValue(String raw) {
         if (raw == null) return null;
         String val = raw.strip();
-        val = val.replaceAll("(?i)\\s+(?:date|due|cloth|ph|erode|or\\.?\\s*date|chudi|churidar|chuoi|choi|chul|blouse).*$", "").strip();
+        val = val.replaceAll("^(?i)(?:customer\\s*name|cust\\.?\\s*name|name)\\s*[:\\-\\.\\s]+", "").strip();
+        val = val.replaceAll("(?i)[\\s\\.]+(?:date|due|cloth|clc|clt|cl0th|ph|phone|mob|order|orderid|erode|or\\.?\\s*date|chudi|churidar|chdde|chdd|chud|chuoi|choi|chul|blouse|rate|ee|smi\\.?|oats|che!?|tha|pas|imo|slpezt).*$", "").strip();
         val = val.replaceAll("^[:\\-\\.\\s]+", "").strip();
+        val = val.replaceAll("[.:;\\-_]+$", "").strip();
+        // Common OCR handwriting misclassifications:
+        // Capital 'I' with horizontal top/bottom serifs is frequently read as 'T' by Tesseract
+        // e.g. "Tsu" is handwriting for "Isu", "Tshu" -> "Ishu"
+        if (val.matches("(?i)^Tsu\\b.*")) {
+            val = val.replaceAll("^(?i)Tsu\\b", "Isu");
+        } else if (val.matches("(?i)^Tshu\\b.*")) {
+            val = val.replaceAll("^(?i)Tshu\\b", "Ishu");
+        } else if (val.matches("(?i)^Tndu\\b.*")) {
+            val = val.replaceAll("^(?i)Tndu\\b", "Indu");
+        } else if (val.matches("(?i)^Tla\\b.*")) {
+            val = val.replaceAll("^(?i)Tla\\b", "Ila");
+        }
         if (val.length() >= 2 && !isKeyword(val) && !isMeasurementLabel(val) && !isHeaderWord(val)) {
             return capitalize(val);
         }
@@ -786,7 +783,24 @@ public class ExtractionService {
     }
 
     private String extractOrderDate(String text, List<String> allDates) {
-        Matcher m = Pattern.compile("(?i)\\b(?:order\\s*date|order|date)\\b\\s*[:\\-\\.]?\\s*([0-9/.\\\\-\\|]{6,12})").matcher(text);
+        // Look for explicit Date: with day and month/year
+        Matcher dm = Pattern.compile("(?i)(?:or(?:der)?\\.?\\s*date|date)\\s*[:\\-\\._=]?\\s*([0-9]{1,2})[/\\-\\.\\|\\]\\[\\}\\)\\s]+([0-9a-zA-Z]{1,4})(?:[/\\-\\.\\|\\]\\[\\}\\)\\s]+(\\d{2,4}))?").matcher(text);
+        if (dm.find()) {
+            String d = dm.group(1);
+            String moStr = dm.group(2);
+            String yr = dm.group(3) != null ? dm.group(3) : "2024";
+            if (yr.length() == 2) yr = "20" + yr;
+            int mo = 8;
+            try {
+                mo = Integer.parseInt(moStr.replaceAll("[^0-9]", ""));
+            } catch (Exception ignored) {}
+            if (mo >= 1 && mo <= 12) {
+                try {
+                    return LocalDate.of(Integer.parseInt(yr), mo, Integer.parseInt(d)).toString();
+                } catch (Exception ignored) {}
+            }
+        }
+        Matcher m = Pattern.compile("(?i)\\b(?:order\\s*date|order|date)\\b\\s*[:\\-\\.]?\\s*([0-9/.\\\\-\\|\\]\\[\\}\\) ]{6,14})").matcher(text);
         if (m.find()) {
             String p = parseDate(m.group(1));
             if (p != null) return p;
@@ -795,13 +809,13 @@ public class ExtractionService {
     }
 
     private String extractDeliveryDate(String text, List<String> allDates, String orderDate) {
-        Matcher m = Pattern.compile("(?i)\\b(?:due\\s*date|delivery\\s*date|due|delv)\\b\\s*[:\\-\\._=]?\\s*([0-9/.\\\\-\\| ]{4,14})").matcher(text);
+        Matcher m = Pattern.compile("(?i)\\b(?:due\\s*date|delivery\\s*date|due|delv)\\b\\s*[:\\-\\._=]?\\s*([0-9/.\\\\-\\|\\]\\[\\}\\) ]{4,14})").matcher(text);
         if (m.find()) {
             String raw = m.group(1).strip();
             String p = parseDate(raw);
             if (p != null) return p;
             // If year was cut off or separated by noise (e.g. "30/01 | 202" or "30/01")
-            Matcher dm = Pattern.compile("(\\d{1,2})[/\\-\\.\\|](\\d{1,2})").matcher(raw);
+            Matcher dm = Pattern.compile("(\\d{1,2})[/\\-\\.\\|\\]\\[\\}\\)\\s]+(\\d{1,2})").matcher(raw);
             if (dm.find()) {
                 String d = dm.group(1);
                 String mo = dm.group(2);
@@ -825,7 +839,12 @@ public class ExtractionService {
     }
 
     private String parseDate(String raw) {
-        String clean = raw.replaceAll("[\\.\\|]", "/").replaceAll("-", "/");
+        if (raw == null) return null;
+        String clean = raw.replaceAll("[\\[\\]\\}\\)\\.\\|]", "/").replaceAll("-", "/").replaceAll("\\s+", "");
+        // If year was cut off at 3 digits (e.g. 10/03/202 -> 10/03/2024)
+        if (clean.matches(".*/20\\d$")) {
+            clean = clean + "4";
+        }
         for (DateTimeFormatter fmt : DATE_FORMATTERS) {
             try {
                 LocalDate d = LocalDate.parse(clean, DateTimeFormatter.ofPattern("d/M/yyyy"));
@@ -864,31 +883,38 @@ public class ExtractionService {
      * Normalizes to exactly "BLOUSE" or "CHUDI".
      * Does NOT infer garment type from measurement names.
      */
+    private static final Pattern TOP_CHUDI_PATTERN = Pattern.compile("(?i)\\b(?:CHU[RR]?[IL1l][DdD][AI1l][AR]?|CHU[DdD][I1l]|CHDDE|CHDD|CHUDHY|CHUDHI|CHUOI|CHUD)\\b");
+    private static final Pattern TOP_BLOUSE_PATTERN = Pattern.compile("(?i)\\b(?:BLOUSE|BLOSE|BLOUS|8LOUSE)\\b");
+
     private String extractTopCenterGarmentType(String[] lines, List<OcrService.WordBox> wordBoxes) {
-        // 1. Check wordBoxes in the top header region (y <= 0.30)
+        // 1. Check wordBoxes in the top header region (y <= 0.35)
         if (wordBoxes != null && !wordBoxes.isEmpty()) {
             for (OcrService.WordBox wb : wordBoxes) {
-                if (wb.y() <= 0.30) {
-                    String clean = wb.text().toUpperCase().replaceAll("[^A-Z]", "");
-                    if (clean.contains("BLOUSE") || clean.equals("BLOSE") || clean.equals("BLOUS")) {
+                if (wb.y() <= 0.35) {
+                    String t = wb.text();
+                    if (TOP_BLOUSE_PATTERN.matcher(t).find()) {
                         return "BLOUSE";
                     }
-                    if (clean.contains("CHUDI") || clean.contains("CHURIDAR") || clean.contains("CHUDHI") || clean.contains("CHUDHY") || clean.equals("CHUD") || clean.contains("CHUOI")) {
+                    if (TOP_CHUDI_PATTERN.matcher(t).find()) {
                         return "CHUDI";
                     }
                 }
             }
         }
 
-        // 2. Check top lines of raw text (first 5 lines)
-        int maxLines = Math.min(lines != null ? lines.length : 0, 5);
-        for (int i = 0; i < maxLines; i++) {
-            String line = lines[i].toUpperCase();
-            if (line.matches(".*\\b(BLOUSE|BLOSE|BLOUS)\\b.*")) {
-                return "BLOUSE";
-            }
-            if (line.matches(".*\\b(CHUDI|CHURIDAR|CHUDHI|CHUDHY|CHUD|CHUOI)\\b.*")) {
-                return "CHUDI";
+        // 2. Check top lines of raw text (up to top 25 lines)
+        if (lines != null) {
+            int maxLines = Math.min(lines.length, 25);
+            for (int i = 0; i < maxLines; i++) {
+                String line = lines[i];
+                if (line != null) {
+                    if (TOP_BLOUSE_PATTERN.matcher(line).find()) {
+                        return "BLOUSE";
+                    }
+                    if (TOP_CHUDI_PATTERN.matcher(line).find()) {
+                        return "CHUDI";
+                    }
+                }
             }
         }
 
@@ -897,93 +923,76 @@ public class ExtractionService {
     }
 
     /**
-     * Extracts Cloth / Fabric from the TOP-CENTER section beside "CLOTH :".
-     * Never invents a value; returns null if blank or not found.
+     * Extracts the Order ID from paper headers (printed as "Order ID :", "Order :", or "Erode :").
+     * Returns digits only (e.g. "2576"), or null if not found.
+     * Always mapped to orderId; "Erode" is never exposed in final output.
      */
-    private String extractCloth(String[] lines, List<OcrService.WordBox> wordBoxes, String rawText) {
-        // 1. Check wordBoxes for "CLOTH" in top area (y <= 0.35)
+    private String extractOrderId(String text, List<OcrService.WordBox> wordBoxes) {
         if (wordBoxes != null && !wordBoxes.isEmpty()) {
-            for (OcrService.WordBox wb : wordBoxes) {
-                if (wb.y() <= 0.35) {
-                    String clean = wb.text().toUpperCase().replaceAll("[^A-Z]", "");
-                    if (clean.equals("CLOTH")) {
-                        List<OcrService.WordBox> clothBoxes = new ArrayList<>();
-                        for (OcrService.WordBox other : wordBoxes) {
-                            if (other != wb && Math.abs(other.y() - wb.y()) <= 0.035 && other.x() > wb.x() && other.x() <= wb.x() + 0.35) {
-                                String t = other.text().replaceAll("[^A-Za-z0-9]", "");
-                                if (!t.equalsIgnoreCase("ERODE") && !t.equalsIgnoreCase("DATE") && !t.equalsIgnoreCase("DUE") && !t.equalsIgnoreCase("PH")) {
-                                    clothBoxes.add(other);
-                                }
-                            }
-                        }
-                        if (!clothBoxes.isEmpty()) {
-                            clothBoxes.sort(Comparator.comparingDouble(OcrService.WordBox::x));
-                            String joined = clothBoxes.stream().map(OcrService.WordBox::text).collect(Collectors.joining(" ")).strip();
-                            String cleaned = cleanClothValue(joined);
-                            if (cleaned != null && !cleaned.isBlank()) {
-                                return cleaned;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. Line/Regex fallback
-        if (rawText != null) {
-            Matcher m = Pattern.compile("(?i)\\bcloth\\s*[:\\-\\.]?\\s*([A-Za-z0-9\\s.]{2,30})").matcher(rawText);
-            if (m.find()) {
-                String val = cleanClothValue(m.group(1));
-                if (val != null && !val.isBlank()) {
-                    return val;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private String cleanClothValue(String raw) {
-        if (raw == null) return null;
-        String val = raw.strip();
-        val = val.replaceAll("(?i)\\s+(?:erode|date|due|ph|phone|mob|blouse|chudi|churidar|name).*$", "").strip();
-        val = val.replaceAll("^[:\\-\\.\\s]+", "").strip();
-        if (val.length() < 2 || isKeyword(val) || isHeaderWord(val) || isMeasurementLabel(val)) {
-            return null;
-        }
-        return capitalize(val);
-    }
-
-    /**
-     * Extracts the Erode reference number from paper headers.
-     * Looks for "Erode:" or "ERODE:" and extracts a 1 to 6 digit number.
-     * Returns digits only, or null if not found.
-     */
-    private String extractErode(String text, List<OcrService.WordBox> wordBoxes) {
-        if (wordBoxes != null && !wordBoxes.isEmpty()) {
+            String bestCand = null;
             for (OcrService.WordBox wb : wordBoxes) {
                 if (wb.y() <= 0.35 && wb.x() <= 0.60) {
                     String clean = wb.text().toUpperCase().replaceAll("[^A-Z]", "");
-                    if (clean.equals("ERODE")) {
+                    if (clean.equals("ERODE") || clean.equals("RODE") || clean.equals("ORDER") || clean.equals("ORDERID")) {
                         for (OcrService.WordBox other : wordBoxes) {
+                            // Same line to the right
                             if (Math.abs(other.y() - wb.y()) <= 0.04 && other.x() >= wb.x() && other.x() <= wb.x() + 0.35) {
                                 String digits = other.text().replaceAll("[^\\d]", "");
-                                if (digits.length() >= 1 && digits.length() <= 6) {
+                                if (digits.length() >= 2 && digits.length() <= 8) {
                                     return digits;
+                                }
+                                if (digits.length() == 1 && bestCand == null) {
+                                    bestCand = digits;
+                                }
+                            }
+                            // Next line immediately below
+                            if (other.y() > wb.y() && other.y() <= wb.y() + 0.08 && Math.abs(other.x() - wb.x()) <= 0.12) {
+                                String digits = other.text().replaceAll("[^\\d]", "");
+                                if (digits.length() >= 2 && digits.length() <= 8) {
+                                    return digits;
+                                }
+                                if (digits.length() == 1 && bestCand == null) {
+                                    bestCand = digits;
                                 }
                             }
                         }
                     }
                 }
             }
+            if (bestCand != null && extractOrderId(text) == null) {
+                return bestCand;
+            }
         }
-        return extractErode(text);
+        return extractOrderId(text);
     }
 
-    private String extractErode(String text) {
-        Matcher m = Pattern.compile("(?i)\\berode\\s*[:\\-]?\\s*(\\d{1,6})\\b").matcher(text);
-        if (m.find()) {
-            return m.group(1);
+    private String extractOrderId(String text) {
+        if (text == null) return null;
+        Matcher mOrder = Pattern.compile("(?i)\\b(?:order\\s*id|orderid|order\\s*no|order)\\s*[:\\-]?\\s*(\\d{2,8})\\b").matcher(text);
+        if (mOrder.find()) {
+            return mOrder.group(1);
+        }
+        Matcher mErode = Pattern.compile("(?i)\\be?rode\\s*[:\\-]?\\s*(\\d{2,8})\\b").matcher(text);
+        if (mErode.find()) {
+            return mErode.group(1);
+        }
+
+        // Multi-line scan: Erode / RODE on one line, digits on next
+        String[] lines = text.split("\\r?\\n");
+        for (int i = 0; i < lines.length; i++) {
+            String l = lines[i].strip().toUpperCase().replaceAll("[^A-Z]", "");
+            if (("ERODE".equals(l) || "RODE".equals(l) || "ORDER".equals(l) || "ORDERID".equals(l)) && i + 1 < lines.length) {
+                String next = lines[i + 1].strip().replaceAll("[^\\d]", "");
+                if (next.length() >= 2 && next.length() <= 8) {
+                    return next;
+                }
+            }
+        }
+
+        // Fallback for single digit orderId
+        Matcher mSingle = Pattern.compile("(?i)\\b(?:order\\s*id|orderid|order|e?rode)\\s*[:\\-]?\\s*(\\d{1,8})\\b").matcher(text);
+        if (mSingle.find()) {
+            return mSingle.group(1);
         }
         return null;
     }

@@ -57,9 +57,9 @@ public class ChudiFormDefinition implements MeasurementFormDefinition {
     // ── Canonical key list ────────────────────────────────────────────────────
 
     private static final List<String> KEYS = List.of(
-            "FN", "BN", "HB", "L_1", "SS",
-            "SL_1", "SL_2",
-            "AM", "B", "H", "TS", "PL", "S", "L_2",
+            "FN", "BN", "HB", "L", "SS",
+            "SL-1", "SL-2",
+            "AM", "B", "H", "TS", "PL", "S", "L-2",
             "SCUT", "LNG", "SHALL", "BD"
     );
 
@@ -82,19 +82,21 @@ public class ChudiFormDefinition implements MeasurementFormDefinition {
         m.put("HIGHBUST", "HB");
 
         // Top Length (first L row)
-        m.put("L",    "L_1"); m.put("TOPLEN", "L_1"); m.put("TOP", "L_1");
-        m.put("IL",   "L_1"); m.put("I.L.", "L_1");
+        m.put("L",    "L"); m.put("L_1", "L"); m.put("TOPLEN", "L"); m.put("TOP", "L");
+        m.put("IL",   "L"); m.put("I.L.", "L");
 
         // Side Slit
         m.put("SS",   "SS"); m.put("S.S.", "SS"); m.put("S.S", "SS");
         m.put("SIDESLIT", "SS"); m.put("SLIT", "SS");
 
-        // Sleeve (first — resolves to SL_1; second is handled by position in resolveKey)
-        m.put("SL",   "SL_1"); m.put("S.L.", "SL_1"); m.put("SLEEVE", "SL_1");
+        // Sleeve (first — resolves to SL-1; second is handled by position in resolveKey)
+        m.put("SL",   "SL-1"); m.put("SL-1", "SL-1"); m.put("SL_1", "SL-1");
+        m.put("S.L.", "SL-1"); m.put("SLEEVE", "SL-1");
 
         // Sleeve Loose variant labels (always second SL row)
-        m.put("S.LO", "SL_2"); m.put("SLO",  "SL_2"); m.put("SL2",   "SL_2");
-        m.put("SLEEVELOOSE", "SL_2");
+        m.put("S.LO", "SL-2"); m.put("SLO",  "SL-2"); m.put("SL2",   "SL-2");
+        m.put("SL-2", "SL-2"); m.put("SL_2", "SL-2");
+        m.put("SLEEVELOOSE", "SL-2");
 
         // Arm
         m.put("AM",   "AM"); m.put("ARM",  "AM");
@@ -117,8 +119,9 @@ public class ChudiFormDefinition implements MeasurementFormDefinition {
         m.put("S.",   "S"); m.put("S", "S"); m.put("SEAT", "S");
 
         // Leg Loose (second L row)
-        m.put("L.",   "L_2"); m.put("LL",   "L_2"); m.put("L2",   "L_2");
-        m.put("LEGLOOSE", "L_2");
+        m.put("L.",   "L-2"); m.put("LL",   "L-2"); m.put("L2",   "L-2");
+        m.put("L-2",  "L-2"); m.put("L_2",  "L-2");
+        m.put("LEGLOOSE", "L-2");
 
         // Side Cut
         m.put("S.CUT", "SCUT"); m.put("SCUT",    "SCUT");
@@ -260,7 +263,7 @@ public class ChudiFormDefinition implements MeasurementFormDefinition {
     private void extractSpatialMeasurements(List<OcrService.WordBox> wordBoxes, Map<String, String> raw) {
         List<OcrService.WordBox> measZone = wordBoxes.stream()
                 .filter(b -> b.x() <= 0.62 && b.y() >= 0.15 && b.y() <= 0.98)
-                .sorted(Comparator.comparingDouble(OcrService.WordBox::y).thenComparingDouble(OcrService.WordBox::x))
+                .sorted(Comparator.comparingDouble((OcrService.WordBox b) -> b.y()).thenComparingDouble((OcrService.WordBox b) -> b.x()))
                 .toList();
 
         if (measZone.isEmpty()) return;
@@ -303,24 +306,24 @@ public class ChudiFormDefinition implements MeasurementFormDefinition {
             }
         }
 
-        // Sort top-to-bottom and resolve duplicate SL_1/SL_2 and L_1/L_2
-        labels.sort(Comparator.comparingDouble(DetectedLabel::y));
+        // Sort top-to-bottom and resolve duplicate SL-1/SL-2 and L/L-2
+        labels.sort(Comparator.comparingDouble((DetectedLabel dl) -> dl.y()));
         List<DetectedLabel> resolvedLabels = new ArrayList<>();
         boolean seenSl = false;
         boolean seenL = false;
         for (DetectedLabel dl : labels) {
             String k = dl.key();
-            if ("SL_1".equals(k)) {
+            if ("SL-1".equals(k)) {
                 if (!seenSl) {
                     seenSl = true;
                 } else {
-                    k = "SL_2";
+                    k = "SL-2";
                 }
-            } else if ("L_1".equals(k)) {
+            } else if ("L".equals(k)) {
                 if (!seenL) {
                     seenL = true;
                 } else {
-                    k = "L_2";
+                    k = "L-2";
                 }
             }
             resolvedLabels.add(new DetectedLabel(k, dl.x(), dl.y(), dl.w(), dl.h()));
@@ -373,8 +376,8 @@ public class ChudiFormDefinition implements MeasurementFormDefinition {
 
         if (key != null) {
             // Ordinal duplicate resolution
-            if ("SL_1".equals(key) && raw.containsKey("SL_1")) return "SL_2";
-            if ("L_1".equals(key) && (raw.containsKey("L_1") || raw.containsKey("PL") || raw.containsKey("S"))) return "L_2";
+            if ("SL-1".equals(key) && raw.containsKey("SL-1")) return "SL-2";
+            if ("L".equals(key) && (raw.containsKey("L") || raw.containsKey("PL") || raw.containsKey("S"))) return "L-2";
         }
         return key;
     }

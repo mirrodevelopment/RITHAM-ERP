@@ -43,5 +43,7 @@ data/
 
 # OS / Temporary
 .DS_Store
-Thumbs.db
+# Temporary OCR processed files
+ocr_processed_*
+**/ocr_processed_*
 scratch/

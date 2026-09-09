@@ -33,27 +33,27 @@ class BlouseFormDefinitionTest {
     void canonicalKeysCount() {
         List<String> keys = def.canonicalKeys();
         assertThat(keys).containsExactly(
-                "LTH", "SHO", "HS", "HL", "HLO",
+                "LTH", "SHO", "H.S.", "H.L.", "H.LO",
                 "AK", "AM", "BN", "FN",
-                "DP1_1", "DP1_2",
-                "B1", "B2", "B3",
-                "F_HOOK", "B_HOOK",
-                "LINING", "AV", "SARI"
+                "DP-1-1", "DP-1-2",
+                "B-1", "B-2", "B-3",
+                "F-HOOK", "B-HOOK",
+                "LINING", "AV.", "SARI"
         );
     }
 
     @Test
     @DisplayName("Resolves raw aliases to canonical keys")
     void resolvesAliases() {
-        assertThat(def.resolveKey("H.S.")).isEqualTo("HS");
-        assertThat(def.resolveKey("H.L.")).isEqualTo("HL");
-        assertThat(def.resolveKey("H.LO")).isEqualTo("HLO");
-        assertThat(def.resolveKey("B-1")).isEqualTo("B1");
-        assertThat(def.resolveKey("B-2")).isEqualTo("B2");
-        assertThat(def.resolveKey("B-3")).isEqualTo("B3");
-        assertThat(def.resolveKey("F.HOOK")).isEqualTo("F_HOOK");
-        assertThat(def.resolveKey("B.HOOK")).isEqualTo("B_HOOK");
-        assertThat(def.resolveKey("AV.")).isEqualTo("AV");
+        assertThat(def.resolveKey("HS")).isEqualTo("H.S.");
+        assertThat(def.resolveKey("HL")).isEqualTo("H.L.");
+        assertThat(def.resolveKey("HLO")).isEqualTo("H.LO");
+        assertThat(def.resolveKey("B1")).isEqualTo("B-1");
+        assertThat(def.resolveKey("B2")).isEqualTo("B-2");
+        assertThat(def.resolveKey("B3")).isEqualTo("B-3");
+        assertThat(def.resolveKey("F_HOOK")).isEqualTo("F-HOOK");
+        assertThat(def.resolveKey("B_HOOK")).isEqualTo("B-HOOK");
+        assertThat(def.resolveKey("AV")).isEqualTo("AV.");
     }
 
     @Test
@@ -85,22 +85,22 @@ class BlouseFormDefinitionTest {
 
         assertThat(meas).containsEntry("LTH", "14.5");
         assertThat(meas).containsEntry("SHO", "14");
-        assertThat(meas).containsEntry("HS", "6.5");
-        assertThat(meas).containsEntry("HL", "7");
-        assertThat(meas).containsEntry("HLO", "12");
+        assertThat(meas).containsEntry("H.S.", "6.5");
+        assertThat(meas).containsEntry("H.L.", "7");
+        assertThat(meas).containsEntry("H.LO", "12");
         assertThat(meas).containsEntry("AK", "16");
         assertThat(meas).containsEntry("AM", "13");
         assertThat(meas).containsEntry("BN", "8.5");
         assertThat(meas).containsEntry("FN", "6.5");
-        assertThat(meas).containsEntry("DP1_1", "9.5");
-        assertThat(meas).containsEntry("DP1_2", "12.5");
-        assertThat(meas).containsEntry("B1", "34");
-        assertThat(meas).containsEntry("B2", "36");
-        assertThat(meas).containsEntry("B3", "31");
-        assertThat(meas).containsEntry("F_HOOK", "1");
-        assertThat(meas).containsEntry("B_HOOK", "0");
+        assertThat(meas).containsEntry("DP-1-1", "9.5");
+        assertThat(meas).containsEntry("DP-1-2", "12.5");
+        assertThat(meas).containsEntry("B-1", "34");
+        assertThat(meas).containsEntry("B-2", "36");
+        assertThat(meas).containsEntry("B-3", "31");
+        assertThat(meas).containsEntry("F-HOOK", "1");
+        assertThat(meas).containsEntry("B-HOOK", "0");
         assertThat(meas).containsEntry("LINING", "1");
-        assertThat(meas).containsEntry("AV", "1");
+        assertThat(meas).containsEntry("AV.", "1");
         assertThat(meas).containsEntry("SARI", "Silk");
     }
 }

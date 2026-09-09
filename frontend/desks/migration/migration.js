@@ -53,42 +53,39 @@ document.addEventListener('DOMContentLoaded', () => {
     BLOUSE: [
       { key: 'LTH',    label: 'LTH (Length)' },
       { key: 'SHO',    label: 'SHO (Shoulder)' },
-      { key: 'HS',     label: 'H.S. (Half Shldr)' },
-      { key: 'HL',     label: 'H.L. (Hand Lth)' },
-      { key: 'HLO',    label: 'H.LO (Hand Loose)' },
+      { key: 'H.S.',   label: 'H.S. (Half Shldr)' },
+      { key: 'H.L.',   label: 'H.L. (Hand Lth)' },
+      { key: 'H.LO',   label: 'H.LO (Hand Loose)' },
       { key: 'AK',     label: 'AK (Armhole)' },
       { key: 'AM',     label: 'AM (Arm)' },
       { key: 'BN',     label: 'BN (Back Neck)' },
       { key: 'FN',     label: 'FN (Front Neck)' },
-      { key: 'DP1_1',  label: 'DP-1 (Dart Pt 1)' },
-      { key: 'DP1_2',  label: 'DP-1 (Dart Pt 2)' },
-      { key: 'B1',     label: 'B-1 (Upper Bust)' },
-      { key: 'B2',     label: 'B-2 (Full Bust)' },
-      { key: 'B3',     label: 'B-3 (Under Bust)' },
-      { key: 'F_HOOK', label: 'F.HOOK (Front Hook)' },
-      { key: 'B_HOOK', label: 'B.HOOK (Back Hook)' },
+      { key: 'DP-1-1', label: 'DP-1 (Dart Pt 1)' },
+      { key: 'DP-1-2', label: 'DP-1 (Dart Pt 2)' },
+      { key: 'B-1',    label: 'B-1 (Upper Bust)' },
+      { key: 'B-2',    label: 'B-2 (Full Bust)' },
+      { key: 'B-3',    label: 'B-3 (Under Bust)' },
+      { key: 'F-HOOK', label: 'F.HOOK (Front Hook)' },
+      { key: 'B-HOOK', label: 'B.HOOK (Back Hook)' },
       { key: 'LINING', label: 'LINING (Lining)' },
-      { key: 'AV',     label: 'AV. (Aari / Work)' },
+      { key: 'AV.',    label: 'AV. (Aari / Work)' },
       { key: 'SARI',   label: 'SARI (Saree Notes)' },
     ],
-    // CHUDI template: plain canonical keys matching ExtractionService.CHUDI_KEYS
-    // SL_1/SL_2 preserve the two separate sleeve-length rows on the printed form.
-    // L_1/L_2 preserve the two separate length rows.
     CHUDI: [
       { key: 'FN',    label: 'F.N. (Front Neck)' },
       { key: 'BN',    label: 'B.N. (Back Neck)' },
       { key: 'HB',    label: 'H.B. (High Bust)' },
-      { key: 'L_1',   label: 'L (Top Length)' },
+      { key: 'L',     label: 'L (Top Length)' },
       { key: 'SS',    label: 'SS (Side Slit)' },
-      { key: 'SL_1',  label: 'SL 1 (Sleeve Lth)' },
-      { key: 'SL_2',  label: 'SL 2 (Sleeve Loose)' },
+      { key: 'SL-1',  label: 'SL 1 (Sleeve Lth)' },
+      { key: 'SL-2',  label: 'SL 2 (Sleeve Loose)' },
       { key: 'AM',    label: 'AM (Arm)' },
       { key: 'B',     label: 'B (Bust)' },
       { key: 'H',     label: 'H (Hip)' },
       { key: 'TS',    label: 'T.S. (Top Slit)' },
       { key: 'PL',    label: 'PL. (Pant Length)' },
       { key: 'S',     label: 'S. (Seat)' },
-      { key: 'L_2',   label: 'L. (Leg Loose)' },
+      { key: 'L-2',   label: 'L. (Leg Loose)' },
       { key: 'SCUT',  label: 'S.CUT (Side Cut)' },
       { key: 'LNG',   label: 'LNG (Lining)' },
       { key: 'SHALL', label: 'SHALL (Shawl)' },
@@ -192,8 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const matchCandidatesList  = document.getElementById('matchCandidatesList');
   const revOrderDate         = document.getElementById('revOrderDate');
   const revDeliveryDate      = document.getElementById('revDeliveryDate');
-  const revErode             = document.getElementById('revErode');
-  const revCloth             = document.getElementById('revCloth');
+  const revOrderId           = document.getElementById('revOrderId');
   const revGarmentType       = document.getElementById('revGarmentType');
   const revGarmentTypeBadge  = document.getElementById('revGarmentTypeBadge');
   const toggleProcessedImgBtn = document.getElementById('toggleProcessedImgBtn');
@@ -277,35 +273,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const nw = (img && img.naturalWidth) || 1000;
       const nh = (img && img.naturalHeight) || 1000;
 
-      // Auto-detect if raw OCR text indicates sideways scan
-      const rawText = ((doc && doc.rawOcrText) || (ext && ext.rawOcrText) || '').toUpperCase();
-      const textLines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      const avgLineLen = textLines.length > 5 ? textLines.reduce((acc, l) => acc + l.length, 0) / textLines.length : 25;
-      const isSidewaysText = textLines.length >= 6 && avgLineLen < 8;
+      // 1. All forms are scanned in landscape
+      this.currentIsLandscape = true;
 
-      let isLandscape = (currentDocInReview && currentDocInReview._userOrientation)
-        ? (currentDocInReview._userOrientation === 'LANDSCAPE')
-        : (nw > nh || (ext && ext.orientation === 'LANDSCAPE') || isSidewaysText);
-
-      this.currentIsLandscape = isLandscape;
-
-      // Update orientation badge and Flip to Portrait button in viewer toolbar
+      // Orientation badge is hidden (standard landscape layout used)
       const orientBadge = document.getElementById('docOrientationBadge');
-      const btnFlip = document.getElementById('btnFlipPortrait');
-      if (orientBadge) {
-        orientBadge.style.display = 'inline-flex';
-        orientBadge.style.cursor = 'pointer';
-        orientBadge.title = 'Click to switch between Portrait and Landscape slip mode';
-        orientBadge.textContent = isLandscape ? '• Landscape Slip' : '• Portrait Slip';
-        orientBadge.style.background = isLandscape ? 'rgba(245, 158, 11, 0.16)' : 'rgba(99, 102, 241, 0.14)';
-        orientBadge.style.color = isLandscape ? '#fbbf24' : '#818cf8';
-        orientBadge.style.borderColor = isLandscape ? 'rgba(245, 158, 11, 0.35)' : 'rgba(99, 102, 241, 0.35)';
-      }
-      if (btnFlip) {
-        btnFlip.style.display = 'inline-flex';
-        btnFlip.textContent = isLandscape ? '↺ Flip to Portrait' : '↷ Flip to Landscape';
-        btnFlip.title = isLandscape ? 'Rotate 90° clockwise and set Portrait' : 'Rotate 90° counter-clockwise and set Landscape';
-      }
+      if (orientBadge) orientBadge.style.display = 'none';
 
       // 1. If backend returned dynamic text-anchored regions, use them directly!
       if (ext && ext.regions && Object.keys(ext.regions).length >= 2) {
@@ -381,50 +354,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const COLOR_BLUE = '#2563eb';
       const COLOR_GREEN = '#16a34a';
+      const COLOR_PURPLE = '#9333ea';
       const COLOR_RED = '#dc2626';
       const COLOR_ORANGE = '#ea580c';
 
       // 3. Standard Tailoring Slip (adaptive to detected paper slip boundaries px, py, pw, ph)
-      if (isLandscape) {
-        return {
-          dateMobileRegion: {
-            x: Math.max(0, px + pw * 0.015),
-            y: Math.max(0, py + ph * 0.020),
-            w: Math.min(1 - px, pw * 0.140),
-            h: Math.min(1 - py, ph * 0.350),
-            color: COLOR_RED,
-            label: 'Phone & Dates',
-            fields: ['revOrderDate', 'revDeliveryDate', 'revCustomerMobile']
-          },
-          garmentRegion: {
-            x: Math.max(0, px + pw * 0.015),
-            y: Math.max(0, py + ph * 0.380),
-            w: Math.min(1 - px, pw * 0.140),
-            h: Math.min(1 - py, ph * 0.170),
-            color: COLOR_GREEN,
-            label: 'Garment Type & Cloth',
-            fields: ['revGarmentType', 'revCloth']
-          },
-          customerRegion: {
-            x: Math.max(0, px + pw * 0.015),
-            y: Math.max(0, py + ph * 0.560),
-            w: Math.min(1 - px, pw * 0.140),
-            h: Math.min(1 - py, ph * 0.400),
-            color: COLOR_BLUE,
-            label: 'Customer Info (Name / Erode)',
-            fields: ['revCustomerName', 'revErode']
-          },
-          measurementRegion: {
-            x: Math.max(0, px + pw * 0.165),
-            y: Math.max(0, py + ph * 0.020),
-            w: Math.min(1 - px, pw * 0.815),
-            h: Math.min(1 - py, ph * 0.940),
-            color: COLOR_ORANGE,
-            label: 'Measurements',
-            fields: []
-          }
-        };
-      }
 
       return {
         customerRegion: {
@@ -433,17 +367,17 @@ document.addEventListener('DOMContentLoaded', () => {
           w: Math.min(1 - px, pw * 0.42),
           h: Math.min(1 - py, ph * 0.130),
           color: COLOR_BLUE,
-          label: 'Customer Info (Name / Erode)',
-          fields: ['revCustomerName', 'revErode']
+          label: 'Customer Info (Name / Order ID)',
+          fields: ['revCustomerName', 'revOrderId']
         },
         garmentRegion: {
           x: Math.max(0, px + pw * 0.35),
           y: Math.max(0, py + ph * 0.015),
           w: Math.min(1 - px, pw * 0.30),
           h: Math.min(1 - py, ph * 0.065),
-          color: COLOR_GREEN,
-          label: 'Garment Type & Cloth',
-          fields: ['revGarmentType', 'revCloth']
+          color: COLOR_PURPLE,
+          label: 'Garment Type',
+          fields: ['revGarmentType']
         },
         dateMobileRegion: {
           x: Math.max(0, px + pw * 0.52),
@@ -996,19 +930,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (revAdvanceAmount) revAdvanceAmount.addEventListener('input', updateBalanceCalc);
 
     // JSON Preview: refresh on any customer / order field change
-    [revCustomerName, revCustomerMobile, revOrderDate, revDeliveryDate, revErode, revCloth].forEach(el => {
+    [revCustomerName, revCustomerMobile, revOrderDate, revDeliveryDate, revOrderId].forEach(el => {
       if (el) el.addEventListener('input', refreshJsonPreview);
     });
     if (revGarmentType) revGarmentType.addEventListener('change', refreshJsonPreview);
 
     // Click-to-Highlight: Wire field focus / click to highlight its bounding box on image scan
     bindFieldHighlight(revCustomerName, 'field_revCustomerName', 'customerRegion');
-    bindFieldHighlight(revErode, 'field_revErode', 'customerRegion');
+    bindFieldHighlight(revOrderId, 'field_revOrderId', 'customerRegion');
     bindFieldHighlight(revCustomerMobile, 'field_revCustomerMobile', 'dateMobileRegion');
     bindFieldHighlight(revOrderDate, 'field_revOrderDate', 'dateMobileRegion');
     bindFieldHighlight(revDeliveryDate, 'field_revDeliveryDate', 'dateMobileRegion');
     bindFieldHighlight(revGarmentType, 'field_revGarmentType', 'garmentRegion');
-    bindFieldHighlight(revCloth, 'field_revCloth', 'garmentRegion');
 
     // Copy JSON to Clipboard
     if (btnCopyJson) {
@@ -1440,17 +1373,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const customer = data.customer || {};
     const order = data.order || {};
-    const measurements = order.measurements || {};
+    const measurements = data.measurements || order.measurements || {};
     const measCount = Object.keys(measurements).length;
 
     return {
-      customerName: customer.customerName || '',
-      customerMobile: customer.customerMobile || '',
-      garmentType: order.garmentType || '',
-      totalAmount: order.totalAmount != null ? order.totalAmount : '',
+      customerName: data.customerName || customer.customerName || '',
+      customerMobile: data.mobileNo || data.customerMobile || customer.customerMobile || '',
+      garmentType: data.garmentType || order.garmentType || '',
+      orderId: data.orderId || order.orderId || order.erode || '',
+      totalAmount: data.totalAmount != null ? data.totalAmount : (order.totalAmount != null ? order.totalAmount : ''),
       measurementsCount: measCount,
       measurements: measurements,
-      orderDate: order.orderDate || '',
+      orderDate: data.date || data.orderDate || order.orderDate || '',
+      dueDate: data.dueDate || data.deliveryDate || order.deliveryDate || '',
       overallConfidence: data.overallConfidence != null ? data.overallConfidence : null
     };
   }
@@ -3323,26 +3258,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rawOcrBox) rawOcrBox.style.display = 'none';
 
     // Customer
-    revCustomerMobile.value = customer.customerMobile || '';
-    revCustomerName.value = customer.customerName || '';
+    revCustomerMobile.value = ext?.mobileNo || ext?.customerMobile || customer.customerMobile || '';
+    revCustomerName.value = ext?.customerName || customer.customerName || '';
 
     // Order
-    revOrderDate.value = order.orderDate || new Date().toISOString().split('T')[0];
+    revOrderDate.value = ext?.date || ext?.orderDate || order.orderDate || new Date().toISOString().split('T')[0];
     if (revDeliveryDate) {
-      revDeliveryDate.value = order.deliveryDate || ext?.order?.deliveryDate || '';
+      revDeliveryDate.value = ext?.dueDate || ext?.deliveryDate || order.deliveryDate || '';
     }
-    if (revErode) {
-      revErode.value = order.erode || ext?.order?.erode || '';
-    }
-    if (revCloth) {
-      revCloth.value = order.cloth || ext?.order?.cloth || '';
+    if (revOrderId) {
+      revOrderId.value = ext?.orderId || order.orderId || order.erode || '';
     }
 
     // Garment type determination:
     // Strictly detected from top-center / header area.
     // Spec: "Do not infer garment type from the measurement names.
     // If the top-center garment type cannot be confidently detected, mark it as LOW CONFIDENCE and require review."
-    const gTypeRaw = (order.garmentType || '').toUpperCase().trim();
+    const gTypeRaw = (ext?.garmentType || order.garmentType || '').toUpperCase().trim();
 
     let resolvedType = null;
     if (gTypeRaw === 'BLOUSE' || (gTypeRaw !== 'NEEDS_REVIEW' && gTypeRaw.includes('BLOUSE'))) {
@@ -3387,7 +3319,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    revLining.value = order.lining === 'WITH_LINING' ? 'WITH_LINING' : 'WITHOUT_LINING';
+    revLining.value = (ext?.lining || order.lining) === 'WITH_LINING' ? 'WITH_LINING' : 'WITHOUT_LINING';
 
     // Update the garment badges
     const garmentType = revGarmentType.value;
@@ -3399,19 +3331,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Extract confidence map from extracted data (per-field or overall)
     const confidences = {};
-    if (ext?.confidences) {
+    if (ext?.confidence?.measurements) {
+      Object.assign(confidences, ext.confidence.measurements);
+    } else if (ext?.confidence) {
+      Object.assign(confidences, ext.confidence);
+    } else if (ext?.confidences) {
       Object.assign(confidences, ext.confidences);
     } else if (ext?.measurementConfidences) {
       Object.assign(confidences, ext.measurementConfidences);
     }
 
     // Measurements — garment-aware template with confidence badges
-    const measurements = order.measurements || {};
+    const measurements = ext?.measurements || order.measurements || {};
     renderMeasurementTemplate(garmentType || 'CHUDI', measurements, confidences);
 
     // Billing
-    revTotalAmount.value = order.totalAmount !== undefined && order.totalAmount !== null ? order.totalAmount : '0';
-    revAdvanceAmount.value = order.advanceAmount !== undefined && order.advanceAmount !== null ? order.advanceAmount : '0';
+    revTotalAmount.value = ext?.totalAmount !== undefined && ext?.totalAmount !== null ? ext.totalAmount : (order.totalAmount !== undefined && order.totalAmount !== null ? order.totalAmount : '0');
+    revAdvanceAmount.value = ext?.advanceAmount !== undefined && ext?.advanceAmount !== null ? ext.advanceAmount : (order.advanceAmount !== undefined && order.advanceAmount !== null ? order.advanceAmount : '0');
     updateBalanceCalc();
 
     revRemarks.value = '';
@@ -3645,15 +3581,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (k && v) measurements[k] = v;
     });
 
+    let ext = null;
+    if (currentDocInReview && currentDocInReview.extractedDataJson) {
+      try {
+        ext = typeof currentDocInReview.extractedDataJson === 'string'
+          ? JSON.parse(currentDocInReview.extractedDataJson)
+          : currentDocInReview.extractedDataJson;
+      } catch (e) {}
+    }
+
     const preview = {
       customerName: revCustomerName?.value || null,
       mobileNo:     revCustomerMobile?.value || null,
+      orderId:      revOrderId?.value || null,
       date:         revOrderDate?.value || null,
-      deliveryDate: revDeliveryDate?.value || null,
-      erode:        revErode?.value || null,
-      cloth:        revCloth?.value || null,
+      dueDate:      revDeliveryDate?.value || null,
       garmentType:  revGarmentType?.value || null,
-      measurements
+      measurements: measurements,
+      confidence:   (ext && ext.confidence) ? ext.confidence : {},
+      needsReview:  (ext && ext.needsReview !== undefined) ? ext.needsReview : false
     };
     revJsonPreview.textContent = JSON.stringify(preview, null, 2);
     updateReviewCompletionBar();
@@ -3906,11 +3852,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (box) {
       box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
     }
-  });
-  document.getElementById('btnFlipPortrait')?.addEventListener('click', () => {
-    // Rotating by 270 or running rescan auto-flips landscape to portrait and re-extracts
-    rotationAngle = 270;
-    handleRescanDocument();
   });
 
   async function handleRescanDocument() {
@@ -4172,9 +4113,17 @@ document.addEventListener('DOMContentLoaded', () => {
         advanceAmountConfidence: 1.0,
         paymentDateKnown: true,
         needsReview: false,
-        erode: (revErode?.value || '').trim() || null,
-        cloth: (revCloth?.value || '').trim() || null
+        orderId: (revOrderId?.value || '').trim() || null
       },
+      customerName: (revCustomerName.value || '').trim(),
+      mobileNo: (revCustomerMobile.value || '').trim(),
+      orderId: (revOrderId?.value || '').trim() || null,
+      date: orderDate || new Date().toISOString().split('T')[0],
+      dueDate: revDeliveryDate?.value || null,
+      garmentType: garmentType,
+      measurements: measurements,
+      confidence: {},
+      needsReview: false,
       overallConfidence: 1.0
     };
 

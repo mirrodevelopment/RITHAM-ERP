@@ -60,7 +60,7 @@ public class PdfPageService {
 
                 // Render page at 300 DPI RGB
                 BufferedImage pageImage = renderer.renderImageWithDPI(pageIndex, PDF_RENDER_DPI, ImageType.RGB);
-                pageImage = ensurePortrait(pageImage);
+                pageImage = ensureLandscape(pageImage);
                 ImageIO.write(pageImage, "png", pageImagePath.toFile());
 
                 // Flush image memory immediately to avoid high heap usage on large PDFs
@@ -90,7 +90,7 @@ public class PdfPageService {
             }
 
             BufferedImage pageImage = renderer.renderImageWithDPI(pageIndex, PDF_RENDER_DPI, ImageType.RGB);
-            pageImage = ensurePortrait(pageImage);
+            pageImage = ensureLandscape(pageImage);
             ImageIO.write(pageImage, "png", outputPath.toFile());
             pageImage.flush();
 
@@ -114,17 +114,16 @@ public class PdfPageService {
                     Files.createDirectories(outputPath.getParent());
                 }
                 BufferedImage pageImage = renderer.renderImageWithDPI(i, PDF_RENDER_DPI, ImageType.RGB);
-                pageImage = ensurePortrait(pageImage);
+                pageImage = ensureLandscape(pageImage);
                 ImageIO.write(pageImage, "png", outputPath.toFile());
                 pageImage.flush();
             }
         }
     }
 
-    private BufferedImage ensurePortrait(BufferedImage img) {
-        if (img == null) return null;
-        if (img.getWidth() > img.getHeight()) {
-            log.info("PDF page rendered in landscape ({}x{}); flipping 270 deg to portrait", img.getWidth(), img.getHeight());
+    private BufferedImage ensureLandscape(BufferedImage img) {
+        // Measurement sheets are landscape forms — if PDF page is vertical, rotate to landscape
+        if (img.getWidth() < img.getHeight()) {
             return rotateImage(img, 270);
         }
         return img;
