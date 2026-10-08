@@ -124,6 +124,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (addStageBtn) addStageBtn.addEventListener('click', openCreateStageModal);
   if (overallEditBtn) overallEditBtn.addEventListener('click', openReorderModal);
 
+  const exportStagesExcelBtn = document.getElementById('exportStagesExcelBtn');
+  if (exportStagesExcelBtn) {
+    exportStagesExcelBtn.addEventListener('click', () => {
+      const stagesToExport = getFilteredStages();
+      if (!stagesToExport || stagesToExport.length === 0) {
+        Toast.warning('No production stages found to export');
+        return;
+      }
+      const data = stagesToExport.map((stg, idx) => {
+        const stageKey = (stg.stageKey || '').toUpperCase();
+        const stageWorkers = (allEmployees || []).filter(e => (e.stage || '').toUpperCase() === stageKey);
+        return {
+          'Sequence': stg.seqOrder || (idx + 1),
+          'Stage Key': stg.stageKey || '—',
+          'Stage Name': stg.title || '—',
+          'Description': stg.description || '—',
+          'Color Hex': stg.color || '#6366f1',
+          'Status': stg.isActive !== false ? 'Active' : 'Inactive',
+          'Assigned Workers': stageWorkers.length,
+          'Staff List': stageWorkers.map(w => `${w.fullName} (${w.employeeCode})`).join(', ') || 'None'
+        };
+      });
+      ExcelExport.exportData(data, {
+        filename: 'Ritham_Production_Stages',
+        sheetName: 'Stages',
+        columnWidths: [10, 16, 24, 35, 12, 12, 18, 45]
+      });
+    });
+  }
+
   // Search & Filter Listeners
   if (stageSearchInput) stageSearchInput.addEventListener('input', renderViews);
   if (stageFilterStaff) stageFilterStaff.addEventListener('change', renderViews);
@@ -584,7 +614,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const payload = {
       title: title,
       description: stageDescInput.value.trim() || null,
-      icon: 'STG',
+      icon: title.charAt(0).toUpperCase() || 'P',
       color: selectedColor,
       bgColor: hexToRgba(selectedColor, 0.15),
       isActive: stageActiveCheckbox ? stageActiveCheckbox.checked : true

@@ -12,43 +12,51 @@ document.addEventListener('DOMContentLoaded', async () => {
   Sidebar.init({ activePage: 'production' });
   Header.init({ title: 'Production Workflow', subtitle: 'Department Stage Workstations' });
 
-  const DEPARTMENTS = [
-    { key: 'DESIGNING',           icon: '🎨', title: 'Designing',                desc: 'Design consultation, styling & pattern drafting' },
-    { key: 'LINING',              icon: '🥻', title: 'Lining',                   desc: 'Lining fabric selection, pre-wash & matching' },
-    { key: 'HAND_MACHINE_WORK',   icon: '🪡', title: 'Hand Work / Machine Work', desc: 'Aari, zardosi, embroidery & machine stitching' },
-    { key: 'INITIAL_IRONING',     icon: '🧺', title: 'Initial Ironing',          desc: 'Pre-cutting fabric steam pressing & smoothing' },
-    { key: 'CUTTING',             icon: '✂️', title: 'Cutting',                  desc: 'Master fabric cutting & darts sectioning' },
-    { key: 'STRETCHING',          icon: '📐', title: 'Stretching',               desc: 'Fabric tensioning & body contour fitting' },
-    { key: 'STITCHING',           icon: '🧵', title: 'Stitching',                desc: 'Main garment assembly & seams joining' },
-    { key: 'HEMMING',             icon: '🪢', title: 'Hemming',                  desc: 'Edge hemming, piping, hooks & eye finish' },
-    { key: 'FINAL_IRONING',       icon: '♨️', title: 'Final Ironing',            desc: 'Final steam press & silhouette alignment' },
-    { key: 'QUALITY_CHECK',        icon: '🔍', title: 'Quality Check (QC)',       desc: 'Measurement verification & quality audit' },
-    { key: 'READY_TO_DELIVERY',   icon: '📦', title: 'Ready to Delivery',        desc: 'Garment tagging, hanger packing & pickup ready' },
-    { key: 'DELIVERY',            icon: '🚚', title: 'Delivery',                 desc: 'Order dispatched & handed over to customer' },
-  ];
-
-  let currentStage = 'DESIGNING';
+  let DEPARTMENTS = [];
+  let currentStage = null;
   let allOrders    = [];
   let allEmployees = [];
 
   // ── Load Orders & Employees ─────────────────────────────────────────────
   async function loadOrders() {
     try {
-      const [ordersData, empData] = await Promise.all([
-        Api.get(`${API.ORDERS}?size=500&sort=createdAt,desc`),
+      const [stagesData, ordersData, empData] = await Promise.all([
+        Api.get(`${API.PRODUCTION_STAGES}?activeOnly=false`).catch(() => []),
+        Api.get(`${API.ORDERS}?size=500&sort=createdAt,desc`).catch(() => ({ content: [] })),
         Api.get(`${API.EMPLOYEES}?size=100`).catch(() => ({ content: [] }))
       ]);
+
+      const rawStages = Array.isArray(stagesData) ? stagesData : (stagesData?.data || []);
+      DEPARTMENTS = (rawStages || []).map(s => ({
+        key: s.stageKey,
+        icon: s.icon || (s.title ? s.title.charAt(0).toUpperCase() : 'P'),
+        title: s.title,
+        desc: s.description || 'Production stage workstation',
+        color: s.color || '#818CF8',
+        bgColor: s.bgColor || 'rgba(99, 102, 241, 0.15)'
+      }));
+
       allOrders = ordersData?.content ?? [];
       allEmployees = empData?.content ?? [];
+
+      if (DEPARTMENTS.length > 0) {
+        if (!DEPARTMENTS.some(d => d.key === currentStage)) {
+          currentStage = DEPARTMENTS[0].key;
+        }
+      } else {
+        currentStage = null;
+      }
     } catch (_) {
+      DEPARTMENTS = [];
       allOrders = [];
+      currentStage = null;
     }
     renderDepartmentCards();
     renderWorkstationTable();
   }
 
   function normalizeStage(status) {
-    if (!status) return 'DESIGNING';
+    if (!status) return (DEPARTMENTS[0]?.key || 'DESIGNING');
     const s = status.toUpperCase();
     if (s === 'PENDING' || s === 'PATTERN_MAKING') return 'DESIGNING';
     if (s === 'FABRIC_CUTTING') return 'CUTTING';
@@ -66,6 +74,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const gridEl = document.getElementById('stageCardsGrid');
     if (!gridEl) return;
 
+    if (!DEPARTMENTS || DEPARTMENTS.length === 0) {
+      gridEl.innerHTML = '';
+      return;
+    }
+
     gridEl.innerHTML = DEPARTMENTS.map(dept => {
       const count = allOrders.filter(o => normalizeStage(o.status) === dept.key).length;
       const isActive = dept.key === currentStage;
@@ -73,12 +86,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       return `
         <div class="stage-dept-card ${isActive ? 'active' : ''}" data-stage="${dept.key}">
           <div class="stage-dept-header">
-            <span class="stage-dept-icon">${dept.icon}</span>
+            <span class="stage-dept-icon" style="color:${dept.color}; background:${dept.bgColor}; border-color:${dept.color}40;">${dept.icon}</span>
             <span class="stage-dept-count">${count} Orders</span>
           </div>
           <div>
             <div class="stage-dept-title">${dept.title}</div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${dept.desc}</div>
+            <div class="stage-dept-desc">${dept.desc}</div>
           </div>
         </div>
       `;
@@ -100,11 +113,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tbodyEl    = document.getElementById('stageOrdersBody');
     const searchVal  = (document.getElementById('stageOrderSearch')?.value || '').toLowerCase();
 
+    if (!DEPARTMENTS || DEPARTMENTS.length === 0) {
+      if (titleEl) titleEl.innerHTML = `No Production Stages Configured`;
+      if (subtitleEl) subtitleEl.textContent = `All production stages have been removed from the database`;
+      if (tbodyEl) {
+        tbodyEl.innerHTML = `
+          <tr>
+            <td colspan="6" style="padding:40px;text-align:center;color:var(--text-muted);">
+              No production stages exist. Stages can be created in the Production Stages desk.
+            </td>
+          </tr>
+        `;
+      }
+      return;
+    }
+
     const dept = DEPARTMENTS.find(d => d.key === currentStage) || DEPARTMENTS[0];
 
     const canAdvance = Utils.canAdvanceProductionStage();
     if (titleEl) {
-      titleEl.innerHTML = `${dept.icon} ${dept.title} Workstation ${!canAdvance ? '<span class="badge badge-neutral" style="font-size:11px;margin-left:8px;font-weight:600;opacity:0.85;">View Only Mode</span>' : ''}`;
+      titleEl.innerHTML = `<span class="stage-dept-icon stage-title-badge" style="color:${dept.color}; background:${dept.bgColor}; border-color:${dept.color}40;">${dept.icon}</span> <span>${dept.title} Workstation</span> ${!canAdvance ? '<span class="badge badge-neutral" style="font-size:11px;margin-left:8px;font-weight:600;opacity:0.85;">View Only Mode</span>' : ''}`;
     }
 
     const stageOrders = allOrders.filter(o => normalizeStage(o.status) === currentStage).filter(o => {
@@ -224,6 +252,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     const nextDept = getNextDepartment(currentStage) || DEPARTMENTS.find(d => d.key === currentStage) || DEPARTMENTS[0];
+    if (!nextDept) {
+      Toast.info('No production stages configured to advance order to.');
+      return;
+    }
     const currentDeptObj = DEPARTMENTS.find(d => d.key === currentStage);
     const orderObj = allOrders.find(o => String(o.id) === String(orderId));
 
@@ -417,6 +449,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('stageOrderSearch')?.addEventListener('input', () => {
     renderWorkstationTable();
+  });
+
+  document.getElementById('exportWorkstationExcelBtn')?.addEventListener('click', async () => {
+    const dept = DEPARTMENTS.find(d => d.key === currentStage) || DEPARTMENTS[0];
+    const stageOrders = allOrders.filter(o => normalizeStage(o.status) === currentStage);
+    if (!stageOrders.length) {
+      Toast.warning(`No active orders in ${dept.title} workstation to export.`);
+      return;
+    }
+
+    const columns = [
+      { key: 'sno', header: 'S.No' },
+      { key: 'orderNumber', header: 'Order Number', transform: (v, o) => v || `#${o.id}` },
+      { key: 'customerName', header: 'Customer Name', transform: v => v || '—' },
+      { key: 'customerMobile', header: 'Mobile Number', transform: v => v || '—' },
+      { key: 'garmentType', header: 'Garment Type', transform: v => v || '—' },
+      { key: 'status', header: 'Current Stage', transform: () => dept.title },
+      { key: 'assignedEmployeeName', header: 'Assigned Staff', transform: v => v || 'Unassigned' },
+      { key: 'orderDate', header: 'Order Date', transform: (v, o) => ExcelExport.formatDate(v || o.createdAt) },
+      { key: 'deliveryDate', header: 'Target Delivery', transform: v => ExcelExport.formatDate(v) },
+      { key: 'totalAmount', header: 'Total (Rs)', transform: v => Number(v || 0) },
+      { key: 'paidAmount', header: 'Paid (Rs)', transform: v => Number(v || 0) },
+    ];
+
+    await ExcelExport.exportData({
+      data: stageOrders,
+      fileName: `ritham-workstation-${dept.key.toLowerCase()}`,
+      sheetName: `${dept.title} Stage`,
+      columns,
+    });
   });
 
   // URL stage query parameter

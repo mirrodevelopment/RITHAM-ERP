@@ -38,6 +38,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     Toast.success('Order desk updated');
   });
 
+  // ── Export Excel Button ───────────────────────────────────────────────
+  document.getElementById('exportOrderDeskExcelBtn')?.addEventListener('click', async () => {
+    const listToExport = Array.isArray(_filteredOrders) && _filteredOrders.length > 0 ? _filteredOrders : _allOrders;
+    if (!listToExport || !listToExport.length) {
+      Toast.warning('No orders available to export.');
+      return;
+    }
+    const columns = [
+      { key: 'sno', header: 'S.No' },
+      { key: 'orderNumber', header: 'Order Number', transform: (v, o) => v || `#${o.id}` },
+      { key: 'customerName', header: 'Customer Name', transform: v => v || '—' },
+      { key: 'customerMobile', header: 'Mobile Number', transform: v => v || '—' },
+      { key: 'garmentType', header: 'Garment Type', transform: v => v || '—' },
+      { key: 'orderDate', header: 'Order Date', transform: (v, o) => ExcelExport.formatDate(v || o.createdAt) },
+      { key: 'deliveryDate', header: 'Delivery Date', transform: v => ExcelExport.formatDate(v) },
+      { key: 'totalAmount', header: 'Total (Rs)', transform: v => Number(v || 0) },
+      { key: 'paidAmount', header: 'Paid (Rs)', transform: v => Number(v || 0) },
+      { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) },
+      { key: 'status', header: 'Status / Stage', transform: v => v || '—' },
+      { key: 'assignedEmployeeName', header: 'Assigned Staff', transform: v => v || 'Unassigned' }
+    ];
+    await ExcelExport.exportData({
+      data: listToExport,
+      fileName: 'ritham-orderdesk-recent',
+      sheetName: 'Recent Orders',
+      columns,
+    });
+  });
+
   // ── Search & Filter Controls ──────────────────────────────────────────
   const searchInput = document.getElementById('orderSearch');
   const clearBtn    = document.getElementById('searchClearBtn');
@@ -253,7 +282,7 @@ function applyFilters() {
   if (_activeFilter === 'PENDING') {
     list = list.filter(o => {
       const s = (o.status || '').toUpperCase();
-      return s === 'PENDING' || s === 'NEW' || s === 'CONFIRMED' || s === 'PATTERN_MAKING';
+      return s === 'PENDING' || s === 'NEW' || s === 'CONFIRMED' || s === 'PATTERN_MAKING' || s === 'DESIGNING';
     });
   } else if (_activeFilter === 'IN_PROGRESS') {
     list = list.filter(o => {
@@ -432,8 +461,8 @@ async function loadStages() {
     let totalInProduction = 0;
     orders.forEach(o => {
       let stg = (o.status || '').toUpperCase();
-      if (stg === 'PENDING' || stg === 'NEW' || stg === 'CONFIRMED') stg = 'PATTERN_MAKING';
-      else if (stg === 'IN_PROGRESS') stg = 'FABRIC_CUTTING';
+      if (stg === 'PENDING' || stg === 'NEW' || stg === 'CONFIRMED' || stg === 'PATTERN_MAKING') stg = 'DESIGNING';
+      else if (stg === 'IN_PROGRESS' || stg === 'FABRIC_CUTTING') stg = 'CUTTING';
 
       if (counts[stg] !== undefined) {
         counts[stg]++;

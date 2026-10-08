@@ -98,6 +98,19 @@ const API = {
   MIGRATION_DOCUMENT_APPROVE_ALL_PAGES: (id) => `${API_BASE_URL}/migration/documents/${id}/approve-all-pages`,
   MIGRATION_DOCUMENT_IMPORT_ALL_PAGES: (id) => `${API_BASE_URL}/migration/documents/${id}/import-all-pages`,
   MIGRATION_CLEAR_ALL:        `${API_BASE_URL}/migration/clear-all`,
+
+  // Backup Management (System Administrator)
+  BACKUP_STATUS:              `${API_BASE_URL}/admin/backup/status`,
+  BACKUP_LOCATIONS:           `${API_BASE_URL}/admin/backup/locations`,
+  BACKUP_SET_LOCATION:        `${API_BASE_URL}/admin/backup/location`,
+  BACKUP_FILES:               `${API_BASE_URL}/admin/backup/files`,
+  BACKUP_LOGS:                `${API_BASE_URL}/admin/backup/logs`,
+  BACKUP_RUN:                 `${API_BASE_URL}/admin/backup/run`,
+  BACKUP_DOWNLOAD:            (cat, file, loc) => `${API_BASE_URL}/admin/backup/download/${cat}/${encodeURIComponent(file)}${loc ? `?location=${encodeURIComponent(loc)}` : ''}`,
+  BACKUP_VERIFY:              (cat, file, loc) => `${API_BASE_URL}/admin/backup/verify/${cat}/${encodeURIComponent(file)}${loc ? `?location=${encodeURIComponent(loc)}` : ''}`,
+  BACKUP_UPLOAD:              `${API_BASE_URL}/admin/backup/upload`,
+  BACKUP_INSPECT:             `${API_BASE_URL}/admin/backup/inspect`,
+  BACKUP_RESTORE:             `${API_BASE_URL}/admin/backup/restore`,
 };
 
 // ── Page Routes ──────────────────────────────────────────────────────────────
@@ -119,6 +132,7 @@ const ROUTES = {
   REPORT:           '/desks/report/report.html',
   BRANCH:           '/desks/branch/branch.html',
   MIGRATION:        '/desks/migration/migration.html',
+  BACKUP:           '/desks/backup/backup.html',
 };
 
 // ── Roles ────────────────────────────────────────────────────────────────────

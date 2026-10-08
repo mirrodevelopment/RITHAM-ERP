@@ -13,57 +13,57 @@
 'use strict';
 
 /* ── State ──────────────────────────────────────────────────────────────── */
-let activeTab      = 'ready';   // 'ready' | 'delivered'
-let allOrders      = [];
+let activeTab = 'ready';   // 'ready' | 'delivered'
+let allOrders = [];
 let filteredOrders = [];
-let searchQuery    = '';
-let _searchTimer   = null;
+let searchQuery = '';
+let _searchTimer = null;
 
 /* ── DOM refs ───────────────────────────────────────────────────────────── */
-const tableBody    = document.getElementById('dlvTableBody');
-const tableHead    = document.getElementById('tableHead');
-const tableTitle   = document.getElementById('tableTitle');
-const tableSubtitle= document.getElementById('tableSubtitle');
-const countLabel   = document.getElementById('deliveryCountLabel');
-const searchInput  = document.getElementById('dlvSearch');
+const tableBody = document.getElementById('dlvTableBody');
+const tableHead = document.getElementById('tableHead');
+const tableTitle = document.getElementById('tableTitle');
+const tableSubtitle = document.getElementById('tableSubtitle');
+const countLabel = document.getElementById('deliveryCountLabel');
+const searchInput = document.getElementById('dlvSearch');
 
 /* ── Status helpers ─────────────────────────────────────────────────────── */
 const STAGE_LABELS = {
   READY_TO_DELIVERY: 'Ready to Delivery',
-  FINAL_PACKAGING:   'Ready to Delivery',
-  COMPLETED:         'Ready',
-  DELIVERY:          'Delivered',
-  DELIVERED:         'Delivered',
-  FINAL_IRONING:     'Final Ironing',
-  QUALITY_CHECK:     'Quality Check',
-  DESIGNING:         'Designing',
-  LINING:            'Lining',
+  FINAL_PACKAGING: 'Ready to Delivery',
+  COMPLETED: 'Ready',
+  DELIVERY: 'Delivered',
+  DELIVERED: 'Delivered',
+  FINAL_IRONING: 'Final Ironing',
+  QUALITY_CHECK: 'Quality Check',
+  DESIGNING: 'Designing',
+  LINING: 'Lining',
   HAND_MACHINE_WORK: 'Hand / Machine',
-  INITIAL_IRONING:   'Initial Ironing',
-  CUTTING:           'Cutting',
-  STRETCHING:        'Stretching',
-  STITCHING:         'Stitching',
-  HEMMING:           'Hemming',
+  INITIAL_IRONING: 'Initial Ironing',
+  CUTTING: 'Cutting',
+  STRETCHING: 'Stretching',
+  STITCHING: 'Stitching',
+  HEMMING: 'Hemming',
 };
 
 const STAGE_CLS = {
   READY_TO_DELIVERY: 'badge-dlv-indigo',
-  FINAL_PACKAGING:   'badge-dlv-indigo',
-  COMPLETED:         'badge-dlv-amber',
-  DELIVERY:          'badge-dlv-green',
-  DELIVERED:         'badge-dlv-green',
+  FINAL_PACKAGING: 'badge-dlv-indigo',
+  COMPLETED: 'badge-dlv-amber',
+  DELIVERY: 'badge-dlv-green',
+  DELIVERED: 'badge-dlv-green',
 };
 
 const PAY_LABELS = { PAID: 'Paid', ADVANCE: 'Partial', PARTIAL: 'Partial', PENDING: 'Unpaid', REFUNDED: 'Refunded' };
-const PAY_CLS    = { PAID: 'badge-dlv-green', ADVANCE: 'badge-dlv-amber', PARTIAL: 'badge-dlv-amber', PENDING: 'badge-dlv-red', REFUNDED: 'badge-dlv-indigo' };
+const PAY_CLS = { PAID: 'badge-dlv-green', ADVANCE: 'badge-dlv-amber', PARTIAL: 'badge-dlv-amber', PENDING: 'badge-dlv-red', REFUNDED: 'badge-dlv-indigo' };
 
 const MODE_LABELS = { CASH: '💵 Cash', UPI: '📱 UPI', CARD: '💳 Card', BANK_TRANSFER: '🏦 Transfer' };
 
-function stageLabel(s) { return STAGE_LABELS[s] || (s || '—').replace(/_/g, ' '); }
-function stageCls(s)   { return STAGE_CLS[s]   || 'badge-dlv-amber'; }
-function payLabel(s)   { return PAY_LABELS[s]   || s || '—'; }
-function payCls(s)     { return PAY_CLS[s]      || 'badge-dlv-amber'; }
-function modeLabel(m)  { return MODE_LABELS[m]  || m || '💵 Cash'; }
+function stageLabel(s) { return (typeof StageRegistry !== 'undefined' ? StageRegistry.getStageTitle(s) : null) || STAGE_LABELS[s] || (s || '—').replace(/_/g, ' '); }
+function stageCls(s) { return STAGE_CLS[s] || 'badge-dlv-amber'; }
+function payLabel(s) { return PAY_LABELS[s] || s || '—'; }
+function payCls(s) { return PAY_CLS[s] || 'badge-dlv-amber'; }
+function modeLabel(m) { return MODE_LABELS[m] || m || '💵 Cash'; }
 
 /* ── Load Stats ─────────────────────────────────────────────────────────── */
 async function loadStats() {
@@ -144,10 +144,10 @@ function applySearch() {
   const q = searchQuery.toLowerCase();
   filteredOrders = q
     ? allOrders.filter(o =>
-        (o.orderNumber    || '').toLowerCase().includes(q) ||
-        (o.customerName   || '').toLowerCase().includes(q) ||
-        (o.customerMobile || '').includes(q)
-      )
+      (o.orderNumber || '').toLowerCase().includes(q) ||
+      (o.customerName || '').toLowerCase().includes(q) ||
+      (o.customerMobile || '').includes(q)
+    )
     : [...allOrders];
   renderTable(filteredOrders);
 }
@@ -165,19 +165,19 @@ searchInput.addEventListener('input', () => {
 function updateLabels() {
   const count = filteredOrders.length;
   const archiveActions = document.getElementById('dlvArchiveActions');
-  const btnDeleteOld   = document.getElementById('btnDeleteOld');
-  const user           = Storage.getUser();
-  const isAdmin        = user && (user.role === ROLES.ADMIN || user.role === 'ROLE_ADMIN');
+  const btnDeleteOld = document.getElementById('btnDeleteOld');
+  const user = Storage.getUser();
+  const isAdmin = user && (user.role === ROLES.ADMIN || user.role === 'ROLE_ADMIN');
 
   if (activeTab === 'ready') {
-    countLabel.textContent   = `${count} order${count !== 1 ? 's' : ''} ready for delivery`;
-    tableTitle.textContent   = 'Ready to Deliver';
-    tableSubtitle.textContent= 'Orders packaged and awaiting customer dispatch';
+    countLabel.textContent = `${count} order${count !== 1 ? 's' : ''} ready for delivery`;
+    tableTitle.textContent = 'Ready to Deliver';
+    tableSubtitle.textContent = 'Orders packaged and awaiting customer dispatch';
     if (archiveActions) archiveActions.style.display = 'none';
   } else {
-    countLabel.textContent   = `${count} order${count !== 1 ? 's' : ''} delivered`;
-    tableTitle.textContent   = 'Completed Orders';
-    tableSubtitle.textContent= 'Orders successfully handed to customers';
+    countLabel.textContent = `${count} order${count !== 1 ? 's' : ''} delivered`;
+    tableTitle.textContent = 'Completed Orders';
+    tableSubtitle.textContent = 'Orders successfully handed to customers';
     if (archiveActions) archiveActions.style.display = 'flex';
     if (btnDeleteOld) btnDeleteOld.style.display = isAdmin ? 'inline-flex' : 'none';
   }
@@ -281,12 +281,12 @@ function renderTable(orders) {
   today.setHours(0, 0, 0, 0);
 
   tableBody.innerHTML = orders.map((o, i) => {
-    const orderNum    = o.orderNumber || `#${o.id}`;
-    const custName    = o.customerName || '—';
-    const custMobile  = o.customerMobile || '—';
-    const totalAmt    = Number(o.totalAmount || 0);
-    const paidAmt     = Number(o.paidAmount || 0);
-    const balAmt      = Math.max(0, totalAmt - paidAmt);
+    const orderNum = o.orderNumber || `#${o.id}`;
+    const custName = o.customerName || '—';
+    const custMobile = o.customerMobile || '—';
+    const totalAmt = Number(o.totalAmount || 0);
+    const paidAmt = Number(o.paidAmount || 0);
+    const balAmt = Math.max(0, totalAmt - paidAmt);
     const safeOrderNum = orderNum.replace(/'/g, "\\'");
 
     if (activeTab === 'ready') {
@@ -311,7 +311,7 @@ function renderTable(orders) {
           <td style="font-size:12px;color:var(--text-muted);">${i + 1}</td>
           <td>
             <span class="dlv-order-num">${orderNum}</span>
-            ${o.garmentType ? `<div style="margin-top:3px;"><span class="badge" style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:${o.garmentType==='BLOUSE'?'rgba(236,72,153,0.15)':'rgba(59,130,246,0.15)'};color:${o.garmentType==='BLOUSE'?'#F472B6':'#60A5FA'};border:1px solid ${o.garmentType==='BLOUSE'?'rgba(236,72,153,0.3)':'rgba(59,130,246,0.3)'};">${o.garmentType==='BLOUSE'?'👗 Blouse':'👘 Chudi'}</span></div>` : ''}
+            ${o.garmentType ? `<div style="margin-top:3px;"><span class="badge" style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:${o.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.15)' : 'rgba(59,130,246,0.15)'};color:${o.garmentType === 'BLOUSE' ? '#F472B6' : '#60A5FA'};border:1px solid ${o.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.3)' : 'rgba(59,130,246,0.3)'};">${o.garmentType === 'BLOUSE' ? '👗 Blouse' : '👘 Chudi'}</span></div>` : ''}
           </td>
           <td>
             <div class="dlv-cust-name">${custName}</div>
@@ -361,7 +361,7 @@ function renderTable(orders) {
           <td style="font-size:12px;color:var(--text-muted);">${i + 1}</td>
           <td>
             <span class="dlv-order-num">${orderNum}</span>
-            ${o.garmentType ? `<div style="margin-top:3px;"><span class="badge" style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:${o.garmentType==='BLOUSE'?'rgba(236,72,153,0.15)':'rgba(59,130,246,0.15)'};color:${o.garmentType==='BLOUSE'?'#F472B6':'#60A5FA'};border:1px solid ${o.garmentType==='BLOUSE'?'rgba(236,72,153,0.3)' : 'rgba(59,130,246,0.3)'};">${o.garmentType==='BLOUSE'?'👗 Blouse':'👘 Chudi'}</span></div>` : ''}
+            ${o.garmentType ? `<div style="margin-top:3px;"><span class="badge" style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:${o.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.15)' : 'rgba(59,130,246,0.15)'};color:${o.garmentType === 'BLOUSE' ? '#F472B6' : '#60A5FA'};border:1px solid ${o.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.3)' : 'rgba(59,130,246,0.3)'};">${o.garmentType === 'BLOUSE' ? '👗 Blouse' : '👘 Chudi'}</span></div>` : ''}
           </td>
           <td>
             <div class="dlv-cust-name">${custName}</div>
@@ -495,11 +495,11 @@ document.getElementById('dlvPayCancelBtn')?.addEventListener('click', closePayMo
 
 document.getElementById('dlvPayConfirmBtn')?.addEventListener('click', async () => {
   const receiverInput = document.getElementById('dlvModalReceiverName');
-  const recErrEl      = document.getElementById('dlvReceiverError');
-  const amountInput   = document.getElementById('dlvPayAmount');
+  const recErrEl = document.getElementById('dlvReceiverError');
+  const amountInput = document.getElementById('dlvPayAmount');
   const discountInput = document.getElementById('dlvDiscount');
-  const errEl         = document.getElementById('dlvPayError');
-  const confirmBtn    = document.getElementById('dlvPayConfirmBtn');
+  const errEl = document.getElementById('dlvPayError');
+  const confirmBtn = document.getElementById('dlvPayConfirmBtn');
 
   const receiverName = receiverInput?.value.trim() || '';
   if (!receiverName) {
@@ -557,15 +557,15 @@ document.getElementById('dlvPayConfirmBtn')?.addEventListener('click', async () 
 });
 
 /* ── Mark as Delivered — opens payment modal ────────────────────────────── */
-window.markAsDelivered = async function(id, orderNum, totalAmt, paidAmt) {
+window.markAsDelivered = async function (id, orderNum, totalAmt, paidAmt) {
   let total = Number(totalAmt || 0);
-  let paid  = Number(paidAmt  || 0);
+  let paid = Number(paidAmt || 0);
   let custName = '';
 
   try {
     const order = await Api.get(`${API.ORDERS}/${id}`);
     total = Number(order.totalAmount || 0);
-    paid  = Number(order.paidAmount  || 0);
+    paid = Number(order.paidAmount || 0);
     custName = order.customerName || '';
   } catch (_) { /* use provided or fallback */ }
 
@@ -574,11 +574,11 @@ window.markAsDelivered = async function(id, orderNum, totalAmt, paidAmt) {
   _deliveryState = { id, orderNum, total, paid, customerName: custName };
 
   // Populate modal
-  document.getElementById('dlvPayOrderNum').textContent  = orderNum;
-  document.getElementById('dlvPayTotal').textContent     = `₹${total.toLocaleString('en-IN')}`;
+  document.getElementById('dlvPayOrderNum').textContent = orderNum;
+  document.getElementById('dlvPayTotal').textContent = `₹${total.toLocaleString('en-IN')}`;
   document.getElementById('dlvPayAlreadyPaid').textContent = `₹${paid.toLocaleString('en-IN')}`;
-  document.getElementById('dlvPayBalance').textContent   = `₹${balance.toLocaleString('en-IN')}`;
-  
+  document.getElementById('dlvPayBalance').textContent = `₹${balance.toLocaleString('en-IN')}`;
+
   const receiverInput = document.getElementById('dlvModalReceiverName');
   if (receiverInput) {
     receiverInput.value = custName || '';
@@ -597,7 +597,7 @@ window.markAsDelivered = async function(id, orderNum, totalAmt, paidAmt) {
   const payErr = document.getElementById('dlvPayError');
   if (payErr) payErr.style.display = 'none';
 
-  document.getElementById('dlvPayConfirmBtn').disabled   = false;
+  document.getElementById('dlvPayConfirmBtn').disabled = false;
   document.getElementById('dlvPayConfirmBtn').textContent = '✓ Confirm Delivery';
 
   // Informative banner if already fully paid
@@ -616,12 +616,11 @@ window.markAsDelivered = async function(id, orderNum, totalAmt, paidAmt) {
   setTimeout(() => receiverInput?.focus(), 100);
 };
 
-
 /* ── View Order Detail Modal ────────────────────────────────────────────── */
 const viewModalBackdrop = document.getElementById('viewModalBackdrop');
-const viewModalBody     = document.getElementById('viewModalBody');
-const viewModalTitle    = document.getElementById('viewModalOrderNum');
-const viewModalSub      = document.getElementById('viewModalSub');
+const viewModalBody = document.getElementById('viewModalBody');
+const viewModalTitle = document.getElementById('viewModalOrderNum');
+const viewModalSub = document.getElementById('viewModalSub');
 
 function closeViewModal() {
   viewModalBackdrop?.classList.add('hidden');
@@ -633,7 +632,7 @@ viewModalBackdrop?.addEventListener('click', e => {
   if (e.target === viewModalBackdrop) closeViewModal();
 });
 
-window.viewDeliveryOrder = async function(id) {
+window.viewDeliveryOrder = async function (id) {
   if (!viewModalBackdrop || !viewModalBody) return;
 
   viewModalBody.innerHTML = `
@@ -645,14 +644,14 @@ window.viewDeliveryOrder = async function(id) {
   viewModalBackdrop.classList.remove('hidden');
 
   try {
-    const order   = await Api.get(`${API.ORDERS}/${id}`);
+    const order = await Api.get(`${API.ORDERS}/${id}`);
     const totalAmt = Number(order.totalAmount || 0);
-    const paidAmt  = Number(order.paidAmount || 0);
-    const balAmt   = Math.max(0, totalAmt - paidAmt);
+    const paidAmt = Number(order.paidAmount || 0);
+    const balAmt = Math.max(0, totalAmt - paidAmt);
     const isDelivered = order.status === 'DELIVERED';
 
     if (viewModalTitle) viewModalTitle.textContent = order.orderNumber || `#${order.id}`;
-    if (viewModalSub)   viewModalSub.textContent   = `Registered on ${Utils.formatDate(order.orderDate || order.createdAt)}`;
+    if (viewModalSub) viewModalSub.textContent = `Registered on ${Utils.formatDate(order.orderDate || order.createdAt)}`;
 
     const safeOrderNum = (order.orderNumber || '').replace(/'/g, "\\'");
 
@@ -688,16 +687,16 @@ window.viewDeliveryOrder = async function(id) {
           </div>
         </div>
 
-        ${ order.garmentType ? `
+        ${order.garmentType ? `
         <!-- Garment & Measurements -->
         <div style="background:rgba(255,255,255,0.03);padding:14px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <div style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Garment & Specs</div>
-            <span class="badge" style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;background:${order.garmentType==='BLOUSE'?'rgba(236,72,153,0.15)':'rgba(59,130,246,0.15)'};color:${order.garmentType==='BLOUSE'?'#F472B6':'#60A5FA'};border:1px solid ${order.garmentType==='BLOUSE'?'rgba(236,72,153,0.3)':'rgba(59,130,246,0.3)'};">
+            <span class="badge" style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;background:${order.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.15)' : 'rgba(59,130,246,0.15)'};color:${order.garmentType === 'BLOUSE' ? '#F472B6' : '#60A5FA'};border:1px solid ${order.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.3)' : 'rgba(59,130,246,0.3)'};">
               ${order.garmentType === 'BLOUSE' ? '👗 Blouse' : '👘 Chudi'}
             </span>
           </div>
-          ${ order.measurements && Object.keys(order.measurements).length > 0 ? `
+          ${order.measurements && Object.keys(order.measurements).length > 0 ? `
             <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(80px, 1fr));gap:6px;margin-top:8px;">
               ${Object.entries(order.measurements).map(([k, v]) => `
                 <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:4px 6px;text-align:center;">
@@ -710,7 +709,7 @@ window.viewDeliveryOrder = async function(id) {
             <div style="font-size:12px;color:var(--text-muted);font-style:italic;">No recorded measurements</div>
           `}
         </div>
-        ` : '' }
+        ` : ''}
 
         <!-- Dates -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -797,37 +796,38 @@ window.viewDeliveryOrder = async function(id) {
 
 /* ── Export & Archive Operations ───────────────────────────────────────── */
 
-function exportExcel() {
-  if (!allOrders.length) {
-    Toast.error('No delivered orders available to export.');
+async function exportExcel() {
+  const listToExport = filteredOrders.length ? filteredOrders : allOrders;
+  if (!listToExport.length) {
+    Toast.error('No delivery orders available to export.');
     return;
   }
 
-  if (typeof XLSX === 'undefined') {
-    Toast.error('Excel library is loading, please try again in a moment.');
-    return;
-  }
+  const columns = [
+    { key: 'sno', header: 'S.No' },
+    { key: 'orderNumber', header: 'Order Number', transform: (v, o) => v || `#${o.id}` },
+    { key: 'customerName', header: 'Customer Name', transform: v => v || '—' },
+    { key: 'customerMobile', header: 'Mobile Number', transform: v => v || '—' },
+    { key: 'garmentType', header: 'Garment Type', transform: v => v || '—' },
+    { key: 'orderDate', header: 'Order Date', transform: (v, o) => ExcelExport.formatDate(v || o.createdAt) },
+    { key: 'deliveryDate', header: activeTab === 'ready' ? 'Target Delivery' : 'Delivered Date', transform: (v, o) => ExcelExport.formatDate(activeTab === 'ready' ? v : (o.updatedAt || v)) },
+    { key: 'totalAmount', header: 'Total Amount (Rs)', transform: v => Number(v || 0) },
+    { key: 'paidAmount', header: 'Paid Amount (Rs)', transform: v => Number(v || 0) },
+    { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) },
+    { key: 'paymentStatus', header: 'Payment Status', transform: v => payLabel(v) },
+    { key: 'paymentMode', header: 'Payment Mode', transform: v => modeLabel(v) },
+    { key: 'status', header: 'Delivery Status', transform: v => stageLabel(v) },
+  ];
 
-  const data = allOrders.map((o, idx) => ({
-    'S.No': idx + 1,
-    'Order Number': o.orderNumber || `#${o.id}`,
-    'Customer Name': o.customerName || '—',
-    'Mobile Number': o.customerMobile || '—',
-    'Order Date': Utils.formatDate(o.orderDate || o.createdAt),
-    'Delivered Date': Utils.formatDate(o.updatedAt || o.deliveryDate),
-    'Total Amount (Rs)': Number(o.totalAmount || 0),
-    'Paid Amount (Rs)': Number(o.paidAmount || 0),
-    'Balance Due (Rs)': Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)),
-    'Payment Status': payLabel(o.paymentStatus),
-    'Payment Type': modeLabel(o.paymentMode),
-  }));
+  const sheetTitle = activeTab === 'ready' ? 'Ready Deliveries' : 'Completed Deliveries';
+  const fileName = activeTab === 'ready' ? 'ritham-ready-deliveries' : 'ritham-completed-deliveries';
 
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Delivered Orders');
-  const todayStr = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `ritham-delivered-orders-${todayStr}.xlsx`);
-  Toast.success('Excel file exported successfully! 📊');
+  await ExcelExport.exportData({
+    data: listToExport,
+    fileName,
+    sheetName: sheetTitle,
+    columns,
+  });
 }
 
 function exportPDF() {
@@ -886,8 +886,8 @@ document.getElementById('btnExportPdf')?.addEventListener('click', exportPDF);
 
 const archiveModalBackdrop = document.getElementById('deleteArchiveModalBackdrop');
 const archivePasswordInput = document.getElementById('archiveAdminPassword');
-const archiveConfirmBtn    = document.getElementById('archiveConfirmBtn');
-const archiveErrorEl       = document.getElementById('archiveError');
+const archiveConfirmBtn = document.getElementById('archiveConfirmBtn');
+const archiveErrorEl = document.getElementById('archiveError');
 
 function closeArchiveModal() {
   archiveModalBackdrop?.classList.add('hidden');
@@ -915,8 +915,8 @@ document.getElementById('btnDeleteOld')?.addEventListener('click', async () => {
   try {
     const res = await Api.get(`${API_BASE_URL}/orders/delivered/archive-stats?keepDays=30`);
     document.getElementById('archiveToDeleteCount').textContent = res?.toDelete ?? 0;
-    document.getElementById('archiveToKeepCount').textContent   = res?.toKeep   ?? 0;
-    document.getElementById('archiveCutoffDate').textContent   = res?.cutoffDate ?? '—';
+    document.getElementById('archiveToKeepCount').textContent = res?.toKeep ?? 0;
+    document.getElementById('archiveCutoffDate').textContent = res?.cutoffDate ?? '—';
 
     archivePasswordInput.value = '';
     archiveConfirmBtn.disabled = true;
@@ -982,6 +982,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   Sidebar.init({ activePage: 'delivery' });
   Header.init({ title: 'Deliveries', subtitle: 'Delivery Management' });
+
+  if (typeof StageRegistry !== 'undefined') {
+    try { await StageRegistry.init(); } catch (_) { }
+  }
 
   await refresh();
 

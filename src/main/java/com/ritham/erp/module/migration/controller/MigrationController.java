@@ -60,6 +60,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 @RequestMapping("/api/migration")
 public class MigrationController {
 
+    private static final java.util.regex.Pattern PATTERN_OVERALL_CONF = java.util.regex.Pattern.compile("\"overallConfidence\"\\s*:\\s*([0-9.]+)");
+    private static final java.util.regex.Pattern PATTERN_MOBILE = java.util.regex.Pattern.compile("\"customerMobile\"\\s*:\\s*\"([6-9]\\d{9})\"");
+    private static final java.util.regex.Pattern PATTERN_GARMENT = java.util.regex.Pattern.compile("\"garmentType\"\\s*:\\s*\"([^\"]+)\"");
+
     private final MigrationBatchService  batchService;
     private final MigrationImportService importService;
     private final CustomerMeasurementRepository measurementRepository;
@@ -638,7 +642,7 @@ public class MigrationController {
 
         java.math.BigDecimal conf = d.getOcrConfidence();
         if (conf != null && (conf.doubleValue() == 85.0 || conf.doubleValue() == 85.00) && d.getExtractedDataJson() != null) {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"overallConfidence\"\\s*:\\s*([0-9.]+)").matcher(d.getExtractedDataJson());
+            java.util.regex.Matcher m = PATTERN_OVERALL_CONF.matcher(d.getExtractedDataJson());
             if (m.find()) {
                 try {
                     double val = Double.parseDouble(m.group(1));
@@ -653,11 +657,11 @@ public class MigrationController {
         String json = d.effectiveDataJson();
         if (json != null && !json.isBlank()) {
             try {
-                java.util.regex.Matcher mMobile = java.util.regex.Pattern.compile("\"customerMobile\"\\s*:\\s*\"([6-9]\\d{9})\"").matcher(json);
+                java.util.regex.Matcher mMobile = PATTERN_MOBILE.matcher(json);
                 if (mMobile.find()) {
                     String mobile = mMobile.group(1);
                     String garment = null;
-                    java.util.regex.Matcher mGarment = java.util.regex.Pattern.compile("\"garmentType\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+                    java.util.regex.Matcher mGarment = PATTERN_GARMENT.matcher(json);
                     if (mGarment.find()) {
                         garment = mGarment.group(1).trim().toUpperCase();
                     }

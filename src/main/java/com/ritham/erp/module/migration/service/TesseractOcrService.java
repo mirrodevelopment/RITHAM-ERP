@@ -1,6 +1,10 @@
 package com.ritham.erp.module.migration.service;
 
-import com.ritham.erp.module.migration.service.ocr.*;
+import com.ritham.erp.module.migration.service.ocr.DocumentOrientationDetector;
+import com.ritham.erp.module.migration.service.ocr.ImagePreprocessor;
+import com.ritham.erp.module.migration.service.ocr.OcrEngine;
+import com.ritham.erp.module.migration.service.ocr.RegionExtractor;
+import com.ritham.erp.module.migration.service.ocr.TesseractOcrEngine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;

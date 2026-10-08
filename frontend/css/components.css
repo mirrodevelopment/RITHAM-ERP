@@ -98,6 +98,66 @@
   border-color: var(--status-delayed);
 }
 
+/* Excel Export Button — Emerald Green */
+.btn-excel {
+  background-color: rgba(16, 185, 129, 0.08);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.btn-excel:hover {
+  background-color: rgba(16, 185, 129, 0.16);
+  color: #34D399;
+  border-color: #10B981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+/* Excel Column Selection Modal Styling */
+.excel-col-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-default);
+  background-color: var(--bg-surface-1, #1e293b);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.excel-col-item:hover {
+  border-color: rgba(16, 185, 129, 0.45);
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.04));
+  transform: translateY(-1px);
+}
+
+.excel-col-item.selected {
+  border-color: rgba(16, 185, 129, 0.6);
+  background-color: rgba(16, 185, 129, 0.08);
+}
+
+.excel-col-item input[type="checkbox"] {
+  accent-color: #10B981;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.excel-col-item span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Icon-only button */
 .btn-icon {
   padding: var(--space-2);

@@ -489,6 +489,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     Toast.success('Records refreshed');
   });
 
+  // ── Excel Export ──────────────────────────────────────────────────────
+  const exportExcelBtn = document.getElementById('exportMeasurementsExcelBtn');
+  exportExcelBtn?.addEventListener('click', () => {
+    if (!allRecords || allRecords.length === 0) {
+      Toast.warning('No measurement records available to export');
+      return;
+    }
+    const filteredRecords = allRecords.filter(r => {
+      if (currentFilter === 'ALL') return true;
+      return (r.garmentType || '').toUpperCase() === currentFilter;
+    });
+    if (filteredRecords.length === 0) {
+      Toast.warning('No records match current filter to export');
+      return;
+    }
+
+    const data = filteredRecords.map((r, index) => {
+      const msrList = Object.entries(r.measurements || {})
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(', ');
+      return {
+        'S.No': index + 1,
+        'Customer Name': r.customerName || '—',
+        'Mobile Number': r.customerMobile || '—',
+        'Garment Type': r.garmentType || '—',
+        'Dimensions Recorded': Object.keys(r.measurements || {}).length,
+        'Measurements Summary': msrList || '—',
+        'Notes': r.notes || '',
+        'Last Updated': ExcelExport.formatDate(r.updatedAt || r.createdAt)
+      };
+    });
+
+    ExcelExport.exportData(data, {
+      filename: `Customer_Measurements_${currentFilter}`,
+      sheetName: 'Measurements',
+      columnWidths: [8, 22, 16, 16, 18, 40, 25, 20]
+    });
+  });
+
   // Auto-refresh on focus
   window.addEventListener('focus', loadRecords);
 

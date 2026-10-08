@@ -12,25 +12,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   Sidebar.init({ activePage: 'dashboard3' });
   Header.init({ title: 'Operations Monitoring Desk (D3)', subtitle: 'Executive View-Only Dashboard' });
 
+  await StageRegistry.init();
+
   let orders = [];
-
-  const STAGE_CONFIG = {
-    'DESIGNING':           { title: 'Designing',                icon: '🎨', bg: 'rgba(99, 102, 241, 0.15)', color: '#818CF8' },
-    'LINING':              { title: 'Lining',                   icon: '🥻', bg: 'rgba(167, 139, 250, 0.15)', color: '#A78BFA' },
-    'HAND_MACHINE_WORK':   { title: 'Hand / Machine Work',      icon: '🪡', bg: 'rgba(236, 72, 153, 0.15)', color: '#EC4899' },
-    'INITIAL_IRONING':     { title: 'Initial Ironing',          icon: '🧺', bg: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' },
-    'CUTTING':             { title: 'Cutting',                  icon: '✂️', bg: 'rgba(239, 68, 68, 0.15)',  color: '#EF4444' },
-    'STRETCHING':          { title: 'Stretching',               icon: '📐', bg: 'rgba(20, 184, 166, 0.15)', color: '#14B8A6' },
-    'STITCHING':           { title: 'Stitching',                icon: '🧵', bg: 'rgba(59, 130, 246, 0.15)', color: '#3B82F6' },
-    'HEMMING':             { title: 'Hemming',                  icon: '🪢', bg: 'rgba(99, 102, 241, 0.15)', color: '#6366F1' },
-    'FINAL_IRONING':       { title: 'Final Ironing',            icon: '♨️', bg: 'rgba(251, 146, 60, 0.15)', color: '#FB923C' },
-    'QUALITY_CHECK':        { title: 'Quality Check (QC)',       icon: '🔍', bg: 'rgba(16, 185, 129, 0.15)', color: '#10B981' },
-    'READY_TO_DELIVERY':   { title: 'Ready to Delivery',        icon: '📦', bg: 'rgba(6, 182, 212, 0.15)',  color: '#06B6D4' },
-    'DELIVERY':            { title: 'Delivery',                 icon: '🚚', bg: 'rgba(34, 197, 94, 0.15)',  color: '#22C55E' },
-    'COMPLETED':            { title: 'Completed',                icon: '✅', bg: 'rgba(34, 197, 94, 0.2)',   color: '#22C55E' },
-    'DELIVERED':            { title: 'Delivered',                icon: '🚚', bg: 'rgba(34, 197, 94, 0.15)',  color: '#22C55E' }
-  };
-
   let stats = null;
 
   async function loadOperationsData() {
@@ -89,11 +73,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     tbody.innerHTML = filtered.map(o => {
-      let stgKey = o.status || 'DESIGNING';
-      if (stgKey === 'PENDING') stgKey = 'DESIGNING';
-      if (stgKey === 'IN_PROGRESS') stgKey = 'CUTTING';
-
-      const stgInfo  = STAGE_CONFIG[stgKey] || { title: stgKey, icon: '⚙️', bg: 'rgba(255,255,255,0.1)', color: '#FFF' };
       const dateStr  = o.deliveryDate ? Utils.formatDate(o.deliveryDate) : '—';
       const isUrgent = o.deliveryDate && ((new Date(o.deliveryDate)).getTime() - Date.now() < 2 * 24 * 60 * 60 * 1000);
       const priority = isUrgent ? 'URGENT' : 'NORMAL';
@@ -109,10 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div style="font-size:11px;color:var(--text-muted);font-family:monospace;">${o.customerMobile || ''}</div>
           </td>
           <td>
-            <span class="badge" style="background:${stgInfo.bg};color:${stgInfo.color};border:1px solid ${stgInfo.color}40;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;">
-              <span>${stgInfo.icon}</span>
-              <span>${stgInfo.title}</span>
-            </span>
+            ${StageRegistry.getBadgeHtml(o.status)}
           </td>
           <td style="font-size:12px;color:var(--text-muted);">${dateStr}</td>
           <td style="text-align:center;">
@@ -135,6 +111,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('opSearchInput')?.addEventListener('input', () => {
     renderOrdersTable();
+  });
+
+  document.getElementById('exportOperationsExcelBtn')?.addEventListener('click', async () => {
+    if (!orders.length) {
+      Toast.warning('No operational orders found to export.');
+      return;
+    }
+
+    const columns = [
+      { key: 'sno', header: 'S.No' },
+      { key: 'orderNumber', header: 'Order Number', transform: (v, o) => v || `#${o.id}` },
+      { key: 'customerName', header: 'Customer Name', transform: v => v || '—' },
+      { key: 'customerMobile', header: 'Mobile Number', transform: v => v || '—' },
+      { key: 'garmentType', header: 'Garment Type', transform: v => v || '—' },
+      { key: 'status', header: 'Current Stage', transform: v => StageRegistry.getStageTitle(v) || v || '—' },
+      { key: 'assignedEmployeeName', header: 'Assigned Staff', transform: v => v || 'Unassigned' },
+      { key: 'deliveryDate', header: 'Target Delivery', transform: v => ExcelExport.formatDate(v) },
+      { key: 'totalAmount', header: 'Total (Rs)', transform: v => Number(v || 0) },
+      { key: 'paidAmount', header: 'Paid (Rs)', transform: v => Number(v || 0) },
+      { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) },
+    ];
+
+    await ExcelExport.exportData({
+      data: orders,
+      fileName: 'ritham-operations-monitoring',
+      sheetName: 'Operations Orders',
+      columns,
+    });
   });
 
   // ── Auto-polling & Focus Auto-refresh ──────────────────────────────────────

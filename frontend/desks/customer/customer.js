@@ -729,6 +729,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { await StageRegistry.init(); } catch (_) {}
   }
 
+  // ── Buttons & Actions ───────────────────────────────────────────────
+  document.getElementById('refreshBtn')?.addEventListener('click', async () => {
+    Toast.info('Refreshing customers…');
+    await loadCustomers();
+    Toast.success('Customers refreshed');
+  });
+
+  document.getElementById('exportCustomersExcelBtn')?.addEventListener('click', async () => {
+    try {
+      Toast.info('Preparing customers export…');
+      let url = `${API.CUSTOMERS}?page=0&size=2000&sort=createdAt,desc`;
+      if (currentSearch.trim()) {
+        url += `&search=${encodeURIComponent(currentSearch.trim())}`;
+      }
+      const res = await Api.get(url);
+      const customers = res?.content ?? res ?? [];
+      if (!customers.length) {
+        Toast.warning('No customers found to export.');
+        return;
+      }
+
+      const columns = [
+        { key: 'sno', header: 'S.No' },
+        { key: 'customerCode', header: 'Customer Code', transform: (v, c) => v || `CUST-${c.id}` },
+        { key: 'fullName', header: 'Customer Name', transform: (v, c) => v || c.name || '—' },
+        { key: 'mobileNumber', header: 'Mobile Number', transform: (v, c) => v || c.mobile || '—' },
+        { key: 'altMobileNumber', header: 'Alt Mobile', transform: v => v || '—' },
+        { key: 'email', header: 'Email Address', transform: v => v || '—' },
+        { key: 'address', header: 'Address', transform: v => v || '—' },
+        { key: 'city', header: 'City', transform: v => v || '—' },
+        { key: 'pincode', header: 'Pincode', transform: v => v || '—' },
+        { key: 'totalOrders', header: 'Total Orders', transform: v => Number(v || 0) },
+        { key: 'totalSpent', header: 'Total Spent (Rs)', transform: v => Number(v || 0) },
+        { key: 'createdAt', header: 'Registered On', transform: v => ExcelExport.formatDate(v) },
+      ];
+
+      await ExcelExport.exportData({
+        data: customers,
+        fileName: 'ritham-customers',
+        sheetName: 'Customer Directory',
+        columns,
+      });
+    } catch (err) {
+      Toast.error('Failed to export customers: ' + (err.message || 'Error'));
+    }
+  });
+
   // ── Load Data ───────────────────────────────────────────────────────
   await loadCustomers();
 

@@ -9,18 +9,18 @@
 /* ── Stage Meta loaded dynamically from StageRegistry ───────────────── */
 
 const PAYMENT_STATUS_META = {
-  PENDING:  { label: 'Unpaid',   cls: 'rpt-badge-amber' },
-  PARTIAL:  { label: 'Partial',  cls: 'rpt-badge-blue'  },
-  PAID:     { label: 'Paid',     cls: 'rpt-badge-green' },
+  PENDING: { label: 'Unpaid', cls: 'rpt-badge-amber' },
+  PARTIAL: { label: 'Partial', cls: 'rpt-badge-blue' },
+  PAID: { label: 'Paid', cls: 'rpt-badge-green' },
   REFUNDED: { label: 'Refunded', cls: 'rpt-badge-muted' },
 };
 
 const PAYMENT_MODE_META = {
-  CASH:          { label: 'Cash',           icon: 'CASH', color: '#22C55E' },
-  UPI:           { label: 'UPI / QR',       icon: 'UPI',  color: '#3B82F6' },
-  CARD:          { label: 'Debit / Credit', icon: 'CARD', color: '#8B5CF6' },
-  BANK_TRANSFER: { label: 'Bank Transfer',  icon: 'BANK', color: '#14B8A6' },
-  GOOGLE_PAY:    { label: 'Google Pay',     icon: 'GPay', color: '#3B82F6' },
+  CASH: { label: 'Cash', icon: 'CASH', color: '#22C55E' },
+  UPI: { label: 'UPI / QR', icon: 'UPI', color: '#3B82F6' },
+  CARD: { label: 'Debit / Credit', icon: 'CARD', color: '#8B5CF6' },
+  BANK_TRANSFER: { label: 'Bank Transfer', icon: 'BANK', color: '#14B8A6' },
+  GOOGLE_PAY: { label: 'Google Pay', icon: 'GPay', color: '#3B82F6' },
 };
 
 /* ── State ────────────────────────────────────────────────────────────── */
@@ -75,6 +75,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   bindFilterEvents();
   await StageRegistry.init();
+  const stageFilterEl = document.getElementById('stageFilter');
+  if (stageFilterEl) {
+    const activeStages = StageRegistry.getAll();
+    if (activeStages && activeStages.length > 0) {
+      stageFilterEl.innerHTML = `
+        <option value="ALL">All Production Stages</option>
+        ${activeStages.map(s => `<option value="${s.stageKey}">[${s.icon || s.title.charAt(0)}] ${s.title}</option>`).join('')}
+        <option value="COMPLETED">[C] Completed</option>
+        <option value="DELIVERED">[D] Delivered</option>
+        <option value="CANCELLED">[X] Cancelled</option>
+      `;
+    }
+  }
   await loadAll();
 
   window.addEventListener('themeChanged', () => {
@@ -85,6 +98,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function bindFilterEvents() {
   document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+  document.getElementById('exportReportExcelBtn')?.addEventListener('click', async () => {
+    const listToExport = Array.isArray(_filteredOrders) && _filteredOrders.length > 0 ? _filteredOrders : _allOrders;
+    if (!listToExport || !listToExport.length) {
+      Toast.warning('No orders found in report to export.');
+      return;
+    }
+
+    const isOps = isOperationsManager();
+    const columns = [
+      { key: 'sno', header: 'S.No' },
+      { key: 'orderNumber', header: 'Order Number', transform: (v, o) => v || `#${o.id}` },
+      { key: 'customerName', header: 'Customer Name', transform: v => v || '—' },
+      { key: 'deliveryDate', header: 'Delivery Date', transform: v => ExcelExport.formatDate(v) },
+      ...(!isOps ? [
+        { key: 'totalAmount', header: 'Total (Rs)', transform: v => Number(v || 0) },
+        { key: 'paidAmount', header: 'Collected (Rs)', transform: v => Number(v || 0) },
+        { key: 'balanceAmount', header: 'Balance (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) },
+      ] : []),
+      { key: 'status', header: 'Stage / Status', transform: v => StageRegistry.getStageTitle(v) || v || '—' },
+      ...(!isOps ? [
+        { key: 'paymentStatus', header: 'Payment Status', transform: v => PAYMENT_STATUS_META[v]?.label || v || '—' },
+        { key: 'paymentMode', header: 'Payment Mode', transform: v => PAYMENT_MODE_META[v]?.label || v || '—' },
+      ] : []),
+    ];
+
+    await ExcelExport.exportData({
+      data: listToExport,
+      fileName: `ritham-reports-${(_filters.preset || 'all').toLowerCase()}`,
+      sheetName: 'Report Orders',
+      columns,
+    });
+  });
 
   // Preset Buttons (Default: Last 7 Days)
   document.querySelectorAll('.rpt-pill').forEach(btn => {
@@ -111,7 +157,6 @@ function bindFilterEvents() {
       applyFilters();
     });
   });
-
 
   // Custom Date Range Pickers (Auto-filter on change and input)
   ['change', 'input'].forEach(evt => {
@@ -206,8 +251,6 @@ function bindFilterEvents() {
   document.getElementById('resetFiltersBtn')?.addEventListener('click', resetFilters);
 }
 
-
-
 function resetFilters() {
   _filters = {
     preset: 'WEEK',
@@ -238,7 +281,6 @@ function resetFilters() {
 
   applyFilters();
 }
-
 
 /* ── Data Loading & Filter Execution ─────────────────────────────────── */
 
@@ -294,29 +336,29 @@ async function applyFilters(stats = {}) {
 function renderFromBackendAnalytics(data) {
   const isOps = isOperationsManager();
   const s = data.summary || {};
-  const totalOrders  = Number(s.totalOrders) || 0;
-  const todayOrders  = Number(s.todayOrders) || 0;
+  const totalOrders = Number(s.totalOrders) || 0;
+  const todayOrders = Number(s.todayOrders) || 0;
   const totalRevenue = Number(s.totalRevenue) || 0;
   const totalCollected = Number(s.totalCollected) || 0;
   const totalBalance = Number(s.totalBalance) || 0;
-  const delivered    = Number(s.deliveredCount) || 0;
-  const paidFull     = Number(s.paidCount) || 0;
-  const partial      = Number(s.partialCount) || 0;
-  const unpaid       = Number(s.unpaidCount) || 0;
+  const delivered = Number(s.deliveredCount) || 0;
+  const paidFull = Number(s.paidCount) || 0;
+  const partial = Number(s.partialCount) || 0;
+  const unpaid = Number(s.unpaidCount) || 0;
 
   // 1. Stats cards
-  setText('statTotalOrders',   totalOrders);
-  setText('statTodayOrders',   `${todayOrders} new today`);
+  setText('statTotalOrders', totalOrders);
+  setText('statTodayOrders', `${todayOrders} new today`);
 
-  setText('statTotalRevenue',  fmtRupee(totalRevenue));
-  setText('statCollected',     `Collected: ${fmtRupee(totalCollected)}`);
+  setText('statTotalRevenue', fmtRupee(totalRevenue));
+  setText('statCollected', `Collected: ${fmtRupee(totalCollected)}`);
 
   setText('statPendingBalance', fmtRupee(totalBalance));
-  setText('statPendingCount',   `${partial + unpaid} orders with balance`);
+  setText('statPendingCount', `${partial + unpaid} orders with balance`);
 
-  setText('statDelivered',     delivered);
+  setText('statDelivered', delivered);
   const pct = totalOrders > 0 ? Math.round((delivered / totalOrders) * 100) : 0;
-  setText('statDeliveredPct',  `${pct}% of total orders`);
+  setText('statDeliveredPct', `${pct}% of total orders`);
 
   // 2. Charts and breakdowns
   if (!isOps) renderIncomeGraphFromAnalytics(data.dailyIncome || [], _filters.preset);
@@ -526,7 +568,7 @@ function renderIncomeGraph(orders) {
 
   const avgFormatted = avgIncome >= 100000 ? (avgIncome / 100000).toFixed(1) + 'L'
     : avgIncome >= 1000 ? (avgIncome / 1000).toFixed(1) + 'K'
-    : Math.round(avgIncome).toLocaleString('en-IN');
+      : Math.round(avgIncome).toLocaleString('en-IN');
 
   // Update card subtitle with average income metrics
   const subEl = document.getElementById('incomeGraphSub');
@@ -636,7 +678,7 @@ function renderIncomeGraphFromAnalytics(dailyIncome, preset) {
 
   const avgFormatted = avgIncome >= 100000 ? (avgIncome / 100000).toFixed(1) + 'L'
     : avgIncome >= 1000 ? (avgIncome / 1000).toFixed(1) + 'K'
-    : Math.round(avgIncome).toLocaleString('en-IN');
+      : Math.round(avgIncome).toLocaleString('en-IN');
 
   // Update card subtitle with average income metrics
   const subEl = document.getElementById('incomeGraphSub');
@@ -1088,7 +1130,7 @@ function renderModalGraph() {
     const maxVal = Math.max(...chartData, 1000);
     const avgFormatted = avgIncome >= 100000 ? (avgIncome / 100000).toFixed(1) + 'L'
       : avgIncome >= 1000 ? (avgIncome / 1000).toFixed(1) + 'K'
-      : Math.round(avgIncome).toLocaleString('en-IN');
+        : Math.round(avgIncome).toLocaleString('en-IN');
 
     const subEl = document.getElementById('graphModalSub');
     if (subEl) subEl.textContent = `High-resolution daily collection (Avg: ₹${avgFormatted}/day)`;
@@ -1278,30 +1320,30 @@ function getLocalDateStr(raw) {
 /* ── Stats Cards ─────────────────────────────────────────────────────── */
 
 function renderStats(orders, stats) {
-  const totalOrders  = orders.length;
-  const todayOrders  = stats.todayOrders ?? countToday(orders);
+  const totalOrders = orders.length;
+  const todayOrders = stats.todayOrders ?? countToday(orders);
 
-  const totalRevenue  = orders.reduce((s, o) => s + (Number(o.totalAmount)  || 0), 0);
-  const totalCollected= orders.reduce((s, o) => s + (Number(o.paidAmount)   || 0), 0);
-  const totalBalance  = orders.reduce((s, o) => s + (Number(o.balanceAmount || (o.totalAmount - o.paidAmount)) || 0), 0);
+  const totalRevenue = orders.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
+  const totalCollected = orders.reduce((s, o) => s + (Number(o.paidAmount) || 0), 0);
+  const totalBalance = orders.reduce((s, o) => s + (Number(o.balanceAmount || (o.totalAmount - o.paidAmount)) || 0), 0);
 
-  const delivered     = orders.filter(o => o.status === 'DELIVERED').length;
-  const completed     = orders.filter(o => ['DELIVERED','COMPLETED'].includes(o.status)).length;
-  const paidFull      = orders.filter(o => o.paymentStatus === 'PAID').length;
-  const unpaidCount   = orders.filter(o => o.paymentStatus === 'PENDING' || o.paymentStatus === 'PARTIAL').length;
+  const delivered = orders.filter(o => o.status === 'DELIVERED').length;
+  const completed = orders.filter(o => ['DELIVERED', 'COMPLETED'].includes(o.status)).length;
+  const paidFull = orders.filter(o => o.paymentStatus === 'PAID').length;
+  const unpaidCount = orders.filter(o => o.paymentStatus === 'PENDING' || o.paymentStatus === 'PARTIAL').length;
 
-  setText('statTotalOrders',   totalOrders);
-  setText('statTodayOrders',   `${todayOrders} new today`);
+  setText('statTotalOrders', totalOrders);
+  setText('statTodayOrders', `${todayOrders} new today`);
 
-  setText('statTotalRevenue',  fmtRupee(totalRevenue));
-  setText('statCollected',     `Collected: ${fmtRupee(totalCollected)}`);
+  setText('statTotalRevenue', fmtRupee(totalRevenue));
+  setText('statCollected', `Collected: ${fmtRupee(totalCollected)}`);
 
   setText('statPendingBalance', fmtRupee(totalBalance));
-  setText('statPendingCount',   `${unpaidCount} orders with balance`);
+  setText('statPendingCount', `${unpaidCount} orders with balance`);
 
-  setText('statDelivered',     delivered);
+  setText('statDelivered', delivered);
   const pct = totalOrders > 0 ? Math.round((delivered / totalOrders) * 100) : 0;
-  setText('statDeliveredPct',  `${pct}% of total orders`);
+  setText('statDeliveredPct', `${pct}% of total orders`);
 }
 
 /* ── Order Status Breakdown ──────────────────────────────────────────── */
@@ -1319,7 +1361,7 @@ function renderStatusBreakdown(orders) {
     .map(([status, cnt]) => {
       const stageMetaMap = StageRegistry.getStageMeta();
       const meta = stageMetaMap[status] || { label: status, color: '#555' };
-      const pct  = max > 0 ? Math.round((cnt / max) * 100) : 0;
+      const pct = max > 0 ? Math.round((cnt / max) * 100) : 0;
       return `
         <div class="rpt-status-item">
           <div class="rpt-status-row">
@@ -1356,7 +1398,7 @@ function renderStatusBreakdownFromMap(statusBreakdown) {
     .map(([status, cnt]) => {
       const stageMetaMap = StageRegistry.getStageMeta();
       const meta = stageMetaMap[status] || { label: status, color: '#555' };
-      const pct  = max > 0 ? Math.round((cnt / max) * 100) : 0;
+      const pct = max > 0 ? Math.round((cnt / max) * 100) : 0;
       return `
         <div class="rpt-status-item">
           <div class="rpt-status-row">
@@ -1381,15 +1423,15 @@ function renderRevenueSummary(orders) {
   const el = document.getElementById('revenueSummary');
   if (!orders.length) { el.innerHTML = '<div class="rpt-empty">No revenue data.</div>'; return; }
 
-  const total     = orders.reduce((s, o) => s + (Number(o.totalAmount)  || 0), 0);
-  const collected = orders.reduce((s, o) => s + (Number(o.paidAmount)   || 0), 0);
-  const balance   = Math.max(0, total - collected);
+  const total = orders.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
+  const collected = orders.reduce((s, o) => s + (Number(o.paidAmount) || 0), 0);
+  const balance = Math.max(0, total - collected);
 
   const pctCollected = total > 0 ? Math.round((collected / total) * 100) : 0;
-  const pctBalance   = total > 0 ? Math.round((balance   / total) * 100) : 0;
-  const pctPaid      = orders.filter(o => o.paymentStatus === 'PAID').length;
-  const pctPartial   = orders.filter(o => o.paymentStatus === 'PARTIAL').length;
-  const pctUnpaid    = orders.filter(o => o.paymentStatus === 'PENDING').length;
+  const pctBalance = total > 0 ? Math.round((balance / total) * 100) : 0;
+  const pctPaid = orders.filter(o => o.paymentStatus === 'PAID').length;
+  const pctPartial = orders.filter(o => o.paymentStatus === 'PARTIAL').length;
+  const pctUnpaid = orders.filter(o => o.paymentStatus === 'PENDING').length;
 
   el.innerHTML = `
     <div class="rpt-rev-item">
@@ -1439,7 +1481,7 @@ function renderRevenueSummaryFromAggregates(total, collected, balance, paidFull,
   const balVal = Math.max(0, Number(balance) || 0);
 
   const pctCollected = totVal > 0 ? Math.round((colVal / totVal) * 100) : 0;
-  const pctBalance   = totVal > 0 ? Math.round((balVal / totVal) * 100) : 0;
+  const pctBalance = totVal > 0 ? Math.round((balVal / totVal) * 100) : 0;
 
   el.innerHTML = `
     <div class="rpt-rev-item">
@@ -1500,8 +1542,8 @@ function renderStagePipeline(orders) {
 
   const rows = stagesList.map(s => {
     const meta = stageMetaMap[s.stageKey] || { label: s.title, color: s.color || '#555' };
-    const cnt  = counts[s.stageKey] || 0;
-    const pct  = Math.round((cnt / max) * 100);
+    const cnt = counts[s.stageKey] || 0;
+    const pct = Math.round((cnt / max) * 100);
     return `
       <div class="rpt-stage-item">
         <div class="rpt-stage-label">
@@ -1529,8 +1571,8 @@ function renderStagePipelineFromMap(statusBreakdown) {
 
   const rows = stagesList.map(s => {
     const meta = stageMetaMap[s.stageKey] || { label: s.title, color: s.color || '#555' };
-    const cnt  = counts[s.stageKey] || 0;
-    const pct  = Math.round((cnt / max) * 100);
+    const cnt = counts[s.stageKey] || 0;
+    const pct = Math.round((cnt / max) * 100);
     return `
       <div class="rpt-stage-item">
         <div class="rpt-stage-label">
@@ -1564,13 +1606,13 @@ function renderPaymentBreakdown(orders) {
   }
 
   const total = paid.length;
-  const max   = Math.max(1, ...Object.values(counts));
+  const max = Math.max(1, ...Object.values(counts));
 
   const rows = Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
     .map(([mode, cnt]) => {
       const meta = PAYMENT_MODE_META[mode] || { label: mode, icon: '💳', color: '#888' };
-      const pct  = total > 0 ? Math.round((cnt / total) * 100) : 0;
+      const pct = total > 0 ? Math.round((cnt / total) * 100) : 0;
       return `
         <div class="rpt-pay-item">
           <div class="rpt-pay-icon">${meta.icon}</div>
@@ -1609,7 +1651,7 @@ function renderPaymentBreakdownFromMap(paymentBreakdown) {
     .map(([mode, details]) => {
       const cnt = Number(details?.count !== undefined ? details.count : details) || 0;
       const meta = PAYMENT_MODE_META[mode] || { label: mode, icon: '💳', color: '#888' };
-      const pct  = total > 0 ? Math.round((cnt / total) * 100) : 0;
+      const pct = total > 0 ? Math.round((cnt / total) * 100) : 0;
       return `
         <div class="rpt-pay-item">
           <div class="rpt-pay-icon">${meta.icon}</div>
@@ -1680,7 +1722,7 @@ function renderTopCustomersFromList(topCustomers) {
 
 function renderTable(orders) {
   const tbody = document.getElementById('rptTableBody');
-  const list  = orders.slice(0, 20);
+  const list = orders.slice(0, 20);
   const isOps = isOperationsManager();
   const colSpan = isOps ? 5 : 9;
 
@@ -1714,7 +1756,7 @@ function renderTable(orders) {
 function fmtRupee(v) {
   const n = Number(v) || 0;
   if (n >= 100000) return '₹' + (n / 100000).toFixed(1) + 'L';
-  if (n >= 1000)   return '₹' + (n / 1000).toFixed(1) + 'K';
+  if (n >= 1000) return '₹' + (n / 1000).toFixed(1) + 'K';
   return '₹' + n.toLocaleString('en-IN');
 }
 

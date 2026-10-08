@@ -422,6 +422,53 @@ document.getElementById('refreshBtn').addEventListener('click', async () => {
   Toast.success('Data refreshed');
 });
 
+/* ── Export to Excel ─────────────────────────────────────────────────── */
+document.getElementById('exportOrdersExcelBtn')?.addEventListener('click', async () => {
+  try {
+    Toast.info('Preparing orders export…');
+    let url = `${API.ORDERS}?page=0&size=2000&sort=createdAt,desc`;
+    if (currentFilter && currentFilter !== 'ALL') {
+      url += `&status=${encodeURIComponent(currentFilter)}`;
+    }
+    if (currentSearch.trim()) {
+      url += `&search=${encodeURIComponent(currentSearch.trim())}`;
+    }
+    const res = await Api.get(url);
+    const orders = res?.content ?? [];
+    if (!orders.length) {
+      Toast.warning('No orders found to export.');
+      return;
+    }
+
+    const columns = [
+      { key: 'sno', header: 'S.No' },
+      { key: 'orderNumber', header: 'Order Number', transform: (v, o) => v || `#${o.id}` },
+      { key: 'customerName', header: 'Customer Name', transform: v => v || '—' },
+      { key: 'customerMobile', header: 'Mobile Number', transform: v => v || '—' },
+      { key: 'garmentType', header: 'Garment Type', transform: v => v || '—' },
+      { key: 'lining', header: 'Lining', transform: v => v === 'WITH_LINING' ? 'With Lining' : (v || 'Without Lining') },
+      { key: 'orderDate', header: 'Order Date', transform: (v, o) => ExcelExport.formatDate(v || o.createdAt) },
+      { key: 'deliveryDate', header: 'Target Delivery', transform: v => ExcelExport.formatDate(v) },
+      { key: 'totalAmount', header: 'Total Amount (Rs)', transform: v => Number(v || 0) },
+      { key: 'paidAmount', header: 'Paid Amount (Rs)', transform: v => Number(v || 0) },
+      { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) },
+      { key: 'paymentStatus', header: 'Payment Status', transform: v => (PAYMENT_MAP[v]?.label || v || '—') },
+      { key: 'status', header: 'Stage / Status', transform: v => (STATUS_MAP[v]?.label || v || '—') },
+      { key: 'assignedEmployeeName', header: 'Assigned Staff', transform: v => v || 'Unassigned' },
+      { key: 'branchName', header: 'Branch', transform: (v, o) => v || (o.branchId ? `Branch ${o.branchId}` : 'Main Branch') },
+    ];
+
+    await ExcelExport.exportData({
+      data: orders,
+      fileName: 'ritham-orders',
+      sheetName: 'Orders Directory',
+      columns,
+    });
+  } catch (err) {
+    Toast.error('Failed to export orders: ' + (err.message || 'Error'));
+  }
+});
+
 /* ── New Order Modal ──────────────────────────────────────────────────── */
 const modalBackdrop = document.getElementById('orderModalBackdrop');
 const fieldMobile = document.getElementById('fieldCustomerMobile');

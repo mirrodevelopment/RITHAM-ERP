@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Database & System Backup — Ritham ERP">
+  <title>Database Backup — Ritham ERP</title>
+
+  <!-- Design System & Theme Stylesheets -->
+  <link rel="stylesheet" href="../../theme/theme.css">
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/reset.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/utilities.css">
+  <link rel="stylesheet" href="backup.css">
+</head>
+<body>
+
+  <div class="app-layout" id="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+      <!-- Header -->
+      <header class="header" id="header"></header>
+
+      <!-- Main Content -->
+      <main class="content" id="content">
+        <div class="content-inner">
+
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header-left">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <h1 class="page-title">Database & System Backup</h1>
+                <span class="badge badge-primary" style="font-size:11px;">ADMIN ONLY</span>
+                <span class="badge badge-success" id="overallStatusBadge" style="font-size:11px;">
+                  <span class="pulse-dot online"></span> System Healthy
+                </span>
+              </div>
+              <p class="page-subtitle">Automated daily PostgreSQL snapshots, external drive redundancy & disaster recovery archives</p>
+            </div>
+
+            <div class="page-header-right flex items-center gap-3">
+              <button class="btn btn-ghost btn-icon" id="refreshBackupBtn" title="Reload Backup Status">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+              </button>
+
+              <button class="btn btn-ghost" id="openPlaybookBtn" style="gap:6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                </svg>
+                <span>Recovery Playbook</span>
+              </button>
+
+              <button class="btn btn-secondary" id="openImportModalBtn" style="gap:7px;" title="Import or restore database backup">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <span>Import Backup</span>
+              </button>
+
+              <button class="btn btn-primary" id="runManualBackupBtn" style="gap:7px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Run Backup Now</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Destination Location Toolbar Banner -->
+          <div class="backup-location-banner">
+            <div class="location-banner-left">
+              <div class="location-banner-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                  <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                  <line x1="6" y1="6" x2="6.01" y2="6"/>
+                  <line x1="6" y1="18" x2="6.01" y2="18"/>
+                </svg>
+              </div>
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="location-banner-title">Current Backup Repository:</span>
+                  <span class="badge badge-success" id="activeDriveTypeBadge" style="font-size:11px;">EXTERNAL USB</span>
+                </div>
+                <div class="location-banner-path" id="activeLocationPathDisplay">E:\ERP-Backups</div>
+              </div>
+            </div>
+
+            <div class="location-banner-right">
+              <div class="location-select-wrap">
+                <label for="locationSelectDropdown" class="location-select-label">Target Drive / Location:</label>
+                <select id="locationSelectDropdown" class="form-control location-dropdown">
+                  <option value="">Scanning storage drives...</option>
+                </select>
+              </div>
+
+              <button class="btn btn-secondary" id="browseFolderBtn" style="gap:6px; height:36px;" title="Select or choose a folder for backups">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span>Select Folder</span>
+              </button>
+
+              <button class="btn btn-ghost btn-icon" id="openLocationConfigBtn" style="height:36px; width:36px;" title="Configure Drive & Folder Settings">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Top KPI Stat Cards -->
+          <div class="backup-stats-grid">
+            
+            <!-- Card 1: External Drive -->
+            <div class="backup-stat-card">
+              <div class="backup-stat-header">
+                <span class="backup-stat-label">Backup Destination</span>
+                <div class="backup-stat-icon-wrap icon-blue">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                    <line x1="6" y1="6" x2="6.01" y2="6"/>
+                    <line x1="6" y1="18" x2="6.01" y2="18"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="backup-stat-value" id="driveFreeSpaceVal">-- GB Free</div>
+              <div class="backup-stat-subtext" id="driveSubtext">
+                <span class="pulse-dot online" id="driveDot"></span> Checking drive status...
+              </div>
+              <div class="backup-progress-bar-bg">
+                <div class="backup-progress-bar-fill" id="driveProgressBar" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <!-- Card 2: Latest Snapshot -->
+            <div class="backup-stat-card">
+              <div class="backup-stat-header">
+                <span class="backup-stat-label">Latest Snapshot</span>
+                <div class="backup-stat-icon-wrap icon-green">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="backup-stat-value" id="latestSnapshotAge">--</div>
+              <div class="backup-stat-subtext" id="latestSnapshotFile" style="font-family: monospace; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                ritham_erp_latest.dump
+              </div>
+              <div style="margin-top: 8px;">
+                <span class="badge badge-success" id="latestSnapshotBadge" style="font-size:11px;">Integrity Verified</span>
+              </div>
+            </div>
+
+            <!-- Card 3: PostgreSQL Engine -->
+            <div class="backup-stat-card">
+              <div class="backup-stat-header">
+                <span class="backup-stat-label">Database Engine</span>
+                <div class="backup-stat-icon-wrap icon-purple">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="backup-stat-value" id="postgresStatusVal">PostgreSQL 17</div>
+              <div class="backup-stat-subtext" id="postgresSubtext">
+                <span class="pulse-dot online" id="pgDot"></span> Port 5432 • ritham_erp
+              </div>
+              <div style="margin-top: 8px; font-size:12px; color: var(--text-muted);">
+                Custom Compressed Dump Format
+              </div>
+            </div>
+
+            <!-- Card 4: Schedule & Retention -->
+            <div class="backup-stat-card">
+              <div class="backup-stat-header">
+                <span class="backup-stat-label">Automated Schedule</span>
+                <div class="backup-stat-icon-wrap icon-amber">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="backup-stat-value">Daily 11:00 PM</div>
+              <div class="backup-stat-subtext" id="nextScheduledRunVal">
+                Next run: Tonight at 11:00 PM
+              </div>
+              <div style="margin-top: 8px; display:flex; gap:6px;">
+                <span class="badge badge-info" id="retentionStatsBadge" style="font-size:11px;">7D / 4W / 12M Active</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Main Layout Grid -->
+          <div class="backup-main-grid">
+
+            <!-- Left: Backup Archives Panel -->
+            <div class="backup-panel">
+              <div class="backup-panel-header">
+                <h2 class="backup-panel-title">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                  <span>Backup Archive Repositories</span>
+                </h2>
+                <span class="badge badge-primary" id="totalFilesCountBadge">0 Archives</span>
+              </div>
+
+              <!-- Filter Tabs -->
+              <div class="backup-tabs">
+                <button class="backup-tab-btn active" data-category="All">
+                  All Backups <span class="badge badge-ghost" id="tabAllCount" style="font-size:11px;">0</span>
+                </button>
+                <button class="backup-tab-btn" data-category="Daily">
+                  Daily (7d) <span class="badge badge-ghost" id="tabDailyCount" style="font-size:11px;">0</span>
+                </button>
+                <button class="backup-tab-btn" data-category="Weekly">
+                  Weekly (4w) <span class="badge badge-ghost" id="tabWeeklyCount" style="font-size:11px;">0</span>
+                </button>
+                <button class="backup-tab-btn" data-category="Monthly">
+                  Monthly (12m) <span class="badge badge-ghost" id="tabMonthlyCount" style="font-size:11px;">0</span>
+                </button>
+                <button class="backup-tab-btn" data-category="Uploads">
+                  Imported <span class="badge badge-ghost" id="tabUploadCount" style="font-size:11px;">0</span>
+                </button>
+              </div>
+
+              <!-- Search / Filter Bar -->
+              <div class="backup-filter-bar">
+                <div class="backup-search-box">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input type="text" id="backupSearchInput" placeholder="Filter by date or file name..." />
+                </div>
+                <div class="text-muted" style="font-size: 12px;" id="tableResultSummary">
+                  Showing all archives
+                </div>
+              </div>
+
+              <!-- Backups Table -->
+              <div class="backup-table-wrapper">
+                <table class="backup-table">
+                  <thead>
+                    <tr>
+                      <th>Snapshot File</th>
+                      <th>Tier</th>
+                      <th>File Size</th>
+                      <th>Timestamp</th>
+                      <th>Age</th>
+                      <th>Integrity</th>
+                      <th style="text-align: right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="backupTableBody">
+                    <tr>
+                      <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        Loading backup archives...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Right: Diagnostics & Console Audit Logs -->
+            <div>
+
+              <!-- System Health Card -->
+              <div class="backup-panel">
+                <div class="backup-panel-header">
+                  <h3 class="backup-panel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                    <span>Pre-Flight Diagnostics</span>
+                  </h3>
+                </div>
+                <div class="backup-panel-body" style="padding-top: 10px; padding-bottom: 10px;">
+                  <div class="health-item">
+                    <span class="health-item-label">
+                      <span class="pulse-dot online" id="diagDriveDot"></span> External Drive (E:)
+                    </span>
+                    <span class="badge badge-success" id="diagDriveBadge">Mounted</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-item-label">
+                      <span class="pulse-dot online" id="diagSpaceDot"></span> Disk Free Space
+                    </span>
+                    <span class="badge badge-success" id="diagSpaceBadge">&gt; 500 MB Free</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-item-label">
+                      <span class="pulse-dot online" id="diagPgDot"></span> PostgreSQL Service
+                    </span>
+                    <span class="badge badge-success" id="diagPgBadge">Online (Port 5432)</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-item-label">
+                      <span class="pulse-dot online"></span> pg_dump Tool
+                    </span>
+                    <span class="badge badge-success">Available</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-item-label">
+                      <span class="pulse-dot online"></span> GFS Retention Rule
+                    </span>
+                    <span class="badge badge-info">7D / 4W / 12M</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-item-label">
+                      <span class="pulse-dot online" id="diagLockDot"></span> Concurrency Lock
+                    </span>
+                    <span class="badge badge-success" id="diagLockBadge">Idle</span>
+                  </div>
+                </div>
+              </div>
+
+
+
+            </div>
+
+          </div>
+
+        </div>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- Run Backup Progress / Confirmation Modal -->
+  <div class="modal-backdrop" id="runBackupModal" style="display: none;">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="runBackupModalTitle">Trigger Complete On-Demand Backup</h3>
+        <button type="button" class="btn btn-ghost btn-icon" id="closeRunBackupModalBtn">✕</button>
+      </div>
+      <div class="modal-body" id="runBackupModalBody">
+        <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 14px;">
+          Execute an immediate <strong>Complete Hot Snapshot</strong> to the selected external drive. Live ERP users will not be interrupted.
+        </p>
+
+        <!-- Destination Selector in Run Backup Modal -->
+        <div style="margin-bottom: 14px;">
+          <label for="modalBackupLocationSelect" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 6px;">
+            Target External Drive / Location:
+          </label>
+          <select id="modalBackupLocationSelect" class="form-control location-dropdown" style="height: 38px;">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div class="backup-bundle-card">
+          <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Complete Backup Bundle Components:</div>
+          <div>• <strong>PostgreSQL Database:</strong> Schema, tables, data & sequences (custom compressed)</div>
+          <div>• <strong>Cluster Globals:</strong> Roles, permissions & tablespaces (<code>pg_dumpall -g</code>)</div>
+          <div>• <strong>OCR Assets:</strong> Synchronized migration uploads & receipts (<code>uploads.zip</code>)</div>
+          <div>• <strong>Metadata Manifest:</strong> Checksum, host, timestamp & TOC metrics (<code>manifest.json</code>)</div>
+          <div>• <strong>Integrity Check:</strong> Instant Table of Contents verification (<code>pg_restore --list</code>)</div>
+        </div>
+
+        <div id="backupExecutionSpinner" style="display: none; text-align: center; padding: 24px 0;">
+          <div class="spinner" style="width: 36px; height: 36px; margin: 0 auto 12px; border-width: 3px;"></div>
+          <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Executing pg_dump & verifying TOC integrity...</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">This usually takes 5–8 seconds.</div>
+        </div>
+        <div id="backupExecutionResult" style="display: none; margin-top: 14px;"></div>
+      </div>
+      <div class="modal-footer" id="runBackupModalFooter">
+        <button type="button" class="btn btn-ghost" id="cancelRunBackupBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmRunBackupBtn">Start Complete Backup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location Configuration Modal -->
+  <div class="modal-backdrop" id="locationConfigModal" style="display: none;">
+    <div class="modal" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Select Backup Destination Folder</h3>
+        <button type="button" class="btn btn-ghost btn-icon" id="closeLocationConfigModalBtn">✕</button>
+      </div>
+      <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+        <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 14px;">
+          Choose an external storage drive or select any custom folder directory on the computer for automated daily backups and complete on-demand archives.
+        </p>
+
+        <!-- Detected Drives Grid -->
+        <label style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 8px;">
+          1. Choose Storage Drive / Partition:
+        </label>
+        <div class="drive-select-grid" id="detectedDrivesGrid">
+          <div style="padding: 20px; text-align: center; color: var(--text-muted);">Scanning host drives...</div>
+        </div>
+
+        <!-- Custom Target Path Form -->
+        <div style="margin-top: 18px;">
+          <label for="customLocationInput" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 6px;">
+            2. Selected Backup Folder (Absolute Path):
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="customLocationInput" class="form-control" placeholder="e.g. E:\ERP-Backups" style="font-family: monospace; font-size: 13.5px; flex: 1;" />
+            <button type="button" class="btn btn-secondary" id="browseSystemFolderBtn" style="gap:5px; white-space: nowrap;" title="Pick a folder on computer">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Browse...
+            </button>
+            <button type="button" class="btn btn-ghost" id="testWriteAccessBtn" style="white-space: nowrap;">
+              Test Access
+            </button>
+          </div>
+          <!-- Hidden file input for webkitdirectory picker -->
+          <input type="file" id="systemFolderPicker" webkitdirectory directory style="display:none;" />
+          <div id="testWriteResult" style="margin-top: 6px; font-size: 12.5px; display: none;"></div>
+        </div>
+
+        <!-- Quick Folder Suggestions -->
+        <div style="margin-top: 14px;">
+          <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">
+            Suggested Folders on this Drive:
+          </label>
+          <div id="quickFolderChips" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <!-- Populated dynamically based on selected drive -->
+          </div>
+        </div>
+
+        <!-- Recently Used Backup Folders -->
+        <div id="recentFoldersSection" style="margin-top: 14px; display: none;">
+          <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">
+            Recently Selected Folders:
+          </label>
+          <div id="recentFolderChips" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <!-- Populated dynamically from localStorage -->
+          </div>
+        </div>
+
+        <!-- Set as default checkbox -->
+        <div class="backup-config-card">
+          <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin: 0;">
+            <input type="checkbox" id="setAsDefaultCheckbox" checked style="margin-top: 3px;" />
+            <div>
+              <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">Save as Persistent Default Repository</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                Updates <code>erp-backup.ps1</code> configuration so that nightly 11:00 PM Windows Task Scheduler jobs automatically back up to this location.
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelLocationConfigBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveLocationConfigBtn">Select & Apply Folder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Disaster Recovery Playbook Modal -->
+  <div class="modal-backdrop" id="playbookModal" style="display: none;">
+    <div class="modal" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Disaster Recovery Playbook</h3>
+        <button type="button" class="btn btn-ghost btn-icon" id="closePlaybookBtn">✕</button>
+      </div>
+      <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+          Follow these procedures if the database crashes, corrupted records need restoration, or the office computer hardware is replaced.
+        </p>
+
+        <div class="playbook-step">
+          <div class="playbook-step-title">
+            <span class="step-num">1</span> Safe Drill / Verification Restore (No Production Risk)
+          </div>
+          <p style="font-size: 13px; color: var(--text-secondary);">
+            Restores into a temporary isolated database <code>ritham_erp_restore_test</code> to confirm backup validity:
+          </p>
+          <div class="playbook-code-block">powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-restore.ps1"</div>
+          <p style="font-size: 12px; color: #4ade80;">Select Option 1 (TEST restore). It will not touch production data.</p>
+        </div>
+
+        <div class="playbook-step">
+          <div class="playbook-step-title">
+            <span class="step-num">2</span> Full Disaster Recovery (Overwrites Production Database)
+          </div>
+          <p style="font-size: 13px; color: var(--text-secondary);">
+            In case of catastrophic data loss, stop Spring Boot and run the restore wizard:
+          </p>
+          <div class="playbook-code-block"># Step A: Close start.bat or stop Spring Boot
+# Step B: Run restore wizard as Administrator
+powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-restore.ps1"</div>
+          <p style="font-size: 12px; color: #f87171;">Select Option 2 (FULL restore) and type YES when prompted.</p>
+        </div>
+
+        <div class="playbook-step">
+          <div class="playbook-step-title">
+            <span class="step-num">3</span> Complete Computer Replacement Checklist
+          </div>
+          <ul style="font-size: 13px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6;">
+            <li>Attach the external backup drive (E:) to the new computer.</li>
+            <li>Install PostgreSQL 17 from the official installer.</li>
+            <li>Set up credentials in <code>%APPDATA%\postgresql\pgpass.conf</code>.</li>
+            <li>Restore the latest dump file using <code>erp-restore.ps1</code>.</li>
+            <li>Register Windows Task Scheduler using <code>setup-task-scheduler.ps1</code>.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="dismissPlaybookBtn">Close Playbook</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import & Restore Backup Data Modal -->
+  <div class="modal-backdrop" id="importBackupModal" style="display: none;">
+    <div class="modal" style="max-width: 680px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; color: #3b82f6;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 16px;">Import &amp; Restore Database Backup</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Restore snapshot archives or import external .dump files</p>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-icon" id="closeImportModalBtn">✕</button>
+      </div>
+
+      <div class="modal-body" style="overflow-y: auto; padding: 18px 22px; flex: 1;">
+        <!-- Source Selection Tabs -->
+        <div class="import-source-tabs">
+          <button type="button" class="import-source-tab-btn active" id="tabSourceRepoBtn" data-tab="repo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            Select from Repository
+          </button>
+          <button type="button" class="import-source-tab-btn" id="tabSourceUploadBtn" data-tab="upload">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Upload External (.dump)
+          </button>
+        </div>
+
+        <!-- Section 1: Repository File Selector -->
+        <div id="repoFileSection">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" style="display: flex; justify-content: space-between;">
+              <span>Available Backup Snapshot</span>
+              <span style="font-size: 11.5px; color: var(--text-muted);" id="repoFileLocationLabel">Active Repository</span>
+            </label>
+            <select class="form-select" id="repoBackupSelect" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px;">
+              <option value="">Loading available snapshots...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Section 2: External File Upload Dropzone -->
+        <div id="uploadFileSection" style="display: none;">
+          <input type="file" id="externalDumpFileInput" accept=".dump" style="display: none;" />
+          <div class="dropzone-container" id="dumpDropzone">
+            <div class="dropzone-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </div>
+            <div class="dropzone-title">Click to browse or drag &amp; drop .dump file here</div>
+            <div class="dropzone-subtext">PostgreSQL Custom Format Archive (.dump) up to 500 MB</div>
+          </div>
+          <div id="uploadProgressBox" style="display: none; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+              <span id="uploadFileNameLabel">Uploading file...</span>
+              <span id="uploadPercentLabel">0%</span>
+            </div>
+            <div class="backup-progress-bar-bg" style="height: 6px;">
+              <div class="backup-progress-bar-fill" id="uploadProgressBar" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Archive Inspection & Summary Box -->
+        <div id="archiveInspectionCard" class="backup-bundle-card" style="margin-top: 14px; display: none;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+            <div>
+              <div style="font-weight: 600; font-size: 13.5px; color: var(--text-primary); font-family: monospace;" id="inspectCardFileName">--</div>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;" id="inspectCardMeta">-- MB • Category: --</div>
+            </div>
+            <span class="badge badge-success" id="inspectCardBadge" style="font-size: 11px;">TOC Verified</span>
+          </div>
+          <div style="margin-top: 10px; font-size: 12px; color: #a1a1aa; border-top: 1px solid var(--border-default); padding-top: 8px;" id="inspectCardDetail">
+            Table of Contents check confirms valid schema &amp; tables.
+          </div>
+        </div>
+
+        <!-- Restore Target Mode Selection -->
+        <div style="margin-top: 18px;">
+          <label class="form-label" style="font-weight: 600; font-size: 13px;">Select Restore Target Mode</label>
+          <div class="restore-mode-grid">
+            <div class="restore-mode-card selected" id="modeCardTest" data-mode="TEST">
+              <div class="restore-mode-header">
+                <div class="restore-mode-title">
+                  <input type="radio" name="restoreTargetMode" value="TEST" id="radioModeTest" checked style="accent-color: #3b82f6;" />
+                  <span>Safe Test Drill</span>
+                </div>
+                <span class="badge badge-success" style="font-size: 10.5px;">RECOMMENDED</span>
+              </div>
+              <div class="restore-mode-desc">
+                Restores into isolated database <code>ritham_erp_restore_test</code>. Verifies schema integrity and row counts without affecting live data.
+              </div>
+            </div>
+
+            <div class="restore-mode-card" id="modeCardProd" data-mode="PRODUCTION">
+              <div class="restore-mode-header">
+                <div class="restore-mode-title">
+                  <input type="radio" name="restoreTargetMode" value="PRODUCTION" id="radioModeProd" style="accent-color: #ef4444;" />
+                  <span style="color: #f87171;">Disaster Recovery</span>
+                </div>
+                <span class="badge badge-danger" style="font-size: 10.5px;">OVERWRITES LIVE</span>
+              </div>
+              <div class="restore-mode-desc">
+                Restores into active production database <code>ritham_erp</code>. Completely replaces all current live records. Requires confirmation phrase.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Confirmation Phrase Box (Only for Production mode) -->
+        <div class="prod-confirm-callout" id="prodConfirmCallout" style="display: none;">
+          <div class="prod-confirm-callout-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span>High Risk Operation — Confirmation Required</span>
+          </div>
+          <p style="font-size: 12px; color: #fca5a5; margin: 0 0 10px;">
+            You are about to overwrite the production database. Type <strong>CONFIRM RESTORE</strong> below to unlock:
+          </p>
+          <input type="text" class="form-input" id="confirmRestorePhraseInput" placeholder="CONFIRM RESTORE" autocomplete="off" style="border-color: #ef4444; font-family: monospace;" />
+        </div>
+
+        <!-- Live Restore Execution Console / Results Box -->
+        <div id="restoreExecutionPanel" style="display: none; margin-top: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="font-size: 12.5px; font-weight: 600; color: var(--text-primary);" id="restoreStatusTitle">Executing Restore...</span>
+            <span class="badge badge-primary" id="restoreStatusBadge">Running</span>
+          </div>
+          <div class="console-box" id="restoreConsoleBox" style="max-height: 180px; font-size: 11.5px;">
+            <div class="console-line">Initializing restore process...</div>
+          </div>
+
+          <!-- Post Restore Row Counts Verification Grid -->
+          <div id="restoreAuditCountsPanel" style="display: none; margin-top: 12px;">
+            <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">Verified Table Row Counts:</div>
+            <div class="audit-stats-grid" id="auditStatsGrid">
+              <!-- populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer" style="padding: 14px 22px; border-top: 1px solid var(--border-default); display: flex; justify-content: space-between;">
+        <button type="button" class="btn btn-ghost" id="cancelImportModalBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="executeRestoreBtn" style="gap: 7px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span id="executeRestoreBtnText">Start Safe Test Restore</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOC Verification Details Modal -->
+  <div class="modal-backdrop" id="verifyModal" style="display: none;">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Table of Contents Integrity Check</h3>
+        <button type="button" class="btn btn-ghost btn-icon" id="closeVerifyModalBtn">✕</button>
+      </div>
+      <div class="modal-body" id="verifyModalBody">
+        <div class="spinner" style="width: 32px; height: 32px; margin: 20px auto;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="dismissVerifyModalBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast mount -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="../../js/constants.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../components/toast/toast.js"></script>
+  <script src="../../components/loader/loader.js"></script>
+  <script src="../../components/modal/modal.js"></script>
+  <script src="../../components/sidebar/sidebar.js"></script>
+  <script src="../../components/header/header.js"></script>
+  <script src="backup.js"></script>
+</body>
+</html>

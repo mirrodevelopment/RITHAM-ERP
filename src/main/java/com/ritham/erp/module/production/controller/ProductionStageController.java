@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,6 +30,7 @@ public class ProductionStageController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<ProductionStageResponse>> createStage(
             @Valid @RequestBody CreateProductionStageRequest request
     ) {
@@ -38,6 +40,7 @@ public class ProductionStageController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<ProductionStageResponse>> updateStage(
             @PathVariable Long id,
             @Valid @RequestBody UpdateProductionStageRequest request
@@ -47,6 +50,7 @@ public class ProductionStageController {
     }
 
     @PutMapping("/reorder")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<List<ProductionStageResponse>>> reorderStages(
             @Valid @RequestBody ReorderStagesRequest request
     ) {
@@ -54,7 +58,15 @@ public class ProductionStageController {
         return ResponseEntity.ok(ApiResponse.success("Production stages reordered successfully", reordered));
     }
 
+    @DeleteMapping("/all")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> deleteAllStages() {
+        stageService.deleteAllStages();
+        return ResponseEntity.ok(ApiResponse.success("All production stages removed from database"));
+    }
+
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<Void>> deleteStage(@PathVariable Long id) {
         stageService.deleteStage(id);
         return ResponseEntity.ok(ApiResponse.success("Production stage deactivated successfully"));

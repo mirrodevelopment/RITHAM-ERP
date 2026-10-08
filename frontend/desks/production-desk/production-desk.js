@@ -35,9 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       await StageRegistry.init();
       const stagesList = StageRegistry.getAll();
-      if (stagesList && stagesList.length > 0) {
-        STAGES = stagesList.map(s => ({ key: s.stageKey, title: s.title }));
-      }
+      STAGES = (stagesList || []).map(s => ({ key: s.stageKey, title: s.title }));
 
       const [ordersData, empData] = await Promise.all([
         Api.get(`${API.ORDERS}?size=1000&sort=createdAt,desc`),
@@ -465,6 +463,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentPage = 0;
     Utils.setQueryParam('stage', val);
     renderBoard(document.getElementById('jobSearch')?.value.toLowerCase() || '', val);
+  });
+
+  document.getElementById('exportProductionDeskExcelBtn')?.addEventListener('click', async () => {
+    const q = (document.getElementById('jobSearch')?.value || '').toLowerCase();
+    const stage = document.getElementById('stageFilter')?.value || currentStageFilter;
+
+    let listToExport = jobs;
+    if (stage && stage !== 'ALL') {
+      listToExport = listToExport.filter(j => j.stage === stage);
+    }
+    if (q) {
+      listToExport = listToExport.filter(j =>
+        (j.id || '').toLowerCase().includes(q) ||
+        (j.customer || '').toLowerCase().includes(q) ||
+        (j.garment || '').toLowerCase().includes(q)
+      );
+    }
+
+    if (!listToExport.length) {
+      Toast.warning('No production jobs found to export.');
+      return;
+    }
+
+    const columns = [
+      { key: 'sno', header: 'S.No' },
+      { key: 'id', header: 'Order Number' },
+      { key: 'customer', header: 'Customer' },
+      { key: 'garment', header: 'Garment' },
+      { key: 'stage', header: 'Production Stage', transform: v => StageRegistry.getStageTitle(v) || v },
+      { key: 'assignedEmployeeName', header: 'Assigned Staff', transform: v => v || 'Unassigned' },
+      { key: 'date', header: 'Target Delivery' },
+      { key: 'totalAmount', header: 'Order Amount (Rs)', transform: v => Number(v || 0) },
+    ];
+
+    await ExcelExport.exportData({
+      data: listToExport,
+      fileName: 'ritham-production-floor-jobs',
+      sheetName: 'Floor Jobs',
+      columns,
+    });
   });
 
   // ── Auto-polling & Focus Auto-refresh ──────────────────────────────────────

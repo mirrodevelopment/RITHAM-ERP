@@ -16,6 +16,9 @@ public class CreateProductionStageRequest {
     @Size(max = 255, message = "Description must not exceed 255 characters")
     private String description;
 
+    @Size(max = 50, message = "Stage key must not exceed 50 characters")
+    private String stageKey;
+
     private String icon;
     private String color;
     private String bgColor;

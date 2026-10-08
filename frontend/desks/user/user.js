@@ -295,6 +295,55 @@ document.addEventListener('DOMContentLoaded', async () => {
   statusFilter?.addEventListener('change', () => loadUsers());
   refreshBtn?.addEventListener('click', () => loadUsers());
 
+  document.getElementById('exportUsersExcelBtn')?.addEventListener('click', async () => {
+    try {
+      Toast.info('Preparing system users export…');
+      const res = await Api.get(`${API.EMPLOYEES}?size=100&sort=id,asc`);
+      let users = (res.content || []).filter(isDashboardUser);
+      users.sort((a, b) => getDashboardSortWeight(a) - getDashboardSortWeight(b));
+
+      if (currentSearch) {
+        const q = currentSearch.toLowerCase();
+        users = users.filter(u =>
+          (u.fullName || '').toLowerCase().includes(q) ||
+          (u.username || '').toLowerCase().includes(q) ||
+          (u.branchName || '').toLowerCase().includes(q)
+        );
+      }
+      if (roleFilter?.value) {
+        users = users.filter(u => String(u.roleId) === roleFilter.value);
+      }
+      if (statusFilter?.value !== '' && statusFilter?.value != null) {
+        users = users.filter(u => String(u.isActive) === statusFilter.value);
+      }
+
+      if (!users.length) {
+        Toast.warning('No system users found to export.');
+        return;
+      }
+
+      const columns = [
+        { key: 'sno', header: 'S.No' },
+        { key: 'employeeCode', header: 'Code', transform: (v, u) => v || `EMP-${u.id}` },
+        { key: 'fullName', header: 'Dashboard Login Name', transform: v => v || '—' },
+        { key: 'username', header: 'Username', transform: v => v || '—' },
+        { key: 'role', header: 'Access Role', transform: (v, u) => u.roleLabel || v || '—' },
+        { key: 'branchName', header: 'Assigned Branch', transform: (v, u) => u.branchName || (u.branchId ? `Branch ${u.branchId}` : 'All Branches (Global)') },
+        { key: 'isActive', header: 'Status', transform: v => v !== false ? 'Active' : 'Inactive' },
+        { key: 'updatedAt', header: 'Last Password Update', transform: v => ExcelExport.formatDate(v) },
+      ];
+
+      await ExcelExport.exportData({
+        data: users,
+        fileName: 'ritham-system-users',
+        sheetName: 'System Logins',
+        columns,
+      });
+    } catch (err) {
+      Toast.error('Failed to export system users: ' + (err.message || 'Error'));
+    }
+  });
+
   modalCloseBtn?.addEventListener('click', closeModal);
   modalCancelBtn?.addEventListener('click', closeModal);
 

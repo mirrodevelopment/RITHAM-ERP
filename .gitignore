@@ -47,3 +47,26 @@ data/
 ocr_processed_*
 **/ocr_processed_*
 scratch/
+
+# ── Backup Security ──────────────────────────────────────────────────────────
+# PostgreSQL dump files — NEVER commit production backups to Git
+*.dump
+*.backup
+*.dmp
+
+# PostgreSQL credential file (pgpass.conf) — contains passwords, never commit
+pgpass.conf
+**/pgpass.conf
+
+# Environment / secrets files
+.env
+*.env
+.env.local
+.env.production
+
+# Backup output directories (if accidentally placed inside project root)
+/ERP-Backups/
+/backups/
+/backup/
+!scripts/backup/
+# Note: *.sql is intentionally NOT excluded — Flyway migration files must remain in Git

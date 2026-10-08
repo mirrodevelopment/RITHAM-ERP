@@ -40,10 +40,12 @@ public class ProductionStageService {
 
     @Transactional
     public ProductionStageResponse createCustomStage(CreateProductionStageRequest request) {
-        String cleanKey = request.getTitle()
-                .toUpperCase()
-                .replaceAll("[^A-Z0-9]", "_")
-                .replaceAll("_+", "_");
+        String cleanKey = (request.getStageKey() != null && !request.getStageKey().isBlank())
+                ? request.getStageKey().trim().toUpperCase()
+                : request.getTitle()
+                        .toUpperCase()
+                        .replaceAll("[^A-Z0-9]", "_")
+                        .replaceAll("_+", "_");
 
         if (stageRepository.existsByStageKey(cleanKey)) {
             cleanKey = cleanKey + "_" + (System.currentTimeMillis() % 1000);
@@ -116,6 +118,11 @@ public class ProductionStageService {
                 .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Production stage not found"));
         stage.setIsActive(false);
         stageRepository.save(stage);
+    }
+
+    @Transactional
+    public void deleteAllStages() {
+        stageRepository.deleteAll();
     }
 
     private ProductionStageResponse toResponse(ProductionStage entity) {

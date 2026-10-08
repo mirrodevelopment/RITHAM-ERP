@@ -59,6 +59,33 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === branchModalBackdrop) closeModal();
     });
   }
+  const exportBranchesExcelBtn = document.getElementById('exportBranchesExcelBtn');
+  if (exportBranchesExcelBtn) {
+    exportBranchesExcelBtn.addEventListener('click', () => {
+      if (!branchesList || branchesList.length === 0) {
+        Toast.warning('No branches found to export');
+        return;
+      }
+      const data = branchesList.map((b, idx) => ({
+        'S.No': idx + 1,
+        'Branch Code': b.branchCode || '—',
+        'Branch Name': b.name || '—',
+        'City': b.city || '—',
+        'Address': b.address || '—',
+        'Phone': b.phone || '—',
+        'Email': b.email || '—',
+        'GST Number': b.gstNumber || '—',
+        'Status': b.isActive !== false ? 'Active' : 'Inactive',
+        'Created Date': ExcelExport.formatDate(b.createdAt)
+      }));
+      ExcelExport.exportData(data, {
+        filename: 'Ritham_Company_Branches',
+        sheetName: 'Branches',
+        columnWidths: [8, 14, 25, 18, 32, 16, 25, 18, 12, 18]
+      });
+    });
+  }
+
   if (branchForm) branchForm.addEventListener('submit', handleFormSubmit);
 
   async function loadBranches() {

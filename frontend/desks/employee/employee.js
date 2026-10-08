@@ -97,6 +97,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     Toast.success('Employee list updated');
   });
 
+  document.getElementById('exportEmployeesExcelBtn')?.addEventListener('click', async () => {
+    try {
+      Toast.info('Preparing employees export…');
+      const url = `${API.EMPLOYEES}?page=0&size=500&search=${encodeURIComponent(currentSearch)}`;
+      const data = await Api.get(url);
+      const items = data.content || data || [];
+
+      if (!items.length) {
+        Toast.warning('No employee records available to export.');
+        return;
+      }
+
+      const columns = [
+        { key: 'sno', header: 'S.No' },
+        { key: 'employeeCode', header: 'Employee Code', transform: (v, e) => v || `EMP-${e.id}` },
+        { key: 'fullName', header: 'Full Name', transform: v => v || '—' },
+        { key: 'mobileNumber', header: 'Mobile Number', transform: v => v || '—' },
+        { key: 'email', header: 'Email Address', transform: v => v || '—' },
+        { key: 'username', header: 'Username', transform: v => v || '—' },
+        { key: 'role', header: 'Role', transform: (v, e) => e.roleLabel || v || '—' },
+        { key: 'department', header: 'Department', transform: v => v || '—' },
+        { key: 'branchName', header: 'Branch', transform: (v, e) => e.branchName || (e.branchId ? `Branch ${e.branchId}` : 'Main Branch') },
+        { key: 'stage', header: 'Assigned Stage', transform: v => v || 'General' },
+        { key: 'advance', header: 'Advance Balance (Rs)', transform: v => Number(v || 0) },
+        { key: 'isActive', header: 'Active Status', transform: v => v !== false ? 'Active' : 'Inactive' },
+        { key: 'joiningDate', header: 'Joining Date', transform: v => ExcelExport.formatDate(v) },
+      ];
+
+      await ExcelExport.exportData({
+        data: items,
+        fileName: 'ritham-employees',
+        sheetName: 'Staff Directory',
+        columns,
+      });
+    } catch (err) {
+      Toast.error('Failed to export employees: ' + (err.message || 'Error'));
+    }
+  });
+
   // Modal Open / Close
   if (addEmployeeBtn) {
     addEmployeeBtn.addEventListener('click', openCreateModal);
