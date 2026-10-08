@@ -45,12 +45,6 @@ public class DataInitializer implements CommandLineRunner {
         encodeIfNeeded("production",     "Production@123");
         encodeIfNeeded("manager",        "Manager@123");
 
-        // Branch accounts: only encode if stored value is not already a valid BCrypt hash.
-        // Do NOT force-reset to default — preserves passwords changed by an admin.
-        encodeIfNeeded("reception_cbe",  "Reception@123");
-        encodeIfNeeded("production_cbe", "Production@123");
-        encodeIfNeeded("manager_cbe",    "Manager@123");
-
         employeeRepository.flush();
         log.info("System user passwords verified on startup.");
     }
