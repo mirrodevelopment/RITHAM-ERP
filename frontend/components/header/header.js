@@ -315,7 +315,8 @@ const Header = (() => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000); // 5-sec timeout
 
-      const res = await fetch('/actuator/health', {
+      const healthUrl = (typeof API !== 'undefined' && API.HEALTH) ? API.HEALTH : '/actuator/health';
+      const res = await fetch(healthUrl, {
         method:  'GET',
         cache:   'no-store',
         signal:  controller.signal,

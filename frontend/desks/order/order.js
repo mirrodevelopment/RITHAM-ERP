@@ -518,7 +518,7 @@ async function checkCustomerDue(mobile) {
   try {
     let dueData = null;
     try {
-      const res = await Api.get(`/api/orders/customer/${mobile}/due`);
+      const res = await Api.get(`${API.ORDERS}/customer/${mobile}/due`);
       dueData = res?.data ?? res;
     } catch (_) {
       // Fallback: search orders directly
@@ -652,7 +652,7 @@ async function checkPreviousMeasurements(mobile) {
 
   try {
     // 1. Check customer measurement profiles
-    const cmRes = await Api.get(`/api/customer-measurements/customer/${mobile}`);
+    const cmRes = await Api.get(`${API.MEASUREMENTS}/customer/${mobile}`);
     const cmList = cmRes?.data ?? (Array.isArray(cmRes) ? cmRes : []);
     if (Array.isArray(cmList) && cmList.length > 0) {
       cmList.forEach(item => {
@@ -664,7 +664,7 @@ async function checkPreviousMeasurements(mobile) {
 
     // 2. Check /latest endpoint fallback
     if (Object.keys(_customerSavedSpecsMap).length === 0) {
-      const cmLatest = await Api.get(`/api/customer-measurements/customer/${mobile}/latest`);
+      const cmLatest = await Api.get(`${API.MEASUREMENTS}/customer/${mobile}/latest`);
       const single = cmLatest?.data ?? cmLatest;
       if (single && single.garmentType && single.measurements && Object.keys(single.measurements).length > 0) {
         _customerSavedSpecsMap[single.garmentType.toUpperCase()] = single;
@@ -673,7 +673,7 @@ async function checkPreviousMeasurements(mobile) {
 
     // 3. Check past order latest measurements fallback
     if (Object.keys(_customerSavedSpecsMap).length === 0) {
-      const pastRes = await Api.get(`/api/orders/customer/${mobile}/latest-measurements`);
+      const pastRes = await Api.get(`${API.ORDERS}/customer/${mobile}/latest-measurements`);
       const past = pastRes?.data ?? pastRes;
       if (past && past.garmentType && past.measurements && Object.keys(past.measurements).length > 0) {
         _customerSavedSpecsMap[past.garmentType.toUpperCase()] = past;

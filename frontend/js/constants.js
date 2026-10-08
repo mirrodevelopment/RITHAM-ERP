@@ -8,11 +8,31 @@
 
 // ── API Configuration ────────────────────────────────────────────────────────
 
-// Use a relative path so the app works in any deployment (localhost, staging, production).
-// The Spring Boot server serves both the API and the static frontend from the same origin.
-const API_BASE_URL = '/api';
+// Centralized API Base URL configuration:
+// In production (mirro.in / www.mirro.in): API requests target https://api.mirro.in/api
+// In local development (localhost / 127.0.0.1):
+//   - When served directly by Spring Boot (port 8080): uses relative '/api'
+//   - When served by a standalone dev server (Live Server, Vite, etc.): uses 'http://localhost:8080/api'
+const API_HOST = (() => {
+  // If served directly by Spring Boot on port 8080, always use relative path
+  if (window.location.port === '8080') {
+    return '';
+  }
+  const host = window.location.hostname;
+  // Local development / LAN environments
+  if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.endsWith('.local')) {
+    return 'http://localhost:8080';
+  }
+  // Production domains (mirro.in, www.mirro.in, or GitHub Pages)
+  return 'https://api.mirro.in';
+})();
+
+const API_BASE_URL = `${API_HOST}/api`;
 
 const API = {
+  // System Health
+  HEALTH:  `${API_HOST}/actuator/health`,
+
   // Auth
   LOGIN:   `${API_BASE_URL}/auth/login`,
   LOGOUT:  `${API_BASE_URL}/auth/logout`,
@@ -22,6 +42,7 @@ const API = {
   // Branches
   BRANCHES:        `${API_BASE_URL}/branches`,
   BRANCH:          (id) => `${API_BASE_URL}/branches/${id}`,
+  BRANCH_STATUS:   (id) => `${API_BASE_URL}/branches/${id}/toggle-status`,
 
   // Employees
   EMPLOYEES:      `${API_BASE_URL}/employees`,

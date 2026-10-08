@@ -1,0 +1,95 @@
+# ==============================================================================
+# Ritham ERP — Production Profile Configuration (application-prod.yaml)
+# Activated via: SPRING_PROFILES_ACTIVE=prod
+# ==============================================================================
+
+spring:
+  # ── Local PostgreSQL Database Connection ────────────────────────────────────
+  # PostgreSQL is hosted LOCALLY on the same office computer (localhost:5432).
+  # NEVER expose port 5432 to the Internet.
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:ritham_erp}}
+    username: ${DB_USERNAME:ritham}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: RithamProdHikariPool
+      maximum-pool-size: 15
+      minimum-idle: 3
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+
+  # ── JPA / Hibernate ─────────────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+
+  # ── Flyway Database Versioning ──────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    repair-on-migrate: true
+
+# ── Server & Reverse Proxy Configuration ──────────────────────────────────────
+# Spring Boot runs locally on port 8080.
+# Cloudflare Tunnel connects to http://localhost:8080 and handles public HTTPS.
+server:
+  port: ${SERVER_PORT:8080}
+  # Enable Spring ForwardedHeaderFilter to trust X-Forwarded-Proto (https) and X-Forwarded-Host from Cloudflare Tunnel
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-stacktrace: never
+
+# ── Actuator Health Exposure (Hardened for Production) ────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ── Production Logging ────────────────────────────────────────────────────────
+logging:
+  level:
+    com.ritham.erp: INFO
+    org.springframework.security: WARN
+    org.flywaydb: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+
+# ── Application Security & Domain Configuration ───────────────────────────────
+app:
+  jwt:
+    # Production JWT secret MUST be supplied via JWT_SECRET environment variable.
+    secret: ${JWT_SECRET}
+    access-token-expiry-ms: ${JWT_ACCESS_EXPIRY_MS:900000}       # 15 minutes
+    refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:604800000}   # 7 days
+
+  cors:
+    # Strictly whitelist the production frontend domains and local backend for testing.
+    allowed-origins:
+      - "${CORS_ORIGIN_1:https://mirro.in}"
+      - "${CORS_ORIGIN_2:https://www.mirro.in}"
+      - "${CORS_ORIGIN_3:http://localhost:8080}"
+
+  # Historical Data Migration & OCR
+  migration:
+    upload-dir: ${MIGRATION_UPLOAD_DIR:D:/ritham-erp-uploads/migration}
+    tesseract-data-path: ${TESSERACT_DATA_PATH:D:/ritham-erp/tessdata}
+    ocr-language: ${OCR_LANGUAGE:eng}
+    ocr-confidence-threshold: 0.85

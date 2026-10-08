@@ -75,7 +75,7 @@ async function loadCustomers() {
     if (currentSearch) params.set('search', currentSearch);
 
     // Api.get already unwraps ApiResponse.data → PageResponse<CustomerResponse>
-    const page = await Api.get(`/api/customers?${params}`);
+    const page = await Api.get(`${API.CUSTOMERS}?${params}`);
 
     totalPages    = page.totalPages   ?? 0;
     totalElements = page.totalElements ?? 0;
@@ -611,7 +611,7 @@ msrGarmentSelect?.addEventListener('change', () => {
 
 async function loadSavedSpecsForGarment(mobile, garmentType) {
   try {
-    const res = await Api.get(`/api/customer-measurements/customer/${mobile}/garment/${garmentType}`);
+    const res = await Api.get(`${API.MEASUREMENTS}/customer/${mobile}/garment/${garmentType}`);
     const record = res?.data ?? res;
     clearMsrInputs();
     if (record && record.measurements) {
@@ -647,7 +647,7 @@ window.openCustomerMeasurements = async function(mobile, name) {
   msrModalBackdrop?.classList.remove('hidden');
 
   try {
-    const res = await Api.get(`/api/customer-measurements/customer/${mobile}/latest`);
+    const res = await Api.get(`${API.MEASUREMENTS}/customer/${mobile}/latest`);
     const record = res?.data ?? res;
     if (record && record.garmentType && record.measurements) {
       if (msrGarmentSelect) msrGarmentSelect.value = record.garmentType;

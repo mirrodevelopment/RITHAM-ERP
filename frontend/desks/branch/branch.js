@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.toggleBranchStatus = async (id) => {
     try {
-      await Api.patch(`/api/branches/${id}/toggle-status`);
+      await Api.patch(API.BRANCH_STATUS(id));
       Toast.success('Branch status updated successfully');
       loadBranches();
     } catch (err) {

@@ -89,7 +89,7 @@ public class SecurityConfig {
                     // SEC-1 FIX: GET is allowed, but mutations require ADMIN or OPERATIONS_MANAGER
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/production-stages/**").permitAll()
                     .requestMatchers("/api/production-stages/**").hasAnyRole("ADMIN", "OPERATIONS_MANAGER")
-                    .requestMatchers("/admin/**").hasRole("ADMIN")
+                    .requestMatchers("/admin/**", "/api/admin/**").hasRole("ADMIN")
                     .requestMatchers("/operations/**").hasAnyRole("ADMIN", "OPERATIONS_MANAGER")
                     .requestMatchers("/production/**")
                             .hasAnyRole("ADMIN", "OPERATIONS_MANAGER", "PRODUCTION_EMPLOYEE")

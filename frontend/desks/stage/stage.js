@@ -573,7 +573,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       Utils.setLoading(deleteStageBtn, true, 'Deleting...');
       try {
-        await Api.del(`/api/production-stages/${editingStageId}`);
+        await Api.del(`${API.PRODUCTION_STAGES}/${editingStageId}`);
         Toast.success('Production stage deactivated successfully');
         closeStageModal();
         await loadData();
@@ -646,7 +646,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!confirm(`Are you sure you want to deactivate/delete stage "${stg.title}"?`)) return;
 
     try {
-      await Api.del(`/api/production-stages/${id}`);
+      await Api.del(`${API.PRODUCTION_STAGES}/${id}`);
       Toast.success(`Stage "${stg.title}" deactivated successfully`);
       await loadData();
     } catch (err) {

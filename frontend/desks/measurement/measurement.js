@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     lookupStatus.innerHTML = '<span style="color:#818CF8;">Checking customer directory…</span>';
 
     try {
-      const res = await Api.get(`/api/customers/${mobile}`);
+      const res = await Api.get(API.CUSTOMER(mobile));
       const cust = res?.data ?? res;
       if (cust && cust.customerName) {
         if (!modalName.value.trim() || modalName.value === 'Customer') {
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function checkExistingCustomerSpecs(mobile, garmentType) {
     try {
-      const res = await Api.get(`/api/customer-measurements/customer/${mobile}/garment/${garmentType}`);
+      const res = await Api.get(`${API.MEASUREMENTS}/customer/${mobile}/garment/${garmentType}`);
       const record = res?.data ?? res;
       if (record && record.measurements && Object.keys(record.measurements).length > 0) {
         populateModalMeasurements(record.garmentType, record.measurements, record.notes);
