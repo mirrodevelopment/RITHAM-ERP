@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── Auto-polling & Window Focus ───────────────────────────────────────
-  const refreshAll = () => Promise.allSettled([loadStats(), loadRecentOrders(), loadStages()]);
+  const refreshAll = () => Promise.allSettled([loadStats(), loadRecentOrders()]);
   const pollInterval = setInterval(refreshAll, 12000);
   window.addEventListener('focus', refreshAll);
   window.addEventListener('beforeunload', () => clearInterval(pollInterval));
@@ -443,54 +443,4 @@ function _statusBadge(status) {
     label: (status || 'IN PRODUCTION').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
   };
   return `<span class="badge ${cfg.cls}">${cfg.label}</span>`;
-}
-
-// ── Production Stages Pipeline ─────────────────────────────────────────────
-async function loadStages() {
-  const panel = document.getElementById('stagesPanel');
-  if (!panel) return;
-
-  try {
-    const stages = StageRegistry.getAll();
-    const data = await Api.get(`${API.ORDERS}?size=100&sort=createdAt,desc`);
-    const orders = data?.content ?? data ?? [];
-
-    const counts = {};
-    stages.forEach(s => counts[s.stageKey] = 0);
-
-    let totalInProduction = 0;
-    orders.forEach(o => {
-      let stg = (o.status || '').toUpperCase();
-      if (stg === 'PENDING' || stg === 'NEW' || stg === 'CONFIRMED' || stg === 'PATTERN_MAKING') stg = 'DESIGNING';
-      else if (stg === 'IN_PROGRESS' || stg === 'FABRIC_CUTTING') stg = 'CUTTING';
-
-      if (counts[stg] !== undefined) {
-        counts[stg]++;
-        totalInProduction++;
-      }
-    });
-
-    panel.innerHTML = stages.map(s => {
-      const count = counts[s.stageKey] ?? 0;
-      const pct = totalInProduction > 0 ? Math.round((count / totalInProduction) * 100) : 0;
-
-      return `
-        <div class="od-pipeline-row" onclick="viewProductionStage('${s.stageKey}')" title="Filter ${s.title} in Production">
-          <div class="od-pipeline-meta">
-            <span class="od-pipeline-name">${s.title}</span>
-            <span class="od-pipeline-count-pill">${count}</span>
-          </div>
-          <div class="od-pipeline-bar-track">
-            <div class="od-pipeline-bar-fill" style="width: ${Math.max(pct, count > 0 ? 8 : 0)}%;"></div>
-          </div>
-        </div>
-      `;
-    }).join('');
-  } catch (_) {
-    panel.innerHTML = '<div style="color:var(--text-muted); font-size:12px; padding:8px 0;">Stage data unavailable</div>';
-  }
-}
-
-function viewProductionStage(stageKey) {
-  window.location.href = `../stage/stage.html?stage=${stageKey}`;
 }

@@ -157,6 +157,17 @@ public class EmployeeService {
     }
 
     @Transactional
+    public void updatePassword(Long id, UpdatePasswordRequest request) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.EMPLOYEE_NOT_FOUND));
+
+        verifyEmployeeBranchAccess(employee);
+
+        employee.setPasswordHash(passwordEncoder.encode(request.getPassword().trim()));
+        employeeRepository.save(employee);
+    }
+
+    @Transactional
     public EmployeeResponse toggleStatus(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.EMPLOYEE_NOT_FOUND));

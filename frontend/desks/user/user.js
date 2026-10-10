@@ -14,28 +14,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   Header.init({ title: 'User Management', subtitle: 'System users, staff accounts, and roles' });
 
   // State
-  let currentPage = 0;
-  let totalPages = 0;
   let allRoles = [];
-  let allDepartments = [];
   let currentSearch = '';
-  let isEditing = false;
-
-  const isAdmin = Auth.hasRole(ROLES.ADMIN);
-
-  // Hide Add button if not Admin
-  if (!isAdmin) {
-    Utils.hideEl('#addUserBtn');
-  }
 
   // DOM Elements
   const tbody = document.getElementById('userTableBody');
   const searchInput = document.getElementById('searchInput');
   const roleFilter = document.getElementById('roleFilter');
-  const deptFilter = document.getElementById('deptFilter');
   const statusFilter = document.getElementById('statusFilter');
   const refreshBtn = document.getElementById('refreshBtn');
-  const addUserBtn = document.getElementById('addUserBtn');
 
   const modalBackdrop = document.getElementById('userModalBackdrop');
   const modalCloseBtn = document.getElementById('modalCloseBtn');
@@ -43,45 +30,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   const userForm = document.getElementById('userForm');
   const modalTitle = document.getElementById('modalTitle');
   const saveBtnText = document.getElementById('saveBtnText');
-  const usernameGroup = document.getElementById('usernameGroup');
-  const passwordRow = document.getElementById('passwordRow');
 
   // Input Fields
   const userIdInput = document.getElementById('userId');
   const fullNameInput = document.getElementById('fullName');
-  const mobileInput = document.getElementById('mobileNumber');
-  const emailInput = document.getElementById('email');
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
   const confirmPasswordInput = document.getElementById('confirmPassword');
-  const roleSelect = document.getElementById('roleId');
-  const deptSelect = document.getElementById('departmentId');
 
-  // Load Metadata (Roles & Departments)
+  // Load Metadata (Roles)
   async function loadMetadata() {
     try {
-      const [rolesRes, deptsRes] = await Promise.all([
-        Api.get(API.EMPLOYEES + '/roles'),
-        Api.get(API.EMPLOYEES + '/departments'),
-      ]);
-
+      const rolesRes = await Api.get(API.EMPLOYEES + '/roles');
       allRoles = rolesRes || [];
-      allDepartments = deptsRes || [];
 
-      if (roleFilter) roleFilter.innerHTML = '<option value="">All Roles</option>' +
-        allRoles.map(r => `<option value="${r.id}">${r.description || r.name}</option>`).join('');
-
-      if (deptFilter) deptFilter.innerHTML = '<option value="">All Departments</option>' +
-        allDepartments.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-
-      if (roleSelect) roleSelect.innerHTML = '<option value="">Select Role</option>' +
-        allRoles.map(r => `<option value="${r.id}">${r.description || r.name}</option>`).join('');
-
-      if (deptSelect) deptSelect.innerHTML = '<option value="">Select Department</option>' +
-        allDepartments.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-
+      if (roleFilter) {
+        roleFilter.innerHTML = '<option value="">All Roles</option>' +
+          allRoles.map(r => `<option value="${r.id}">${r.description || r.name}</option>`).join('');
+      }
     } catch (err) {
-      Toast.error('Failed to load roles and departments');
+      Toast.error('Failed to load roles');
     }
   }
 
@@ -271,7 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       saveBtn.disabled = true;
       saveBtnText.textContent = 'Updating...';
 
-      await Api.put(`${API.EMPLOYEES}/${id}`, { password });
+      await Api.put(`${API.EMPLOYEES}/${id}/password`, { password });
       Toast.success('Password updated successfully! 🔑');
       closeModal();
       loadUsers();

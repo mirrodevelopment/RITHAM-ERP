@@ -21,10 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // DOM Elements
   const branchesTableBody   = document.getElementById('branchesTableBody');
   const branchCountBadge    = document.getElementById('branchCountBadge');
-  const statTotalBranches   = document.getElementById('statTotalBranches');
-  const statActiveBranches  = document.getElementById('statActiveBranches');
-  const statTotalWorkers    = document.getElementById('statTotalWorkers');
-  const statTotalOrders     = document.getElementById('statTotalOrders');
   const branchSearchInput   = document.getElementById('branchSearchInput');
   const refreshBranchesBtn  = document.getElementById('refreshBranchesBtn');
   const addNewBranchBtn     = document.getElementById('addNewBranchBtn');

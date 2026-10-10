@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeCategory = 'All';
   let searchQuery = '';
   let statusData = null;
-  let selectedModalDrive = null;
 
   // ── DOM Elements ──────────────────────────────────────────────────────────
   const refreshBackupBtn          = document.getElementById('refreshBackupBtn');
@@ -35,8 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const tableResultSummary        = document.getElementById('tableResultSummary');
   const totalFilesCountBadge      = document.getElementById('totalFilesCountBadge');
   const overallStatusBadge        = document.getElementById('overallStatusBadge');
-  const refreshLogsBtn            = document.getElementById('refreshLogsBtn');
-  const backupConsoleBox          = document.getElementById('backupConsoleBox');
 
   // Location Toolbar Banner Elements
   const activeDriveTypeBadge      = document.getElementById('activeDriveTypeBadge');
@@ -175,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
       await Promise.all([
         loadStatus(),
         loadFiles(),
-        loadLogs(),
       ]);
     } catch (err) {
       console.error('Error loading backup data:', err);
@@ -590,42 +586,6 @@ document.addEventListener('DOMContentLoaded', () => {
         openVerifyModal(btn.dataset.category, btn.dataset.file);
       });
     });
-  }
-
-  // ── Load Audit Logs ───────────────────────────────────────────────────────
-  async function loadLogs() {
-    if (!backupConsoleBox) return;
-    try {
-      const url = `${API.BACKUP_LOGS}?limit=40${activeLocation ? `&location=${encodeURIComponent(activeLocation)}` : ''}`;
-      const logs = await Api.get(url);
-      renderLogs(logs || []);
-    } catch (err) {
-      console.warn('Could not read backup logs:', err);
-      if (backupConsoleBox) {
-        backupConsoleBox.innerHTML = '<div style="color: var(--text-muted);">Audit log file is not yet created in this location.</div>';
-      }
-    }
-  }
-
-  function renderLogs(logs) {
-    if (!backupConsoleBox) return;
-    if (!logs || logs.length === 0) {
-      backupConsoleBox.innerHTML = '<div style="color: var(--text-muted);">No recent log entries in this location.</div>';
-      return;
-    }
-
-    const linesHtml = logs.map(l => {
-      const level = l.level || 'INFO';
-      return `
-        <div class="console-line">
-          <span class="console-ts">[${Utils.escapeHtml(l.timestamp || '')}]</span>
-          <span class="console-level ${level}">[${Utils.escapeHtml(level)}]</span>
-          <span class="console-msg">${Utils.escapeHtml(l.message || '')}</span>
-        </div>
-      `;
-    }).join('');
-
-    backupConsoleBox.innerHTML = linesHtml;
   }
 
   // ── Download Backup Dump ──────────────────────────────────────────────────

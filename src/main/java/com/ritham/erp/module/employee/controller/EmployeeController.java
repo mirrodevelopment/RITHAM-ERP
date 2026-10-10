@@ -66,6 +66,16 @@ public class EmployeeController {
         return ResponseEntity.ok(ApiResponse.success("Employee updated successfully", updated));
     }
 
+    @PutMapping("/{id}/password")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> updatePassword(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdatePasswordRequest request
+    ) {
+        employeeService.updatePassword(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Password updated successfully"));
+    }
+
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<EmployeeResponse>> toggleStatus(@PathVariable Long id) {

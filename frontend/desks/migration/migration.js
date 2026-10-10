@@ -664,15 +664,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function setGarmentType(newType) {
-    if (!revGarmentType) return;
-    const raw = (newType || '').toUpperCase().trim();
-    // Strictly only allow BLOUSE or CHUDI
-    const cleanType = raw.includes('BLOUSE') ? 'BLOUSE' : 'CHUDI';
-    revGarmentType.value = cleanType;
-    revGarmentType.dispatchEvent(new Event('change'));
-  }
-
   function bindFieldHighlight(inputEl, primaryRegionKey, fallbackRegionKey) {
     if (!inputEl) return;
     const doHighlight = () => {

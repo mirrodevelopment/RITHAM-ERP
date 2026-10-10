@@ -259,6 +259,7 @@ public class MigrationBatchService {
         return docs.isEmpty() ? null : docs.get(0);
     }
 
+    @Transactional(readOnly = true)
     public List<MigrationDocument> getSiblingPages(Long documentId) {
         MigrationDocument doc = getDocument(documentId);
         if (doc.getTotalPages() == null || doc.getTotalPages() <= 1 || doc.getSourceFilePath() == null) {

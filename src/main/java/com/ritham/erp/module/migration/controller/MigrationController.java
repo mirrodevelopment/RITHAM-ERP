@@ -91,7 +91,7 @@ public class MigrationController {
      * Roles: ADMIN, BRANCH_MANAGER
      */
     @PostMapping("/batches")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationBatchResponse>> createBatch(
             @RequestBody @Valid CreateBatchRequest req) {
 
@@ -106,7 +106,7 @@ public class MigrationController {
      * List batches (branch-scoped for branch staff, all branches for admin).
      */
     @GetMapping("/batches")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<PageResponse<MigrationBatchResponse>>> listBatches(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -123,7 +123,7 @@ public class MigrationController {
      * Get a single batch by ID.
      */
     @GetMapping("/batches/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationBatchResponse>> getBatch(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(toBatchResponse(batchService.getBatch(id))));
     }
@@ -133,7 +133,7 @@ public class MigrationController {
      * Dashboard statistics (total docs, per-batch progress, etc.).
      */
     @GetMapping("/statistics")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationStatisticsResponse>> getStatistics() {
         return ResponseEntity.ok(ApiResponse.success(batchService.getStatistics()));
     }
@@ -148,7 +148,7 @@ public class MigrationController {
      * If the file is a multi-page PDF, every page is rendered and registered as an independent document.
      */
     @PostMapping("/batches/{id}/documents")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<Object>> uploadDocument(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file) throws IOException {
@@ -170,7 +170,7 @@ public class MigrationController {
      * List documents in a batch, optionally filtered by reviewStatus.
      */
     @GetMapping("/batches/{id}/documents")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<PageResponse<MigrationDocumentResponse>>> listDocuments(
             @PathVariable Long id,
             @RequestParam(required = false) String reviewStatus,
@@ -188,7 +188,7 @@ public class MigrationController {
      * Get a single document (includes raw OCR text for the review desk).
      */
     @GetMapping("/documents/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationDocumentResponse>> getDocument(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(toDocumentResponse(batchService.getDocument(id))));
     }
@@ -198,7 +198,7 @@ public class MigrationController {
      * Get all sibling pages of a multi-page document in order.
      */
     @GetMapping("/documents/{id}/pages")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<List<MigrationDocumentResponse>>> getDocumentPages(@PathVariable Long id) {
         List<MigrationDocument> siblings = batchService.getSiblingPages(id);
         return ResponseEntity.ok(ApiResponse.success(siblings.stream().map(this::toDocumentResponse).toList()));
@@ -209,7 +209,7 @@ public class MigrationController {
      * Approve all pages of a multi-page PDF batch document in one step.
      */
     @PostMapping("/documents/{id}/approve-all-pages")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<List<MigrationDocumentResponse>>> approveAllPages(@PathVariable Long id) {
         List<MigrationDocument> approved = batchService.approveAllPages(id);
         return ResponseEntity.ok(ApiResponse.success(approved.stream().map(this::toDocumentResponse).toList()));
@@ -220,7 +220,7 @@ public class MigrationController {
      * Import all VERIFIED pages of a multi-page PDF batch document.
      */
     @PostMapping("/documents/{id}/import-all-pages")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<List<MigrationImportSummary>>> importAllPages(@PathVariable Long id) {
         List<MigrationDocument> siblings = batchService.getSiblingPages(id);
         List<MigrationImportSummary> importedList = new ArrayList<>();
@@ -245,7 +245,7 @@ public class MigrationController {
      * Stream original scanned file or rendered page image inline for preview.
      */
     @GetMapping("/documents/{id}/file")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<Resource> getDocumentFile(@PathVariable Long id) throws IOException {
         MigrationDocument doc = batchService.getDocument(id);
         Path path = Paths.get(doc.getFilePath());
@@ -272,7 +272,7 @@ public class MigrationController {
      * Download or stream the original uploaded PDF source file.
      */
     @GetMapping("/documents/{id}/source-file")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<Resource> getDocumentSourceFile(@PathVariable Long id) throws IOException {
         MigrationDocument doc = batchService.getDocument(id);
         String srcPathStr = doc.getSourceFilePath() != null ? doc.getSourceFilePath() : doc.getFilePath();
@@ -301,7 +301,7 @@ public class MigrationController {
      * Stream original scanned file or rendered page image inline for preview.
      */
     @GetMapping("/documents/{id}/original-image")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<Resource> getDocumentOriginalImage(@PathVariable Long id) throws IOException {
         return getDocumentFile(id);
     }
@@ -311,7 +311,7 @@ public class MigrationController {
      * Stream OCR preprocessed image (contrast-enhanced, rotated) if available, falling back to document file.
      */
     @GetMapping("/documents/{id}/processed-image")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<Resource> getDocumentProcessedImage(@PathVariable Long id) throws IOException {
         MigrationDocument doc = batchService.getDocument(id);
         String targetPathStr = doc.getOcrProcessedImagePath();
@@ -338,7 +338,7 @@ public class MigrationController {
      * Trigger Tesseract OCR on an UPLOADED document.
      */
     @PostMapping("/documents/{id}/ocr")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationDocumentResponse>> runOcr(@PathVariable Long id) {
         MigrationDocument doc = batchService.runOcr(id);
         return ResponseEntity.ok(ApiResponse.success(toDocumentResponse(doc)));
@@ -349,7 +349,7 @@ public class MigrationController {
      * Trigger field extraction on an OCR_COMPLETED document.
      */
     @PostMapping("/documents/{id}/extract")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationDocumentResponse>> runExtraction(@PathVariable Long id) {
         MigrationDocument doc = batchService.runExtraction(id);
         return ResponseEntity.ok(ApiResponse.success(toDocumentResponse(doc)));
@@ -361,7 +361,7 @@ public class MigrationController {
      * Optionally takes rotate (e.g. 90, 180, 270) to permanently rotate image on disk before OCR.
      */
     @PostMapping("/documents/{id}/rescan")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationDocumentResponse>> rescan(
             @PathVariable Long id,
             @RequestParam(required = false, defaultValue = "0") int rotate) {
@@ -374,7 +374,7 @@ public class MigrationController {
      * Save a reviewer's decision (APPROVED / REJECTED / NEEDS_REWORK).
      */
     @PostMapping("/documents/{id}/review")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationDocumentResponse>> saveReview(
             @PathVariable Long id,
             @RequestBody MigrationReviewRequest req) {
@@ -388,7 +388,7 @@ public class MigrationController {
      * Full review history for a document (most recent first).
      */
     @GetMapping("/documents/{id}/reviews")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<List<MigrationReviewSummary>>> getReviewHistory(
             @PathVariable Long id) {
 
@@ -410,7 +410,7 @@ public class MigrationController {
      * Return potential ERP customer matches for a document's extracted mobile.
      */
     @GetMapping("/documents/{id}/matches")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<CustomerMatchingService.MatchResult>> getMatches(
             @PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(batchService.getMatches(id)));
@@ -422,7 +422,7 @@ public class MigrationController {
      * Roles: ADMIN, BRANCH_MANAGER only (not STAFF — elevated privilege required).
      */
     @PostMapping("/documents/{id}/import")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationImportSummary>> importDocument(
             @PathVariable Long id,
             @RequestBody(required = false) MigrationReviewRequest req) {
@@ -448,7 +448,7 @@ public class MigrationController {
      * Review/update page extraction.
      */
     @PostMapping("/pages/{id}/review")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationDocumentResponse>> savePageReview(
             @PathVariable Long id,
             @RequestBody MigrationReviewRequest req) {
@@ -460,7 +460,7 @@ public class MigrationController {
      * Verify/Approve a page.
      */
     @PostMapping("/pages/{id}/verify")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationDocumentResponse>> verifyPage(
             @PathVariable Long id,
             @RequestBody(required = false) MigrationReviewRequest req) {
@@ -477,7 +477,7 @@ public class MigrationController {
      * Reject a page.
      */
     @PostMapping("/pages/{id}/reject")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationDocumentResponse>> rejectPage(
             @PathVariable Long id,
             @RequestBody(required = false) MigrationReviewRequest req) {
@@ -494,7 +494,7 @@ public class MigrationController {
      * Matches for a page.
      */
     @GetMapping("/pages/{id}/matches")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<CustomerMatchingService.MatchResult>> getPageMatches(
             @PathVariable Long id) {
         return getMatches(id);
@@ -505,7 +505,7 @@ public class MigrationController {
      * Import a verified page.
      */
     @PostMapping("/pages/{id}/import")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<MigrationImportSummary>> importPage(
             @PathVariable Long id,
             @RequestBody(required = false) MigrationReviewRequest req) {
@@ -542,7 +542,7 @@ public class MigrationController {
      * Delete a single migration document and its physical file.
      */
     @DeleteMapping("/documents/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BRANCH_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS_MANAGER')")
     public ResponseEntity<ApiResponse<Void>> deleteDocument(@PathVariable Long id) {
         batchService.deleteDocument(id);
         return ResponseEntity.ok(ApiResponse.success("Document deleted successfully", null));

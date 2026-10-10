@@ -11,7 +11,6 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
@@ -30,9 +29,6 @@ import java.util.*;
 public class TesseractOcrService implements OcrService {
 
     private static final float PDF_RENDER_DPI = 300f;
-
-    @Value("${app.migration.tesseract-data-path:C:/Program Files/Tesseract-OCR/tessdata}")
-    private String tessDataPath;
 
     private final OcrEngine ocrEngine;
     private final ImagePreprocessor imagePreprocessor;

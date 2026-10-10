@@ -788,7 +788,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (params.get('action') === 'new' || params.has('create') || params.has('new')) {
     openModal();
   } else if (params.get('focus') === 'search') {
-    document.getElementById('customerSearch')?.focus();
+    document.getElementById('searchInput')?.focus();
   }
 });
 

@@ -7,9 +7,6 @@
 'use strict';
 
 const StageRegistry = (function() {
-  // Default fallback stage list (empty baseline)
-  const DEFAULT_STAGES = [];
-
   let _cachedStages = [];
   let _initialized = false;
   let _initPromise = null;
@@ -25,7 +22,7 @@ const StageRegistry = (function() {
         if (typeof Api !== 'undefined') {
           const res = await Api.get(`${API.PRODUCTION_STAGES}?activeOnly=true`);
           const list = Array.isArray(res) ? res : (res?.data || []);
-          _cachedStages = Array.isArray(list) ? list.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)) : [];
+          _cachedStages = Array.isArray(list) ? list.sort((a, b) => (a.seqOrder || a.displayOrder || 0) - (b.seqOrder || b.displayOrder || 0)) : [];
           _initialized = true;
         }
       } catch (err) {

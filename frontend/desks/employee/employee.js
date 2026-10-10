@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // DOM Elements
   const tbody = document.getElementById('employeeTableBody');
   const searchInput = document.getElementById('searchInput');
-  const roleFilter = document.getElementById('roleFilter');
   const stageFilter = document.getElementById('stageFilter');
   const deptFilter = document.getElementById('deptFilter');
   const statusFilter = document.getElementById('statusFilter');
@@ -44,15 +43,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const employeeForm = document.getElementById('employeeForm');
   const modalTitle = document.getElementById('modalTitle');
   const saveBtnText = document.getElementById('saveBtnText');
-  const passwordRow = document.getElementById('passwordRow');
 
   // Input Fields
   const employeeIdInput = document.getElementById('employeeId');
   const fullNameInput = document.getElementById('fullName');
   const mobileInput = document.getElementById('mobileNumber');
   const emailInput = document.getElementById('email');
-  const passwordInput = document.getElementById('password');
-  const confirmPasswordInput = document.getElementById('confirmPassword');
   const deptSelect = document.getElementById('departmentId');
   const stageSelect = document.getElementById('stageSelect');
   const advanceInput = document.getElementById('advance');
@@ -86,7 +82,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }, 300));
 
   // Filters
-  roleFilter?.addEventListener('change', () => { currentPage = 0; loadEmployees(); });
   stageFilter?.addEventListener('change', () => { currentPage = 0; loadEmployees(); });
   deptFilter?.addEventListener('change', () => { currentPage = 0; loadEmployees(); });
   statusFilter?.addEventListener('change', () => { currentPage = 0; loadEmployees(); });
@@ -182,13 +177,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       allRoles = rolesRes || [];
       allDepartments = deptsRes || [];
 
-      // Populate Role select options
-      const roleOptionsHtml = allRoles.map(r => `
-        <option value="${r.id}">${r.description || r.name}</option>
-      `).join('');
-
-      if (roleFilter) roleFilter.innerHTML = '<option value="">All Roles</option>' + roleOptionsHtml;
-
       // Populate Department select options
       const deptOptionsHtml = allDepartments.map(d => `
         <option value="${d.id}">${d.name}</option>
@@ -230,7 +218,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       totalPages = data.totalPages || 0;
 
       // Client-side filtering for dropdown filters
-      const selectedRole = roleFilter?.value || '';
       const selectedStage = stageFilter?.value || '';
       const selectedDept = deptFilter?.value || '';
       const selectedStatus = statusFilter?.value || '';
@@ -242,9 +229,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (selectedStage) {
         filteredItems = filteredItems.filter(e => (e.stage || '').toUpperCase() === selectedStage.toUpperCase());
       }
-      if (selectedRole) {
-        filteredItems = filteredItems.filter(e => String(e.roleId) === selectedRole);
-      }
       if (selectedDept) {
         filteredItems = filteredItems.filter(e => String(e.departmentId) === selectedDept);
       }
@@ -254,7 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       renderTable(filteredItems);
       // Use filteredItems.length when client-side filters are active to show the correct visible count
-      const hasActiveFilters = selectedRole || selectedDept || selectedStatus || selectedStage;
+      const hasActiveFilters = selectedDept || selectedStatus || selectedStage;
       renderPagination(hasActiveFilters ? filteredItems.length : (data.totalElements || filteredItems.length));
 
     } catch (err) {
@@ -362,7 +346,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearForm();
     if (advanceInput) advanceInput.value = '';
     if (joiningDateInput) joiningDateInput.value = new Date().toISOString().split('T')[0];
-    if (passwordRow) passwordRow.style.display = 'grid';
 
     modalBackdrop.classList.remove('hidden');
     fullNameInput.focus();
@@ -385,9 +368,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (stageSelect) stageSelect.value = emp.stage || '';
       if (advanceInput) advanceInput.value = emp.advance != null ? emp.advance : 0;
       if (joiningDateInput) joiningDateInput.value = emp.joiningDate || '';
-
-      // Password not editable in edit modal
-      if (passwordRow) passwordRow.style.display = 'none';
 
       modalBackdrop.classList.remove('hidden');
       fullNameInput.focus();
