@@ -43,6 +43,14 @@
   flex-shrink: 0;
   overflow: hidden;
   box-sizing: border-box;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--transition);
+}
+
+.sidebar-brand:hover {
+  background-color: var(--bg-hover);
 }
 
 .sidebar-brand-mark {

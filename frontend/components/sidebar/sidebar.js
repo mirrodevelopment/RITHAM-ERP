@@ -157,10 +157,13 @@ const Sidebar = (() => {
 
     const role     = user.role;
     const initials = Utils.initials(user.fullName);
+    const homeHref = (role === ROLES.PRODUCTION_EMPLOYEE)
+      ? '/desks/production-desk/production-desk.html'
+      : '/desks/order-desk/order-desk.html';
 
     sidebar.innerHTML = `
-      <!-- Brand -->
-      <div class="sidebar-brand">
+      <!-- Brand Link to Home/Dashboard URL -->
+      <a href="${homeHref}" class="sidebar-brand" title="Go to Dashboard">
         <div class="sidebar-brand-mark"><img src="/images/logo/logo.jpg" alt="Ritham Designs Logo"></div>
         <div class="sidebar-brand-text">
           <div class="sidebar-brand-name">RITHAM ERP</div>
@@ -168,7 +171,7 @@ const Sidebar = (() => {
             🏢 ${Storage.getActiveBranchName()}
           </div>
         </div>
-      </div>
+      </a>
 
       <!-- Toggle button -->
       <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
