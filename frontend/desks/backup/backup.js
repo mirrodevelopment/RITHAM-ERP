@@ -187,6 +187,10 @@ document.addEventListener('DOMContentLoaded', () => {
       renderDriveCardsInModal();
     } catch (err) {
       console.warn('Could not load backup locations:', err);
+      if (locationSelectDropdown) {
+        const fallbackPath = activeLocation || 'E:\\ERP-Backups';
+        locationSelectDropdown.innerHTML = `<optgroup label="Active Target"><option value="${Utils.escapeHtml(fallbackPath)}" selected>📁 ${Utils.escapeHtml(fallbackPath)}</option></optgroup><optgroup label="Actions"><option value="__CHOOSE_CUSTOM__">📁 + Select / Browse Custom Folder...</option></optgroup>`;
+      }
     }
   }
 
@@ -742,7 +746,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (locationSelectDropdown) locationSelectDropdown.value = targetLoc;
           updateBannerDisplay();
         }
-        await Promise.all([loadStatus(), loadFiles(), loadLogs()]);
+        await Promise.all([loadStatus(), loadFiles()]);
 
       } else {
         Toast.error(res?.message || 'Backup failed');
@@ -914,7 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
       locationConfigModal.style.display = 'none';
 
       await loadLocations();
-      await Promise.all([loadStatus(), loadFiles(), loadLogs()]);
+      await Promise.all([loadStatus(), loadFiles()]);
 
     } catch (err) {
       console.error('Failed to update location:', err);
@@ -930,13 +934,6 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshBackupBtn.addEventListener('click', () => {
       Toast.info('Refreshing backup metrics...');
       loadAllData();
-    });
-  }
-
-  if (refreshLogsBtn) {
-    refreshLogsBtn.addEventListener('click', () => {
-      loadLogs();
-      Toast.success('Logs updated');
     });
   }
 
@@ -962,7 +959,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveRecentFolder(selected);
         updateBannerDisplay();
         Toast.info(`Switching view to ${selected}...`);
-        Promise.all([loadStatus(), loadFiles(), loadLogs()]);
+        Promise.all([loadStatus(), loadFiles()]);
       }
     });
   }
@@ -1322,7 +1319,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loadStatus();
         loadFiles();
-        loadLogs();
 
       } else {
         restoreStatusBadge.className = 'badge badge-danger';
