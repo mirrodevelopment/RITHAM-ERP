@@ -335,6 +335,7 @@ async function applyFilters(stats = {}) {
 
 function renderFromBackendAnalytics(data) {
   const isOps = isOperationsManager();
+  _filteredOrders = Array.isArray(data.recentOrders) ? data.recentOrders : [];
   const s = data.summary || {};
   const totalOrders = Number(s.totalOrders) || 0;
   const todayOrders = Number(s.todayOrders) || 0;
@@ -1711,8 +1712,8 @@ function renderTopCustomersFromList(topCustomers) {
   el.innerHTML = list.slice(0, 8).map((c, i) => `
     <div class="rpt-top-item">
       <div class="rpt-top-rank">${i + 1}</div>
-      <div class="rpt-top-avatar">${initials(c.name || c.mobile || 'Customer')}</div>
-      <div class="rpt-top-name">${c.name || c.mobile}</div>
+      <div class="rpt-top-avatar">${Utils.escapeHtml(initials(c.name || c.mobile || 'Customer'))}</div>
+      <div class="rpt-top-name">${Utils.escapeHtml(c.name || c.mobile || '—')}</div>
       <div class="rpt-top-badge">${c.count} order${c.count !== 1 ? 's' : ''}</div>
     </div>
   `).join('');
@@ -1737,8 +1738,8 @@ function renderTable(orders) {
 
     return `<tr>
       <td style="color:var(--text-muted)">${i + 1}</td>
-      <td style="color:var(--text-primary);font-weight:600;font-family:monospace;font-size:11px">${o.orderNumber || '—'}</td>
-      <td style="color:var(--text-primary)">${o.customerName || '—'}</td>
+      <td style="color:var(--text-primary);font-weight:600;font-family:monospace;font-size:11px">${Utils.escapeHtml(o.orderNumber || '—')}</td>
+      <td style="color:var(--text-primary)">${Utils.escapeHtml(o.customerName || '—')}</td>
       <td>${o.deliveryDate ? fmtDate(o.deliveryDate) : '—'}</td>
       ${!isOps ? `
         <td style="font-weight:600;color:var(--text-primary)">${fmtRupee(o.totalAmount)}</td>
@@ -1746,7 +1747,7 @@ function renderTable(orders) {
         <td style="color:${balance > 0 ? '#FBBF24' : 'var(--text-muted)'}">${fmtRupee(balance)}</td>
       ` : ''}
       <td>${StageRegistry.getBadgeHtml(o.status)}</td>
-      ${!isOps ? `<td><span class="rpt-badge ${payMeta.cls}">${payMeta.label}</span></td>` : ''}
+      ${!isOps ? `<td><span class="rpt-badge ${payMeta.cls}">${Utils.escapeHtml(payMeta.label)}</span></td>` : ''}
     </tr>`;
   }).join('');
 }

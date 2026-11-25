@@ -61,9 +61,16 @@ public class CustomerMeasurementService {
                 .findByCustomerMobileAndGarmentType(cleanMobile, garmentType)
                 .orElse(null);
 
+        String rawLining = req.getLining() != null ? req.getLining().trim() : null;
+        String resolvedLining = (rawLining != null && !rawLining.isEmpty()) ? rawLining : "WITHOUT_LINING";
+
         if (entity != null) {
             entity.setCustomerName(cleanName);
-            entity.setLining(null);
+            if (rawLining != null && !rawLining.isEmpty()) {
+                entity.setLining(resolvedLining);
+            } else if (entity.getLining() == null) {
+                entity.setLining("WITHOUT_LINING");
+            }
             entity.setMeasurementsJson(measurementsJson);
             entity.setNotes(cleanNotes != null ? cleanNotes.trim() : null);
         } else {
@@ -71,7 +78,7 @@ public class CustomerMeasurementService {
                     .customerMobile(cleanMobile)
                     .customerName(cleanName)
                     .garmentType(garmentType)
-                    .lining(null)
+                    .lining(resolvedLining)
                     .measurementsJson(measurementsJson)
                     .notes(cleanNotes != null ? cleanNotes.trim() : null)
                     .build();
@@ -132,7 +139,7 @@ public class CustomerMeasurementService {
                 .customerMobile(entity.getCustomerMobile())
                 .customerName(entity.getCustomerName())
                 .garmentType(entity.getGarmentType())
-                .lining(null)
+                .lining(entity.getLining())
                 .measurements(parseMeasurementsJson(entity.getMeasurementsJson()))
                 .notes(notes)
                 .createdAt(entity.getCreatedAt())

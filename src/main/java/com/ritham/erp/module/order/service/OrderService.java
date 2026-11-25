@@ -217,7 +217,7 @@ public class OrderService {
 
         if (statusParam != null) {
             if (STATUS_PENDING.equals(statusParam)) {
-                targetStatuses = List.of(STATUS_PENDING, STATUS_DESIGNING);
+                targetStatuses = List.of(STATUS_PENDING);
             } else if ("IN_PROGRESS".equalsIgnoreCase(statusParam) || "IN_PRODUCTION".equalsIgnoreCase(statusParam)) {
                 targetStatuses = new ArrayList<>(ACTIVE_PRODUCTION_STAGES);
                 if (productionStageRepository != null) {
@@ -348,13 +348,17 @@ public class OrderService {
             res.put("customerMobile", profile.getCustomerMobile());
             res.put("customerName", profile.getCustomerName());
             res.put("garmentType", profile.getGarmentType());
+            res.put("lining", profile.getLining());
             res.put("measurements", profile.getMeasurements());
             res.put("updatedAt", profile.getUpdatedAt());
             return res;
         }
 
-        // 2. Fallback to order history
-        return orderRepository.findFirstByCustomerMobileAndGarmentTypeIsNotNullOrderByCreatedAtDesc(cleanMobile)
+        // 2. Fallback to branch-scoped order history
+        Long branchId = com.ritham.erp.security.BranchContext.getBranchId();
+        return orderRepository.findLatestMeasurementOrdersScoped(
+                        branchId, cleanMobile, org.springframework.data.domain.PageRequest.of(0, 1))
+                .stream().findFirst()
                 .map(order -> {
                     Map<String, String> measurements = orderMeasurementRepository.findByOrderId(order.getId())
                             .map(m -> parseMeasurementsJson(m.getMeasurementsJson()))
@@ -374,6 +378,12 @@ public class OrderService {
 
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest req) {
+        // Guard against cross-branch spoofing before querying customer/branch records
+        Long callerBranchId = com.ritham.erp.security.BranchContext.getBranchId();
+        if (callerBranchId != null && req.getBranchId() != null && !callerBranchId.equals(req.getBranchId())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
         // Validate customer exists
         Customer customer = customerRepository.findByCustomerMobile(req.getCustomerMobile().trim())
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
@@ -410,8 +420,8 @@ public class OrderService {
             paymentStatus = PAYMENT_STATUS_PARTIAL;
         }
 
-        // Determine branch for order
-        Long branchId = req.getBranchId() != null ? req.getBranchId() : com.ritham.erp.security.BranchContext.getBranchId();
+        // Determine branch for order (non-global callers cannot override their assigned branch)
+        Long branchId = callerBranchId != null ? callerBranchId : req.getBranchId();
         com.ritham.erp.module.branch.entity.Branch branch = null;
         if (branchId != null) {
             branch = branchRepository.findById(branchId).orElse(null);
@@ -497,9 +507,50 @@ public class OrderService {
 
         verifyBranchAccess(order);
 
-        if (newStatus != null && !newStatus.isBlank()) {
-            validateStatusTransition(order.getStatus(), newStatus);
-            order.setStatus(newStatus.trim().toUpperCase());
+        String targetStatus = (newStatus != null && !newStatus.isBlank())
+                ? newStatus.trim().toUpperCase()
+                : null;
+        if (targetStatus != null) {
+            validateStatusTransition(order.getStatus(), targetStatus);
+        }
+
+        BigDecimal currentPaid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
+        if (discountAmount != null) {
+            if (discountAmount.compareTo(BigDecimal.ZERO) < 0) {
+                throw new AppException(ErrorCode.VALIDATION_FAILED, "Discount amount cannot be negative");
+            }
+            if (discountAmount.compareTo(order.getTotalAmount()) > 0) {
+                throw new AppException(ErrorCode.VALIDATION_FAILED, "Discount amount cannot exceed total order amount");
+            }
+            if (order.getTotalAmount().subtract(discountAmount).compareTo(currentPaid) < 0) {
+                throw new AppException(ErrorCode.VALIDATION_FAILED,
+                        "Discount cannot reduce net total below already paid amount (" + currentPaid + ")");
+            }
+        }
+
+        if (finalPayment != null && finalPayment.compareTo(BigDecimal.ZERO) < 0) {
+            throw new AppException(ErrorCode.VALIDATION_FAILED, "Payment amount cannot be negative");
+        }
+
+        BigDecimal effectiveDiscount = discountAmount != null
+                ? discountAmount
+                : (order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO);
+        BigDecimal netTotal = order.getTotalAmount().subtract(effectiveDiscount);
+        if (netTotal.compareTo(BigDecimal.ZERO) < 0) netTotal = BigDecimal.ZERO;
+
+        if (finalPayment != null && finalPayment.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal remainingBalance = netTotal.subtract(currentPaid);
+            if (remainingBalance.compareTo(BigDecimal.ZERO) < 0) remainingBalance = BigDecimal.ZERO;
+
+            if (finalPayment.compareTo(remainingBalance) > 0) {
+                throw new AppException(ErrorCode.VALIDATION_FAILED,
+                        "Payment amount (" + finalPayment + ") exceeds remaining balance (" + remainingBalance + ")");
+            }
+        }
+
+        // Apply validated mutations
+        if (targetStatus != null) {
+            order.setStatus(targetStatus);
         }
 
         if (assignedEmployeeId != null) {
@@ -509,7 +560,7 @@ public class OrderService {
             order.setAssignedEmployeeName(assignedEmployeeName.trim());
         }
 
-        if (STATUS_DELIVERED.equals(order.getStatus()) || STATUS_DELIVERY.equals(order.getStatus())) {
+        if (DELIVERED_STATUSES.contains(order.getStatus())) {
             if (receiverName != null && !receiverName.isBlank()) {
                 order.setReceiverName(receiverName.trim());
             } else if (order.getReceiverName() == null || order.getReceiverName().isBlank()) {
@@ -523,34 +574,11 @@ public class OrderService {
         }
 
         if (discountAmount != null) {
-            if (discountAmount.compareTo(BigDecimal.ZERO) < 0) {
-                throw new AppException(ErrorCode.VALIDATION_FAILED, "Discount amount cannot be negative");
-            }
-            if (discountAmount.compareTo(order.getTotalAmount()) > 0) {
-                throw new AppException(ErrorCode.VALIDATION_FAILED, "Discount amount cannot exceed total order amount");
-            }
             order.setDiscountAmount(discountAmount);
         }
 
-        if (finalPayment != null && finalPayment.compareTo(BigDecimal.ZERO) < 0) {
-            throw new AppException(ErrorCode.VALIDATION_FAILED, "Payment amount cannot be negative");
-        }
-
-        BigDecimal discount = order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO;
-        BigDecimal netTotal = order.getTotalAmount().subtract(discount);
-        if (netTotal.compareTo(BigDecimal.ZERO) < 0) netTotal = BigDecimal.ZERO;
-
         // Record final payment if provided and positive
         if (finalPayment != null && finalPayment.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal currentPaid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
-            BigDecimal remainingBalance = netTotal.subtract(currentPaid);
-            if (remainingBalance.compareTo(BigDecimal.ZERO) < 0) remainingBalance = BigDecimal.ZERO;
-
-            if (finalPayment.compareTo(remainingBalance) > 0) {
-                throw new AppException(ErrorCode.VALIDATION_FAILED,
-                        "Payment amount (" + finalPayment + ") exceeds remaining balance (" + remainingBalance + ")");
-            }
-
             order.setPaidAmount(currentPaid.add(finalPayment));
 
             // Record transaction in payment ledger
@@ -569,7 +597,6 @@ public class OrderService {
             syncOrderPaymentState(order);
         } else {
             // BUG-4 FIX: always recalculate payment status after any discount or stage change
-            BigDecimal currentPaid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
             if (currentPaid.compareTo(netTotal) >= 0 && (currentPaid.compareTo(BigDecimal.ZERO) > 0 || netTotal.compareTo(BigDecimal.ZERO) == 0)) {
                 order.setPaymentStatus(PAYMENT_STATUS_PAID);
             } else if (currentPaid.compareTo(BigDecimal.ZERO) > 0) {
@@ -861,9 +888,14 @@ public class OrderService {
         // 2. Daily revenue income trend from payment ledger
         LocalDateTime effectiveStartDateTime = (startDateTime != null) ? startDateTime : LocalDateTime.of(2000, 1, 1, 0, 0);
         LocalDateTime effectiveEndDateTime = (endDateTime != null) ? endDateTime : LocalDateTime.now();
+        boolean hasExtraFilters = cleanStage != null || cleanPaymentStatus != null || cleanPaymentMode != null || cleanQuery != null;
 
-        List<Object[]> dailyIncomeRows = orderPaymentRepository.sumDailyRevenueScoped(
-                effectiveBranchId, effectiveStartDateTime, effectiveEndDateTime);
+        List<Object[]> dailyIncomeRows = hasExtraFilters
+                ? orderPaymentRepository.sumDailyRevenueFilteredScoped(
+                        effectiveBranchId, effectiveStartDateTime, effectiveEndDateTime,
+                        cleanStage, cleanPaymentStatus, cleanPaymentMode, cleanQuery)
+                : orderPaymentRepository.sumDailyRevenueScoped(
+                        effectiveBranchId, effectiveStartDateTime, effectiveEndDateTime);
         List<Map<String, Object>> dailyIncome = new ArrayList<>();
         if (dailyIncomeRows != null) {
             for (Object[] row : dailyIncomeRows) {
@@ -877,8 +909,12 @@ public class OrderService {
         }
 
         // 3. Daily order volume
-        List<Object[]> dailyOrderRows = orderRepository.countDailyOrdersScoped(
-                effectiveBranchId, effectiveStartDateTime, effectiveEndDateTime);
+        List<Object[]> dailyOrderRows = hasExtraFilters
+                ? orderRepository.countDailyOrdersFilteredScoped(
+                        effectiveBranchId, effectiveStartDateTime, effectiveEndDateTime,
+                        cleanStage, cleanPaymentStatus, cleanPaymentMode, cleanQuery)
+                : orderRepository.countDailyOrdersScoped(
+                        effectiveBranchId, effectiveStartDateTime, effectiveEndDateTime);
         List<Map<String, Object>> dailyOrders = new ArrayList<>();
         if (dailyOrderRows != null) {
             for (Object[] row : dailyOrderRows) {
@@ -892,8 +928,12 @@ public class OrderService {
         }
 
         // 4. Status breakdown
-        List<Object[]> statusRows = orderRepository.countOrdersByStatusScoped(
-                effectiveBranchId, startDateTime, endDateTime);
+        List<Object[]> statusRows = hasExtraFilters
+                ? orderRepository.countOrdersByStatusFilteredScoped(
+                        effectiveBranchId, startDateTime, endDateTime,
+                        cleanStage, cleanPaymentStatus, cleanPaymentMode, cleanQuery)
+                : orderRepository.countOrdersByStatusScoped(
+                        effectiveBranchId, startDateTime, endDateTime);
         Map<String, Long> statusBreakdown = new LinkedHashMap<>();
         if (statusRows != null) {
             for (Object[] row : statusRows) {
@@ -904,8 +944,12 @@ public class OrderService {
         }
 
         // 5. Payment method breakdown
-        List<Object[]> payMethodRows = orderPaymentRepository.countAndSumRevenueGroupedByPaymentMethod(
-                effectiveBranchId, effectiveStartDateTime, effectiveEndDateTime);
+        List<Object[]> payMethodRows = hasExtraFilters
+                ? orderPaymentRepository.countAndSumRevenueGroupedByPaymentMethodFilteredScoped(
+                        effectiveBranchId, effectiveStartDateTime, effectiveEndDateTime,
+                        cleanStage, cleanPaymentStatus, cleanPaymentMode, cleanQuery)
+                : orderPaymentRepository.countAndSumRevenueGroupedByPaymentMethod(
+                        effectiveBranchId, effectiveStartDateTime, effectiveEndDateTime);
         Map<String, Map<String, Object>> paymentBreakdown = new LinkedHashMap<>();
         if (payMethodRows != null) {
             for (Object[] row : payMethodRows) {
@@ -919,17 +963,51 @@ public class OrderService {
             }
         }
 
-        // 6. Top customers
-        List<Object[]> topCustRows = orderRepository.findTopCustomersScoped(
-                effectiveBranchId, startDateTime, endDateTime, PageRequest.of(0, 8));
+        // 6. Top customers & 7. Recent orders (batch-resolve customer names to avoid N+1)
+        List<Object[]> topCustRows = hasExtraFilters
+                ? orderRepository.findTopCustomersFilteredScoped(
+                        effectiveBranchId, startDateTime, endDateTime,
+                        cleanStage, cleanPaymentStatus, cleanPaymentMode, cleanQuery,
+                        PageRequest.of(0, 8))
+                : orderRepository.findTopCustomersScoped(
+                        effectiveBranchId, startDateTime, endDateTime, PageRequest.of(0, 8));
+
+        Page<CustomerOrder> pagedOrders = orderRepository.findFilteredOrdersForReportScoped(
+                effectiveBranchId, startDateTime, endDateTime, cleanStage, cleanPaymentStatus, cleanPaymentMode, cleanQuery,
+                PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "id")));
+
+        Set<String> mobiles = new LinkedHashSet<>();
+        if (topCustRows != null) {
+            for (Object[] row : topCustRows) {
+                if (row != null && row.length >= 3 && row[0] != null) {
+                    mobiles.add(row[0].toString());
+                }
+            }
+        }
+        for (CustomerOrder o : pagedOrders.getContent()) {
+            if (o != null && o.getCustomerMobile() != null) {
+                mobiles.add(o.getCustomerMobile());
+            }
+        }
+
+        Map<String, String> customerNameMap = new HashMap<>();
+        if (!mobiles.isEmpty()) {
+            List<Customer> foundCustomers = customerRepository.findAllByCustomerMobileIn(mobiles);
+            if (foundCustomers != null) {
+                for (Customer c : foundCustomers) {
+                    if (c != null && c.getCustomerMobile() != null && c.getCustomerName() != null) {
+                        customerNameMap.put(c.getCustomerMobile(), c.getCustomerName());
+                    }
+                }
+            }
+        }
+
         List<Map<String, Object>> topCustomers = new ArrayList<>();
         if (topCustRows != null) {
             for (Object[] row : topCustRows) {
                 if (row != null && row.length >= 3 && row[0] != null) {
                     String mobile = row[0].toString();
-                    String name = customerRepository.findByCustomerMobile(mobile)
-                            .map(c -> c.getCustomerName())
-                            .orElse(mobile);
+                    String name = resolveAnalyticsCustomerName(customerNameMap, mobile);
                     Map<String, Object> item = new LinkedHashMap<>();
                     item.put("mobile", mobile);
                     item.put("name", name);
@@ -940,16 +1018,9 @@ public class OrderService {
             }
         }
 
-        // 7. Recent orders for table (top 20)
-        Page<CustomerOrder> pagedOrders = orderRepository.findFilteredOrdersForReportScoped(
-                effectiveBranchId, startDateTime, endDateTime, cleanStage, cleanPaymentStatus, cleanPaymentMode, cleanQuery,
-                PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "id")));
-
         List<OrderResponse> recentOrders = pagedOrders.getContent().stream()
                 .map(o -> {
-                    String custName = customerRepository.findByCustomerMobile(o.getCustomerMobile())
-                            .map(c -> c.getCustomerName())
-                            .orElse(o.getCustomerMobile());
+                    String custName = resolveAnalyticsCustomerName(customerNameMap, o.getCustomerMobile());
                     return orderMapper.toResponse(o, custName);
                 })
                 .toList();
@@ -969,13 +1040,28 @@ public class OrderService {
         return response;
     }
 
+    /**
+     * Resolves a customer's display name from the pre-batched analytics map, falling back
+     * to a single lookup only when the batch map is empty (e.g., partial unit-test stubs).
+     */
+    private String resolveAnalyticsCustomerName(Map<String, String> customerNameMap, String mobile) {
+        String name = mobile != null ? customerNameMap.get(mobile) : null;
+        if (name == null && mobile != null && customerNameMap.isEmpty()) {
+            name = customerRepository.findByCustomerMobile(mobile)
+                    .map(c -> c.getCustomerName())
+                    .orElse(mobile);
+        }
+        return name != null ? name : mobile;
+    }
+
     // ── Archive operations ─────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public java.util.Map<String, Object> getDeliveredArchiveStats(int keepDays) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(keepDays);
-        long toDelete = orderRepository.countDeliveredOlderThan(cutoff);
-        long toKeep   = orderRepository.countDeliveredNewerThan(cutoff);
+        Long branchId = com.ritham.erp.security.BranchContext.getBranchId();
+        long toDelete = orderRepository.countDeliveredOlderThanScoped(branchId, cutoff);
+        long toKeep   = orderRepository.countDeliveredNewerThanScoped(branchId, cutoff);
         String cutoffDateStr = cutoff.format(DateTimeFormatter.ofPattern("dd MMM yyyy"));
 
         return java.util.Map.of(
@@ -989,7 +1075,8 @@ public class OrderService {
     @Transactional
     public int archiveDeliveredOrders(int keepDays) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(keepDays);
-        return orderRepository.deleteDeliveredOlderThan(cutoff);
+        Long branchId = com.ritham.erp.security.BranchContext.getBranchId();
+        return orderRepository.deleteDeliveredOlderThanScoped(branchId, cutoff);
     }
 
     // ── Customer Outstanding Due Summary ───────────────────────────────────
@@ -997,7 +1084,8 @@ public class OrderService {
     @Transactional(readOnly = true)
     public Map<String, Object> getCustomerDueSummary(String mobile) {
         String cleanMobile = mobile != null ? mobile.trim() : "";
-        List<CustomerOrder> orders = orderRepository.findByCustomerMobile(cleanMobile);
+        Long branchId = com.ritham.erp.security.BranchContext.getBranchId();
+        List<CustomerOrder> orders = orderRepository.findByCustomerMobileScoped(branchId, cleanMobile);
 
         BigDecimal totalDue = BigDecimal.ZERO;
         int dueOrderCount = 0;
@@ -1254,7 +1342,7 @@ public class OrderService {
 
         // 5. From PENDING: can transition to any active production stage, READY_TO_DELIVERY, or CANCELLED
         if (STATUS_PENDING.equals(current)) {
-            if (STATUS_DELIVERED.equals(target) || STATUS_DELIVERY.equals(target)) {
+            if (DELIVERED_STATUSES.contains(target)) {
                 throw new AppException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION,
                         "Order must be in " + STATUS_READY_TO_DELIVERY + " state before it can be delivered");
             }
@@ -1267,7 +1355,7 @@ public class OrderService {
                 throw new AppException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION,
                         "Cannot revert order from active production stage " + current + " back to " + STATUS_PENDING);
             }
-            if (STATUS_DELIVERED.equals(target) || STATUS_DELIVERY.equals(target)) {
+            if (DELIVERED_STATUSES.contains(target)) {
                 throw new AppException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION,
                         "Order must be in " + STATUS_READY_TO_DELIVERY + " state before it can be delivered");
             }

@@ -182,9 +182,9 @@ function renderTable(orders) {
             </svg>
             <h3>${currentSearch || currentFilter ? 'No orders found' : 'No orders yet'}</h3>
             <p>${currentSearch
-        ? `No results for "<strong>${currentSearch}</strong>". Try a different search.`
+        ? `No results for "<strong>${Utils.escapeHtml(currentSearch)}</strong>". Try a different search.`
         : currentFilter
-          ? `No orders with status "${currentFilter.replace(/_/g, ' ')}".`
+          ? `No orders with status "${Utils.escapeHtml(currentFilter.replace(/_/g, ' '))}".`
           : 'Create your first order using the "New Order" button above.'
       }</p>
           </div>
@@ -209,8 +209,8 @@ function renderTable(orders) {
       ? `<div class="order-balance">Balance: ₹${Number(o.balanceAmount).toLocaleString('en-IN')}</div>`
       : '';
 
-    const hOrderNum = highlight(orderNum, currentSearch);
-    const hMobile = highlight(custMobile, currentSearch);
+    const hOrderNum = highlight(Utils.escapeHtml(orderNum), currentSearch);
+    const hMobile = highlight(Utils.escapeHtml(custMobile), currentSearch);
 
     return `
       <tr class="order-table-row" id="order-row-${o.id}" onclick="window.toggleOrderRowSelect(this, event)">
@@ -221,7 +221,7 @@ function renderTable(orders) {
           ${o.lining ? `<span style="font-size:9px;color:var(--text-muted);margin-left:4px;">(${o.lining === 'WITH_LINING' ? 'Lining' : 'No Lin.'})</span>` : ''}
         </td>
         <td>
-          <div class="order-customer-name">${custName}</div>
+          <div class="order-customer-name">${Utils.escapeHtml(custName)}</div>
           <div class="order-customer-mobile">${hMobile}</div>
         </td>
         <td style="font-size:12px;color:var(--text-muted);">${deliveryDate}</td>
@@ -355,8 +355,9 @@ window.toggleOrderRowSelect = function (rowEl, event) {
 
 /* ── Cancel Order ─────────────────────────────────────────────────────── */
 async function cancelOrder(id, orderNum) {
+  const safeNum = Utils.escapeHtml(orderNum);
   Modal.confirm(
-    `Cancel order <strong>${orderNum}</strong>? This cannot be undone.`,
+    `Cancel order <strong>${safeNum}</strong>? This cannot be undone.`,
     async () => {
       try {
         await Api.del(`${API.ORDER_CANCEL(id)}`);
@@ -716,7 +717,8 @@ function loadSavedMeasurementsForGarment(gType) {
   }
 
   let loadedCount = 0;
-  Object.entries(saved.measurements).forEach(([k, v]) => {
+  const normalizedMeasurements = Utils.normalizeMeasurementMap(gType, saved.measurements);
+  Object.entries(normalizedMeasurements).forEach(([k, v]) => {
     const inp = panel.querySelector(`input[data-key="${k}"]`);
     if (inp) {
       inp.value = v;
@@ -802,7 +804,7 @@ function cancelSpecsEditing(gType) {
 
   // Revert all inputs to original saved measurements
   const saved = _customerSavedSpecsMap[gType.toUpperCase()];
-  const savedMeasurements = (saved && saved.measurements) || {};
+  const savedMeasurements = Utils.normalizeMeasurementMap(gType, (saved && saved.measurements) || {});
   panel.querySelectorAll('input[data-key]').forEach(inp => {
     inp.value = savedMeasurements[inp.dataset.key] || '';
   });
@@ -990,20 +992,20 @@ function showAutocomplete(customers, query) {
 
   if (customers && customers.length > 0) {
     html = customers.map(c => `
-      <div class="ac-item" data-mobile="${c.customerMobile}" data-name="${c.customerName}"
+      <div class="ac-item" data-mobile="${Utils.escapeHtml(c.customerMobile)}" data-name="${Utils.escapeHtml(c.customerName)}"
            style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;
                   justify-content:space-between;border-bottom:1px solid var(--border-default);
                   transition:background 0.15s;font-size:13px;">
         <div>
-          <span style="font-weight:600;color:var(--text-primary);">${c.customerName}</span>
+          <span style="font-weight:600;color:var(--text-primary);">${Utils.escapeHtml(c.customerName)}</span>
         </div>
-        <span style="font-family:monospace;font-size:12px;color:var(--text-muted);">${c.customerMobile}</span>
+        <span style="font-family:monospace;font-size:12px;color:var(--text-muted);">${Utils.escapeHtml(c.customerMobile)}</span>
       </div>
     `).join('');
   } else {
     html = `
       <div style="padding:12px 14px;font-size:12px;color:var(--text-muted);text-align:center;">
-        No customer found matching "${query}"
+        No customer found matching "${Utils.escapeHtml(query)}"
       </div>
     `;
   }
@@ -1335,9 +1337,11 @@ document.getElementById('orderSaveBtn').addEventListener('click', async () => {
     }
   }
 
-  // Validate delivery date
+  // Validate delivery date (must be present and not in the past)
   const deliveryDate = fieldDate.value;
-  if (!deliveryDate) {
+  const todayLocal = new Date();
+  const todayStr = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
+  if (!deliveryDate || deliveryDate < todayStr) {
     document.getElementById('errDeliveryDate').classList.add('visible');
     valid = false;
   } else {
@@ -1437,7 +1441,12 @@ document.getElementById('orderSaveBtn').addEventListener('click', async () => {
 
 /* ── Enter key in modal ───────────────────────────────────────────────── */
 document.querySelector('.order-modal').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); }
+  if (e.key !== 'Enter') return;
+  const target = e.target;
+  if (!target || target.closest('.specs-editing, .ac-dropdown, button, a, select, textarea')) return;
+  if (target.tagName !== 'INPUT') return;
+  e.preventDefault();
+  saveBtn.click();
 });
 
 /* ── Add spin keyframe if not already present ─────────────────────────── */
@@ -1458,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   Header.init({ title: 'Orders', subtitle: 'Order Management' });
 
   if (Utils.isReadOnlyUser()) {
-    const newBtn = document.getElementById('openModalBtn') || document.querySelector('.page-header-actions .btn-primary');
+    const newBtn = document.getElementById('newOrderBtn') || document.querySelector('.page-header-actions .btn-primary');
     if (newBtn) newBtn.style.display = 'none';
   }
 
@@ -1548,12 +1557,12 @@ window.viewOrder = async function (id) {
         <div style="background:rgba(99,102,241,0.06);padding:14px 16px;border-radius:8px;border:1px solid rgba(99,102,241,0.2);">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Change Production Stage</div>
-            <span style="font-size:11px;color:var(--text-muted);">Assigned: <strong style="color:var(--text-primary);">${order.assignedEmployeeName || 'Unassigned'}</strong></span>
+            <span style="font-size:11px;color:var(--text-muted);">Assigned: <strong style="color:var(--text-primary);">${Utils.escapeHtml(order.assignedEmployeeName || 'Unassigned')}</strong></span>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <select id="quickStageSelect" class="order-form-input" style="flex:1;min-width:160px;height:38px;padding:6px 10px;font-size:13px;background:var(--bg-surface-2);color:var(--text-primary);border-radius:6px;border:1px solid var(--border-default);">
               ${(typeof StageRegistry !== 'undefined' ? StageRegistry.getAll() : []).map(s => `
-                <option value="${s.stageKey}" ${s.stageKey === (order.status || '').toUpperCase() ? 'selected' : ''}>${s.title}</option>
+                <option value="${Utils.escapeHtml(s.stageKey)}" ${s.stageKey === (order.status || '').toUpperCase() ? 'selected' : ''}>${Utils.escapeHtml(s.title)}</option>
               `).join('')}
             </select>
             <select id="quickWorkerSelect" class="order-form-input" style="flex:1;min-width:160px;height:38px;padding:6px 10px;font-size:13px;background:var(--bg-surface-2);color:var(--text-primary);border-radius:6px;border:1px solid var(--border-default);">
@@ -1572,11 +1581,11 @@ window.viewOrder = async function (id) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div>
               <div style="font-size:11px;color:var(--text-muted);">Name</div>
-              <div style="font-weight:600;font-size:14px;color:var(--text-primary);margin-top:2px;">${order.customerName || 'Customer'}</div>
+              <div style="font-weight:600;font-size:14px;color:var(--text-primary);margin-top:2px;">${Utils.escapeHtml(order.customerName || 'Customer')}</div>
             </div>
             <div>
               <div style="font-size:11px;color:var(--text-muted);">Mobile Number</div>
-              <div style="font-family:monospace;font-size:13px;color:var(--text-primary);margin-top:2px;">${order.customerMobile || '—'}</div>
+              <div style="font-family:monospace;font-size:13px;color:var(--text-primary);margin-top:2px;">${Utils.escapeHtml(order.customerMobile || '—')}</div>
             </div>
           </div>
         </div>
@@ -1599,10 +1608,10 @@ window.viewOrder = async function (id) {
           </div>
           ${order.measurements && Object.keys(order.measurements).length > 0 ? `
             <div class="view-measurements-table">
-              ${Object.entries(order.measurements).map(([k, v]) => `
+              ${Object.entries(Utils.normalizeMeasurementMap(order.garmentType, order.measurements)).map(([k, v]) => `
                 <div class="view-m-item">
-                  <span class="view-m-key">${k}</span>
-                  <span class="view-m-val">${v}</span>
+                  <span class="view-m-key">${Utils.escapeHtml(k)}</span>
+                  <span class="view-m-val">${Utils.escapeHtml(v)}</span>
                 </div>
               `).join('')}
             </div>

@@ -50,8 +50,10 @@ class OrderArchiveSecurityTest {
     }
 
     @Test
-    @DisplayName("archiveDeliveredOrders with valid credentials passes client IP to rate-limited verifyAdminPassword and calls orderService")
+    @DisplayName("archiveDeliveredOrders with valid credentials from trusted loopback proxy extracts X-Forwarded-For")
     void archiveDeliveredOrdersSuccessWithValidAdminCredentials() {
+        when(httpRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(httpRequest.getHeader("CF-Connecting-IP")).thenReturn(null);
         when(httpRequest.getHeader("X-Forwarded-For")).thenReturn("203.0.113.195, 198.51.100.1");
         when(orderService.archiveDeliveredOrders(45)).thenReturn(12);
 
@@ -74,9 +76,26 @@ class OrderArchiveSecurityTest {
     }
 
     @Test
+    @DisplayName("archiveDeliveredOrders ignores spoofed X-Forwarded-For from untrusted remote IP")
+    void archiveDeliveredOrdersIgnoresSpoofedForwardedForFromUntrustedIp() {
+        when(httpRequest.getRemoteAddr()).thenReturn("198.51.100.99");
+        when(orderService.archiveDeliveredOrders(30)).thenReturn(3);
+
+        Map<String, String> body = Map.of(
+                "adminUsername", "admin",
+                "password", "valid_secret"
+        );
+
+        ResponseEntity<ApiResponse<Map<String, Object>>> response =
+                orderController.archiveDeliveredOrders(body, httpRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(authService).verifyAdminPassword("admin", "valid_secret", "198.51.100.99");
+    }
+
+    @Test
     @DisplayName("archiveDeliveredOrders extracts remoteAddr when X-Forwarded-For is missing")
     void archiveDeliveredOrdersFallsBackToRemoteAddr() {
-        when(httpRequest.getHeader("X-Forwarded-For")).thenReturn(null);
         when(httpRequest.getRemoteAddr()).thenReturn("192.168.1.100");
         when(orderService.archiveDeliveredOrders(30)).thenReturn(5);
 
@@ -112,7 +131,6 @@ class OrderArchiveSecurityTest {
     @Test
     @DisplayName("archiveDeliveredOrders does not proceed if rate limit exceeded in verifyAdminPassword")
     void archiveDeliveredOrdersAbortsOnRateLimitExceeded() {
-        when(httpRequest.getHeader("X-Forwarded-For")).thenReturn(null);
         when(httpRequest.getRemoteAddr()).thenReturn("192.168.1.50");
 
         doThrow(new AppException(ErrorCode.RATE_LIMIT_EXCEEDED))

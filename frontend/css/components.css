@@ -57,8 +57,7 @@
 }
 
 .btn-primary:hover {
-  background-color: #d8d8d8;
-  border-color: #d8d8d8;
+  opacity: 0.88;
 }
 
 /* Secondary — subtle border */

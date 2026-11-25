@@ -7,9 +7,7 @@ import com.ritham.erp.module.customer.dto.CustomerResponse;
 import com.ritham.erp.module.customer.service.CustomerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,13 +26,10 @@ public class CustomerController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
-        Sort sort = sortDir.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Pageable pageable = com.ritham.erp.common.util.PaginationUtils.safePageRequest(
+                page, size, sortBy, sortDir,
+                com.ritham.erp.common.util.PaginationUtils.CUSTOMER_SORT_FIELDS, "createdAt");
         PageResponse<CustomerResponse> response = customerService.getCustomers(search, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -47,8 +42,7 @@ public class CustomerController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<CustomerResponse>> createCustomer(
-            @Valid @RequestBody CreateCustomerRequest request
-    ) {
+            @Valid @RequestBody CreateCustomerRequest request) {
         CustomerResponse created = customerService.createCustomer(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Customer created successfully", created));
@@ -57,8 +51,7 @@ public class CustomerController {
     @PutMapping("/{mobile}")
     public ResponseEntity<ApiResponse<CustomerResponse>> updateCustomer(
             @PathVariable String mobile,
-            @Valid @RequestBody com.ritham.erp.module.customer.dto.UpdateCustomerRequest request
-    ) {
+            @Valid @RequestBody com.ritham.erp.module.customer.dto.UpdateCustomerRequest request) {
         CustomerResponse updated = customerService.updateCustomer(mobile, request);
         return ResponseEntity.ok(ApiResponse.success("Customer updated successfully", updated));
     }

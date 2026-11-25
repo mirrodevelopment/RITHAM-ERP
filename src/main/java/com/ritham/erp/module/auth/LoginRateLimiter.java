@@ -96,18 +96,13 @@ public class LoginRateLimiter {
      * @param username the username successfully authenticated
      */
     public void recordSuccessfulLogin(String clientIp, String username) {
-        String normalizedIp = normalize(clientIp);
         String normalizedUsername = normalize(username);
 
         if (normalizedUsername != null) {
             usernameAttempts.remove(normalizedUsername);
         }
-        if (normalizedIp != null) {
-            AttemptTracker tracker = ipAttempts.get(normalizedIp);
-            if (tracker != null) {
-                tracker.reset();
-            }
-        }
+        // Intentionally do not wipe ipAttempts on a single user's successful login so
+        // an attacker with one valid account on a shared IP cannot clear IP-level lockout tracking.
     }
 
     /**

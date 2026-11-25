@@ -1,7 +1,5 @@
 package com.ritham.erp.security;
 
-import com.ritham.erp.common.exception.AppException;
-import com.ritham.erp.common.exception.ErrorCode;
 import com.ritham.erp.module.employee.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -25,7 +23,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
         if (identifier == null || identifier.isBlank()) {
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Username or mobile number is required");
+            throw new UsernameNotFoundException("Username or mobile number is required");
         }
         String clean = identifier.trim();
 
@@ -33,7 +31,6 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .or(() -> employeeRepository.findByMobileNumber(clean))
                 .or(() -> employeeRepository.findByEmployeeCode(clean.toUpperCase()))
                 .map(CustomUserDetails::new)
-                .orElseThrow(() -> new AppException(ErrorCode.INVALID_CREDENTIALS,
-                        "Invalid username or password"));
+                .orElseThrow(() -> new UsernameNotFoundException("Invalid username or password"));
     }
 }

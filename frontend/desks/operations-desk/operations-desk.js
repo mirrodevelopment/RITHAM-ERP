@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </td>
           <td style="font-size:12px;color:var(--text-muted);">${dateStr}</td>
           <td style="text-align:center;">
-            <span class="badge ${priority === 'HIGH' ? 'badge-warning' : 'badge-neutral'}" style="font-size:10px;">${priority}</span>
+            <span class="badge ${priority === 'URGENT' ? 'badge-warning' : 'badge-neutral'}" style="font-size:10px;">${priority}</span>
           </td>
           <td style="text-align:right;">
             <span class="badge badge-neutral" style="opacity:0.75;font-size:10px;">👁️ Monitoring (View Only)</span>
@@ -128,10 +128,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       { key: 'status', header: 'Current Stage', transform: v => StageRegistry.getStageTitle(v) || v || '—' },
       { key: 'assignedEmployeeName', header: 'Assigned Staff', transform: v => v || 'Unassigned' },
       { key: 'deliveryDate', header: 'Target Delivery', transform: v => ExcelExport.formatDate(v) },
-      { key: 'totalAmount', header: 'Total (Rs)', transform: v => Number(v || 0) },
-      { key: 'paidAmount', header: 'Paid (Rs)', transform: v => Number(v || 0) },
-      { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) },
     ];
+    if (!isOperationsManager()) {
+      columns.push(
+        { key: 'totalAmount', header: 'Total (Rs)', transform: v => Number(v || 0) },
+        { key: 'paidAmount', header: 'Paid (Rs)', transform: v => Number(v || 0) },
+        { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) }
+      );
+    }
 
     await ExcelExport.exportData({
       data: orders,

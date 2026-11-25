@@ -69,8 +69,8 @@ function modeLabel(m) { return MODE_LABELS[m] || m || '💵 Cash'; }
 async function loadStats() {
   try {
     const [rReady, rDeliv] = await Promise.allSettled([
-      Api.get(`${API.ORDERS}?search=READY_TO_DELIVERY&size=500`),
-      Api.get(`${API.ORDERS}?search=DELIVERED&size=500`),
+      Api.get(`${API.ORDERS}?status=READY_TO_DELIVERY&size=500`),
+      Api.get(`${API.ORDERS}?status=DELIVERED&size=500`),
     ]);
 
     // Ready to deliver count (strictly non-delivered, non-cancelled)
@@ -251,7 +251,7 @@ function setTableHead() {
 function renderTable(orders) {
   setTableHead();
   const isOps = isOperationsManager();
-  const colSpan = isOps ? 6 : 8;
+  const colSpan = activeTab === 'ready' ? (isOps ? 6 : 8) : (isOps ? 5 : 7);
 
   if (!orders.length) {
     const emptyMsg = activeTab === 'ready'
@@ -269,7 +269,7 @@ function renderTable(orders) {
           <svg class="dlv-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             ${emptyIcon}
           </svg>
-          <h3>${searchQuery ? `No results for "${searchQuery}"` : (activeTab === 'ready' ? 'No orders ready' : 'No delivered orders')}</h3>
+          <h3>${searchQuery ? `No results for "${Utils.escapeHtml(searchQuery)}"` : (activeTab === 'ready' ? 'No orders ready' : 'No delivered orders')}</h3>
           <p>${searchQuery ? 'Try a different search term.' : emptyMsg}</p>
         </div>
       </td></tr>
@@ -310,12 +310,12 @@ function renderTable(orders) {
         <tr>
           <td style="font-size:12px;color:var(--text-muted);">${i + 1}</td>
           <td>
-            <span class="dlv-order-num">${orderNum}</span>
+            <span class="dlv-order-num">${Utils.escapeHtml(orderNum)}</span>
             ${o.garmentType ? `<div style="margin-top:3px;"><span class="badge" style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:${o.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.15)' : 'rgba(59,130,246,0.15)'};color:${o.garmentType === 'BLOUSE' ? '#F472B6' : '#60A5FA'};border:1px solid ${o.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.3)' : 'rgba(59,130,246,0.3)'};">${o.garmentType === 'BLOUSE' ? '👗 Blouse' : '👘 Chudi'}</span></div>` : ''}
           </td>
           <td>
-            <div class="dlv-cust-name">${custName}</div>
-            <div class="dlv-cust-mobile">${custMobile}</div>
+            <div class="dlv-cust-name">${Utils.escapeHtml(custName)}</div>
+            <div class="dlv-cust-mobile">${Utils.escapeHtml(custMobile)}</div>
           </td>
           <td><span class="${dateCls}">${dateStr}</span></td>
           ${!isOps ? `
@@ -360,13 +360,13 @@ function renderTable(orders) {
         <tr>
           <td style="font-size:12px;color:var(--text-muted);">${i + 1}</td>
           <td>
-            <span class="dlv-order-num">${orderNum}</span>
+            <span class="dlv-order-num">${Utils.escapeHtml(orderNum)}</span>
             ${o.garmentType ? `<div style="margin-top:3px;"><span class="badge" style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:${o.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.15)' : 'rgba(59,130,246,0.15)'};color:${o.garmentType === 'BLOUSE' ? '#F472B6' : '#60A5FA'};border:1px solid ${o.garmentType === 'BLOUSE' ? 'rgba(236,72,153,0.3)' : 'rgba(59,130,246,0.3)'};">${o.garmentType === 'BLOUSE' ? '👗 Blouse' : '👘 Chudi'}</span></div>` : ''}
           </td>
           <td>
-            <div class="dlv-cust-name">${custName}</div>
-            <div class="dlv-cust-mobile">${custMobile}</div>
-            ${o.receiverName ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Received by: <strong style="color:var(--text-primary);">${o.receiverName}</strong></div>` : ''}
+            <div class="dlv-cust-name">${Utils.escapeHtml(custName)}</div>
+            <div class="dlv-cust-mobile">${Utils.escapeHtml(custMobile)}</div>
+            ${o.receiverName ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Received by: <strong style="color:var(--text-primary);">${Utils.escapeHtml(o.receiverName)}</strong></div>` : ''}
           </td>
           <td>
             <div class="dlv-stamp">
@@ -586,12 +586,13 @@ window.markAsDelivered = async function (id, orderNum, totalAmt, paidAmt) {
   const recErr = document.getElementById('dlvReceiverError');
   if (recErr) recErr.style.display = 'none';
 
+  const isOps = isOperationsManager();
   const discountInput = document.getElementById('dlvDiscount');
   if (discountInput) discountInput.value = '';
 
   const amountInput = document.getElementById('dlvPayAmount');
   if (amountInput) {
-    amountInput.value = balance > 0 ? balance : '';
+    amountInput.value = (!isOps && balance > 0) ? balance : '';
   }
 
   const payErr = document.getElementById('dlvPayError');
@@ -600,17 +601,25 @@ window.markAsDelivered = async function (id, orderNum, totalAmt, paidAmt) {
   document.getElementById('dlvPayConfirmBtn').disabled = false;
   document.getElementById('dlvPayConfirmBtn').textContent = '✓ Confirm Delivery';
 
-  // Informative banner if already fully paid
+  const paySummary = document.querySelector('#deliveryPayModalBackdrop .dlv-pay-summary');
+  if (paySummary) paySummary.style.display = isOps ? 'none' : '';
+
+  const discountBox = discountInput?.closest('.dlv-pay-input-wrap')?.parentElement;
+  if (discountBox) discountBox.style.display = isOps ? 'none' : '';
+
+  // Informative banner if already fully paid (hidden for Ops)
   const nothingDue = document.getElementById('dlvPayNothingDue');
   if (nothingDue) {
-    nothingDue.style.display = balance <= 0 ? 'flex' : 'none';
+    nothingDue.style.display = (!isOps && balance <= 0) ? 'flex' : 'none';
   }
 
-  // Ensure amount row is always visible!
   const amountRow = document.getElementById('dlvPayAmountRow');
-  if (amountRow) amountRow.style.display = 'block';
+  if (amountRow) amountRow.style.display = isOps ? 'none' : 'block';
 
-  updateDeliveryCalculation();
+  const payModeContainer = document.getElementById('dlvPaymentModeContainer');
+  if (payModeContainer) payModeContainer.style.display = isOps ? 'none' : '';
+
+  if (!isOps) updateDeliveryCalculation();
 
   payModalBackdrop?.classList.remove('hidden');
   setTimeout(() => receiverInput?.focus(), 100);
@@ -803,6 +812,7 @@ async function exportExcel() {
     return;
   }
 
+  const isOps = isOperationsManager();
   const columns = [
     { key: 'sno', header: 'S.No' },
     { key: 'orderNumber', header: 'Order Number', transform: (v, o) => v || `#${o.id}` },
@@ -811,13 +821,17 @@ async function exportExcel() {
     { key: 'garmentType', header: 'Garment Type', transform: v => v || '—' },
     { key: 'orderDate', header: 'Order Date', transform: (v, o) => ExcelExport.formatDate(v || o.createdAt) },
     { key: 'deliveryDate', header: activeTab === 'ready' ? 'Target Delivery' : 'Delivered Date', transform: (v, o) => ExcelExport.formatDate(activeTab === 'ready' ? v : (o.updatedAt || v)) },
-    { key: 'totalAmount', header: 'Total Amount (Rs)', transform: v => Number(v || 0) },
-    { key: 'paidAmount', header: 'Paid Amount (Rs)', transform: v => Number(v || 0) },
-    { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) },
-    { key: 'paymentStatus', header: 'Payment Status', transform: v => payLabel(v) },
-    { key: 'paymentMode', header: 'Payment Mode', transform: v => modeLabel(v) },
-    { key: 'status', header: 'Delivery Status', transform: v => stageLabel(v) },
   ];
+  if (!isOps) {
+    columns.push(
+      { key: 'totalAmount', header: 'Total Amount (Rs)', transform: v => Number(v || 0) },
+      { key: 'paidAmount', header: 'Paid Amount (Rs)', transform: v => Number(v || 0) },
+      { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) },
+      { key: 'paymentStatus', header: 'Payment Status', transform: v => payLabel(v) },
+      { key: 'paymentMode', header: 'Payment Mode', transform: v => modeLabel(v) }
+    );
+  }
+  columns.push({ key: 'status', header: 'Delivery Status', transform: v => stageLabel(v) });
 
   const sheetTitle = activeTab === 'ready' ? 'Ready Deliveries' : 'Completed Deliveries';
   const fileName = activeTab === 'ready' ? 'ritham-ready-deliveries' : 'ritham-completed-deliveries';
@@ -831,7 +845,8 @@ async function exportExcel() {
 }
 
 function exportPDF() {
-  if (!allOrders.length) {
+  const listToExport = filteredOrders.length ? filteredOrders : allOrders;
+  if (!listToExport.length) {
     Toast.error('No delivered orders available to export.');
     return;
   }
@@ -841,6 +856,7 @@ function exportPDF() {
     return;
   }
 
+  const isOps = isOperationsManager();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'pt', 'a4');
 
@@ -852,22 +868,35 @@ function exportPDF() {
   doc.setFontSize(9);
   doc.setTextColor(120);
   const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  doc.text(`Report Date: ${todayStr}  |  Total Delivered Orders: ${allOrders.length}`, 40, 58);
+  doc.text(`Report Date: ${todayStr}  |  Total Delivered Orders: ${listToExport.length}`, 40, 58);
 
-  const tableRows = allOrders.map((o, idx) => [
-    idx + 1,
-    o.orderNumber || `#${o.id}`,
-    o.customerName || '—',
-    o.customerMobile || '—',
-    Utils.formatDate(o.updatedAt || o.deliveryDate),
-    `Rs ${Number(o.totalAmount || 0).toLocaleString('en-IN')}`,
-    payLabel(o.paymentStatus),
-    modeLabel(o.paymentMode)
-  ]);
+  const headRow = isOps
+    ? ['#', 'Order No.', 'Customer', 'Mobile', 'Delivered Date', 'Status']
+    : ['#', 'Order No.', 'Customer', 'Mobile', 'Delivered Date', 'Amount', 'Status', 'Mode'];
+
+  const tableRows = listToExport.map((o, idx) => {
+    const base = [
+      idx + 1,
+      o.orderNumber || `#${o.id}`,
+      o.customerName || '—',
+      o.customerMobile || '—',
+      Utils.formatDate(o.updatedAt || o.deliveryDate),
+    ];
+    if (isOps) {
+      base.push(stageLabel(o.status));
+    } else {
+      base.push(
+        `Rs ${Number(o.totalAmount || 0).toLocaleString('en-IN')}`,
+        payLabel(o.paymentStatus),
+        modeLabel(o.paymentMode)
+      );
+    }
+    return base;
+  });
 
   doc.autoTable({
     startY: 72,
-    head: [['#', 'Order No.', 'Customer', 'Mobile', 'Delivered Date', 'Amount', 'Status', 'Mode']],
+    head: [headRow],
     body: tableRows,
     theme: 'grid',
     headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' },

@@ -54,7 +54,7 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
 **Step 5:** Select a backup file from the list  
 **Step 6:** Script restores into `ritham_erp_restore_test`  
 **Step 7:** Review the table and row counts shown  
-**Step 8:** The test database is cleaned up automatically  
+**Step 8:** Inspect `ritham_erp_restore_test` if needed; clean it up manually with `DROP DATABASE ritham_erp_restore_test;` when done (subsequent test restores also recreate it automatically)  
 
 ---
 
@@ -69,9 +69,10 @@ data was accidentally deleted.
 
 **Step 2:** Connect the external drive
 
-**Step 3:** Identify the latest valid backup  
+**Step 3:** Identify and verify the latest valid backup  
 ```powershell
-powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-health-check.ps1"
+Get-Content "E:\ERP-Backups\Logs\backup.log" -Tail 25
+Get-Content "E:\ERP-Backups\manifest-latest.json"
 ```
 
 **Step 4:** Run the restore script  
@@ -82,7 +83,10 @@ Choose option `2` (Production restore) — **TYPE YES to confirm twice**
 
 **Step 5:** Wait for restore to complete (may take 1-5 minutes)
 
-**Step 6:** Verify key data was restored (script shows table row counts)
+**Step 6:** Verify key data was restored (script shows table row counts). If migration/OCR files in `D:\ritham-erp-uploads` were also affected, restore them from the latest snapshot:
+```powershell
+robocopy "E:\ERP-Backups\Files\Daily\[LATEST FOLDER]" "D:\ritham-erp-uploads" /E
+```
 
 **Step 7:** Start Spring Boot  
 ```
@@ -117,8 +121,8 @@ Download from: https://www.postgresql.org/download/windows/
 **Step 4 — Create the database user**  
 ```sql
 -- Run in psql as postgres:
-CREATE USER ritham WITH PASSWORD 'ritham123';
--- Change password to match your actual production password
+CREATE USER ritham WITH CREATEDB PASSWORD '<YOUR_PRODUCTION_PASSWORD>';
+-- Set the same password in pgpass.conf and in SPRING_DATASOURCE_PASSWORD / .env
 ```
 
 **Step 5 — Install Git**  
@@ -190,8 +194,10 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-backu
 ## 7. Check Backup Status
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-health-check.ps1"
+Get-Content "E:\ERP-Backups\Logs\backup.log" -Tail 30
+Get-Content "E:\ERP-Backups\manifest-latest.json"
 ```
+*(Or check the **Backup & DR** desk in the ERP web UI.)*
 
 ---
 

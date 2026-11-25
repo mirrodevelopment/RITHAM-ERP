@@ -61,9 +61,12 @@ function highlight(text, query) {
 
 /* ── Load customers ─────────────────────────────────────────────────── */
 
-async function loadCustomers() {
-  // Skeleton rows
-  renderSkeleton();
+async function loadCustomers(silent = false) {
+  // Skeleton rows on initial/manual load; skip during background poll to avoid flicker
+  const hasRows = !!document.querySelector('#customersTableBody tr[data-mobile], #customerTableBody tr[data-mobile], #customersBody tr[data-mobile]');
+  if (!silent || !hasRows) {
+    renderSkeleton();
+  }
 
   try {
     const params = new URLSearchParams({
@@ -170,11 +173,11 @@ function renderTable(customers) {
         ">0</span>`;
 
     return `
-      <tr>
+      <tr data-mobile="${Utils.escapeHtml(mobile)}">
         <td class="text-muted" style="font-size:12px;">${idx}</td>
         <td>
           <div class="customer-name-cell">
-            <div class="customer-avatar" title="${name}">${av}</div>
+            <div class="customer-avatar" title="${Utils.escapeHtml(name)}">${Utils.escapeHtml(av)}</div>
             <span>${hName}</span>
           </div>
         </td>
@@ -182,11 +185,11 @@ function renderTable(customers) {
           <span style="font-family:monospace;font-size:13px;">${hMobile}</span>
         </td>
         <td style="text-align:center;">${orderBadge}</td>
-        <td class="text-muted" style="font-size:12px;">${created}</td>
+        <td class="text-muted" style="font-size:12px;">${Utils.escapeHtml(created)}</td>
         <td style="text-align:right;">
           <div style="display:inline-flex;gap:6px;">
             <button class="btn btn-secondary btn-sm" onclick="window.openCustomerMeasurements('${mobile.replace(/'/g,"\\'")}','${name.replace(/'/g,"\\'")}')" title="Customer Tailoring Measurements">📐 Measurements</button>
-            <button class="btn btn-ghost btn-sm" onclick="viewCustomer('${mobile.replace(/'/g,"\\'")}',' ${name.replace(/'/g,"\\'")}')">View</button>
+            <button class="btn btn-ghost btn-sm" onclick="viewCustomer('${mobile.replace(/'/g,"\\'")}','${name.replace(/'/g,"\\'")}')">View</button>
           </div>
         </td>
       </tr>
@@ -566,10 +569,6 @@ document.getElementById('customerForm').addEventListener('keydown', e => {
 
 /* ── Refresh button ─────────────────────────────────────────────────── */
 
-document.getElementById('refreshBtn').addEventListener('click', () => {
-  loadCustomers();
-});
-
 /* ── Customer Measurements Modal Logic ──────────────────────────────── */
 
 let _activeCustMobile = null;
@@ -654,12 +653,13 @@ window.openCustomerMeasurements = async function(mobile, name) {
       toggleMsrPanels();
       const cleanNote = (record.notes && !record.notes.includes('Order #') && !record.notes.includes('Auto-synced')) ? record.notes : '';
       if (msrNotesInput) msrNotesInput.value = cleanNote;
+      const normalized = Utils.normalizeMeasurementMap(record.garmentType, record.measurements);
       const selector = record.garmentType === 'BLOUSE'
         ? '#custMsrBlousePanel input[data-garment="blouse"]'
         : '#custMsrChudiPanel input[data-garment="chudi"]';
       document.querySelectorAll(selector).forEach(inp => {
         const k = inp.getAttribute('data-key');
-        inp.value = record.measurements[k] || '';
+        inp.value = normalized[k] || '';
       });
     }
   } catch (_) {}
@@ -752,16 +752,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const columns = [
         { key: 'sno', header: 'S.No' },
-        { key: 'customerCode', header: 'Customer Code', transform: (v, c) => v || `CUST-${c.id}` },
-        { key: 'fullName', header: 'Customer Name', transform: (v, c) => v || c.name || '—' },
-        { key: 'mobileNumber', header: 'Mobile Number', transform: (v, c) => v || c.mobile || '—' },
-        { key: 'altMobileNumber', header: 'Alt Mobile', transform: v => v || '—' },
-        { key: 'email', header: 'Email Address', transform: v => v || '—' },
-        { key: 'address', header: 'Address', transform: v => v || '—' },
-        { key: 'city', header: 'City', transform: v => v || '—' },
-        { key: 'pincode', header: 'Pincode', transform: v => v || '—' },
+        { key: 'customerName', header: 'Customer Name', transform: (v, c) => v || c.fullName || c.name || '—' },
+        { key: 'customerMobile', header: 'Mobile Number', transform: (v, c) => v || c.mobileNumber || c.mobile || '—' },
         { key: 'totalOrders', header: 'Total Orders', transform: v => Number(v || 0) },
-        { key: 'totalSpent', header: 'Total Spent (Rs)', transform: v => Number(v || 0) },
         { key: 'createdAt', header: 'Registered On', transform: v => ExcelExport.formatDate(v) },
       ];
 
@@ -780,13 +773,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadCustomers();
 
   // ── Auto-polling & Focus Auto-refresh ──────────────────────────────────────
-  setInterval(loadCustomers, 10000);
-  window.addEventListener('focus', loadCustomers);
+  setInterval(() => loadCustomers(true), 10000);
+  window.addEventListener('focus', () => loadCustomers(true));
 
   // Check URL params to auto-open modal or focus search if navigated from Quick Actions
   const params = new URLSearchParams(window.location.search);
   if (params.get('action') === 'new' || params.has('create') || params.has('new')) {
-    openModal();
+    if (typeof openAddModal === 'function') openAddModal();
   } else if (params.get('focus') === 'search') {
     document.getElementById('searchInput')?.focus();
   }

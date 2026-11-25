@@ -88,32 +88,40 @@ public class MigrationImportService {
                 .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND,
                         "Migration document not found: " + documentId));
 
+        Long callerBranchId = com.ritham.erp.security.BranchContext.getBranchId();
+        if (callerBranchId != null && doc.getBatch() != null && doc.getBatch().getBranch() != null
+                && !callerBranchId.equals(doc.getBatch().getBranch().getId())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED,
+                    "You do not have access to this migration document");
+        }
+
         // ── Guard: idempotency ────────────────────────────────────────────────
         if (doc.isAlreadyImported()) {
             throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED,
                     "Document " + doc.getDocumentCode() + " has already been imported.");
         }
 
-        // ── Auto-verify if review approval request or valid extracted data is present ──
+        // ── Require VERIFIED status (or explicit APPROVED review action) before importing ──
+        String prevReviewStatus = doc.getReviewStatus();
         if (reviewRequest != null && "APPROVED".equalsIgnoreCase(reviewRequest.action())) {
             if (reviewRequest.correctedDataJson() != null && !reviewRequest.correctedDataJson().isBlank()) {
                 doc.setCorrectedDataJson(reviewRequest.correctedDataJson());
             }
             doc.setReviewStatus(MigrationDocumentStatus.VERIFIED.name());
-            doc.getBatch().incrementApproved();
-            doc.getBatch().incrementReviewed();
+            if (doc.getBatch() != null) {
+                if (!MigrationDocumentStatus.VERIFIED.name().equals(prevReviewStatus)) {
+                    doc.getBatch().incrementApproved();
+                }
+                if (!MigrationDocumentStatus.VERIFIED.name().equals(prevReviewStatus)
+                        && !MigrationDocumentStatus.REJECTED.name().equals(prevReviewStatus)) {
+                    doc.getBatch().incrementReviewed();
+                }
+            }
             documentRepository.save(doc);
         } else if (!doc.isReadyToImport()) {
-            String effective = doc.effectiveDataJson();
-            if (effective != null && !effective.isBlank()) {
-                doc.setReviewStatus(MigrationDocumentStatus.VERIFIED.name());
-                doc.getBatch().incrementApproved();
-                doc.getBatch().incrementReviewed();
-                documentRepository.save(doc);
-            } else {
-                throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED,
-                        "Document must have extracted data before import.");
-            }
+            throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED,
+                    "Document " + doc.getDocumentCode() + " must be verified before import (current review status: "
+                            + doc.getReviewStatus() + ")");
         }
 
         // ── Resolve effective data ────────────────────────────────────────────
@@ -138,6 +146,63 @@ public class MigrationImportService {
             log.error("Import failed for document {}: {}", doc.getDocumentCode(), e.getMessage(), e);
             return failImport(doc, e.getMessage());
         }
+    }
+
+    private static final java.util.Map<String, String> BLOUSE_PROFILE_KEY_MAP = java.util.Map.ofEntries(
+            java.util.Map.entry("HS", "H.S."),
+            java.util.Map.entry("HL", "H.L."),
+            java.util.Map.entry("HLO", "H.LO"),
+            java.util.Map.entry("DP-1-1", "DP-1"),
+            java.util.Map.entry("DP1_1", "DP-1"),
+            java.util.Map.entry("DP-1-2", "DP-2"),
+            java.util.Map.entry("DP1_2", "DP-2"),
+            java.util.Map.entry("B1", "B-1"),
+            java.util.Map.entry("B2", "B-2"),
+            java.util.Map.entry("B3", "B-3"),
+            java.util.Map.entry("F-HOOK", "F.HOOK"),
+            java.util.Map.entry("F_HOOK", "F.HOOK"),
+            java.util.Map.entry("B-HOOK", "B.HOOK"),
+            java.util.Map.entry("B_HOOK", "B.HOOK"),
+            java.util.Map.entry("AV", "AV.")
+    );
+
+    private static final java.util.Map<String, String> CHUDI_PROFILE_KEY_MAP = java.util.Map.ofEntries(
+            java.util.Map.entry("FN", "F.N."),
+            java.util.Map.entry("BN", "B.N."),
+            java.util.Map.entry("HB", "H.B."),
+            java.util.Map.entry("L_1", "L"),
+            java.util.Map.entry("SS", "S.S."),
+            java.util.Map.entry("SL-1", "S.L."),
+            java.util.Map.entry("SL_1", "S.L."),
+            java.util.Map.entry("SL-2", "S.LO"),
+            java.util.Map.entry("SL_2", "S.LO"),
+            java.util.Map.entry("TS", "T.S."),
+            java.util.Map.entry("PL", "P.L."),
+            java.util.Map.entry("S", "S."),
+            java.util.Map.entry("L-2", "L."),
+            java.util.Map.entry("L_2", "L."),
+            java.util.Map.entry("SCUT", "S.CUT"),
+            java.util.Map.entry("BD", "B.D.")
+    );
+
+    private java.util.Map<String, String> normalizeMeasurementsForProfile(
+            String garmentType,
+            java.util.Map<String, String> raw
+    ) {
+        if (raw == null || raw.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+        java.util.Map<String, String> keyMap = "CHUDI".equalsIgnoreCase(garmentType)
+                ? CHUDI_PROFILE_KEY_MAP
+                : BLOUSE_PROFILE_KEY_MAP;
+        java.util.Map<String, String> normalized = new java.util.LinkedHashMap<>();
+        for (java.util.Map.Entry<String, String> entry : raw.entrySet()) {
+            String key = entry.getKey();
+            if (key == null) continue;
+            String mappedKey = keyMap.getOrDefault(key.trim(), key.trim());
+            normalized.putIfAbsent(mappedKey, entry.getValue());
+        }
+        return normalized;
     }
 
     // ── Core import transaction ───────────────────────────────────────────────
@@ -212,16 +277,17 @@ public class MigrationImportService {
                     .build();
             snapshot = measurementRepository.save(snapshot);
 
-            // Sync to live customer measurement profile if requested (or default if req omitted)
-            boolean updateProfile = req == null || req.updateCustomerProfile();
+            // Sync to live customer measurement profile only when explicitly requested
+            boolean updateProfile = req != null && req.updateCustomerProfile();
             if (updateProfile) {
                 try {
+                    String gType = oData.garmentType() != null ? oData.garmentType() : "BLOUSE";
                     SaveCustomerMeasurementRequest measReq = new SaveCustomerMeasurementRequest();
                     measReq.setCustomerMobile(mobile);
                     measReq.setCustomerName(name);
-                    measReq.setGarmentType(oData.garmentType() != null ? oData.garmentType() : "BLOUSE");
+                    measReq.setGarmentType(gType);
                     measReq.setLining(oData.lining());
-                    measReq.setMeasurements(oData.measurements());
+                    measReq.setMeasurements(normalizeMeasurementsForProfile(gType, oData.measurements()));
                     measReq.setNotes("Imported from historical order " + order.getOrderNumber());
                     customerMeasurementService.saveOrUpdate(measReq);
                     log.info("Synced customer measurement profile for mobile={}", mobile);

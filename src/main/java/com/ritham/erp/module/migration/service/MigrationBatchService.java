@@ -276,10 +276,13 @@ public class MigrationBatchService {
         for (MigrationDocument s : siblings) {
             if (!MigrationDocumentStatus.VERIFIED.name().equals(s.getReviewStatus()) &&
                 !MigrationDocumentStatus.IMPORTED.name().equals(s.getImportStatus())) {
+                String prevReview = s.getReviewStatus();
                 s.setReviewStatus(MigrationDocumentStatus.VERIFIED.name());
                 if (s.getBatch() != null) {
                     s.getBatch().incrementApproved();
-                    s.getBatch().incrementReviewed();
+                    if (!MigrationDocumentStatus.REJECTED.name().equals(prevReview)) {
+                        s.getBatch().incrementReviewed();
+                    }
                 }
                 approved.add(documentRepository.save(s));
             }
@@ -420,6 +423,7 @@ public class MigrationBatchService {
     @Transactional
     public MigrationDocument saveReview(Long documentId, MigrationReviewRequest req) {
         MigrationDocument doc = getDocument(documentId);
+        String prevStatus = doc.getReviewStatus();
 
         String status = switch (req.action().toUpperCase(Locale.ROOT)) {
             case "APPROVED", "VERIFIED" -> {
@@ -437,19 +441,45 @@ public class MigrationBatchService {
                 }
                 doc.setCorrectedDataJson(req.correctedDataJson());
                 doc.setReviewStatus(MigrationDocumentStatus.VERIFIED.name());
-                doc.getBatch().incrementApproved();
-                doc.getBatch().incrementReviewed();
+                if (doc.getBatch() != null) {
+                    if (!MigrationDocumentStatus.VERIFIED.name().equals(prevStatus)) {
+                        doc.getBatch().incrementApproved();
+                    }
+                    if (!MigrationDocumentStatus.VERIFIED.name().equals(prevStatus)
+                            && !MigrationDocumentStatus.REJECTED.name().equals(prevStatus)) {
+                        doc.getBatch().incrementReviewed();
+                    }
+                }
                 yield MigrationDocumentStatus.VERIFIED.name();
             }
             case "REJECTED" -> {
                 doc.setReviewStatus(MigrationDocumentStatus.REJECTED.name());
-                doc.getBatch().incrementFailed();
-                doc.getBatch().incrementReviewed();
+                if (doc.getBatch() != null) {
+                    if (MigrationDocumentStatus.VERIFIED.name().equals(prevStatus)) {
+                        doc.getBatch().setApprovedCount(Math.max(0, (doc.getBatch().getApprovedCount() != null ? doc.getBatch().getApprovedCount() : 1) - 1));
+                    }
+                    if (!MigrationDocumentStatus.REJECTED.name().equals(prevStatus)) {
+                        doc.getBatch().incrementFailed();
+                    }
+                    if (!MigrationDocumentStatus.VERIFIED.name().equals(prevStatus)
+                            && !MigrationDocumentStatus.REJECTED.name().equals(prevStatus)) {
+                        doc.getBatch().incrementReviewed();
+                    }
+                }
                 yield MigrationDocumentStatus.REJECTED.name();
             }
             case "NEEDS_REWORK" -> {
                 doc.setCorrectedDataJson(req.correctedDataJson());
                 doc.setReviewStatus(MigrationDocumentStatus.REVIEW_REQUIRED.name());
+                if (doc.getBatch() != null) {
+                    if (MigrationDocumentStatus.VERIFIED.name().equals(prevStatus)) {
+                        doc.getBatch().setApprovedCount(Math.max(0, (doc.getBatch().getApprovedCount() != null ? doc.getBatch().getApprovedCount() : 1) - 1));
+                    }
+                    if (MigrationDocumentStatus.VERIFIED.name().equals(prevStatus)
+                            || MigrationDocumentStatus.REJECTED.name().equals(prevStatus)) {
+                        doc.getBatch().setReviewedCount(Math.max(0, (doc.getBatch().getReviewedCount() != null ? doc.getBatch().getReviewedCount() : 1) - 1));
+                    }
+                }
                 yield MigrationDocumentStatus.REVIEW_REQUIRED.name();
             }
             default -> throw new AppException(ErrorCode.VALIDATION_FAILED,
@@ -483,6 +513,12 @@ public class MigrationBatchService {
                 documentRepository.countByBatchIdVerified(b.getId())).sum();
         long imported  = batches.stream().mapToLong(b ->
                 documentRepository.countByBatchIdImported(b.getId())).sum();
+        long rejected  = batches.stream().mapToLong(b ->
+                documentRepository.countByBatchIdAndReviewStatus(b.getId(),
+                        MigrationDocumentStatus.REJECTED.name())).sum();
+        long duplicates = batches.stream().mapToLong(b ->
+                documentRepository.countByBatchIdAndImportStatus(b.getId(),
+                        MigrationDocumentStatus.DUPLICATE.name())).sum();
         long failed    = batches.stream().mapToLong(b -> b.getFailedCount() != null ? b.getFailedCount() : 0L).sum();
 
         List<MigrationStatisticsResponse.BatchStat> stats = batches.stream()
@@ -501,7 +537,7 @@ public class MigrationBatchService {
                 .toList();
 
         return new MigrationStatisticsResponse(
-                totalDocs, ocrDone, reviewReq, verified, imported, 0L, failed, 0L, stats);
+                totalDocs, ocrDone, reviewReq, verified, imported, rejected, failed, duplicates, stats);
     }
 
     // ── Lookups ───────────────────────────────────────────────────────────────
@@ -518,6 +554,7 @@ public class MigrationBatchService {
 
     @Transactional(readOnly = true)
     public Page<MigrationDocument> listDocuments(Long batchId, String reviewStatus, Pageable pageable) {
+        getBatch(batchId);
         if (reviewStatus != null && !reviewStatus.isBlank()) {
             String s = reviewStatus.trim().toUpperCase(Locale.ROOT);
             if ("REVIEW_REQUIRED".equals(s) || "NEEDS_REVIEW".equals(s)) {
@@ -622,13 +659,33 @@ public class MigrationBatchService {
         // 2. Delete associated reviews
         reviewRepository.deleteAll(reviewRepository.findByDocumentIdOrderByReviewedAtDesc(id));
 
-        // 3. Delete physical file on disk
+        // 3. Delete physical files on disk (original, preprocessed OCR, and unreferenced source PDF)
+        MigrationBatch batch = doc.getBatch();
+        Path parentDir = null;
+        if (doc.getOcrProcessedImagePath() != null) {
+            try {
+                Files.deleteIfExists(Paths.get(doc.getOcrProcessedImagePath()));
+            } catch (Exception e) {
+                log.warn("Could not delete processed OCR image {}: {}", doc.getOcrProcessedImagePath(), e.getMessage());
+            }
+        }
+        if (doc.getSourceFilePath() != null && !doc.getSourceFilePath().equals(doc.getFilePath()) && batch != null) {
+            try {
+                long refs = documentRepository.countByBatchIdAndSourceFilePath(batch.getId(), doc.getSourceFilePath());
+                if (refs <= 1) {
+                    Files.deleteIfExists(Paths.get(doc.getSourceFilePath()));
+                }
+            } catch (Exception e) {
+                log.warn("Could not delete source file {}: {}", doc.getSourceFilePath(), e.getMessage());
+            }
+        }
         if (doc.getFilePath() != null) {
             try {
                 Path p = Paths.get(doc.getFilePath());
+                parentDir = p.getParent();
                 Files.deleteIfExists(p);
-                if (p.getParent() != null) {
-                    Files.deleteIfExists(p.getParent());
+                if (parentDir != null) {
+                    Files.deleteIfExists(parentDir);
                 }
             } catch (Exception e) {
                 log.warn("Could not delete file {}: {}", doc.getFilePath(), e.getMessage());
@@ -636,14 +693,14 @@ public class MigrationBatchService {
         }
 
         // 4. Update batch statistics
-        MigrationBatch batch = doc.getBatch();
         if (batch != null) {
             batch.setTotalDocuments(Math.max(0, (batch.getTotalDocuments() != null ? batch.getTotalDocuments() : 1) - 1));
             batch.setUploadedCount(Math.max(0, (batch.getUploadedCount() != null ? batch.getUploadedCount() : 1) - 1));
             if (!MigrationDocumentStatus.UPLOADED.name().equals(doc.getOcrStatus())) {
                 batch.setProcessedCount(Math.max(0, (batch.getProcessedCount() != null ? batch.getProcessedCount() : 1) - 1));
             }
-            if (MigrationDocumentStatus.REVIEW_REQUIRED.name().equals(doc.getReviewStatus())) {
+            if (MigrationDocumentStatus.VERIFIED.name().equals(doc.getReviewStatus())
+                    || MigrationDocumentStatus.REJECTED.name().equals(doc.getReviewStatus())) {
                 batch.setReviewedCount(Math.max(0, (batch.getReviewedCount() != null ? batch.getReviewedCount() : 1) - 1));
             }
             if (MigrationDocumentStatus.VERIFIED.name().equals(doc.getReviewStatus())) {
@@ -651,6 +708,11 @@ public class MigrationBatchService {
             }
             if (MigrationDocumentStatus.IMPORTED.name().equals(doc.getImportStatus())) {
                 batch.setImportedCount(Math.max(0, (batch.getImportedCount() != null ? batch.getImportedCount() : 1) - 1));
+            }
+            if (MigrationDocumentStatus.REJECTED.name().equals(doc.getReviewStatus())
+                    || MigrationDocumentStatus.DUPLICATE.name().equals(doc.getImportStatus())
+                    || MigrationDocumentStatus.IMPORT_FAILED.name().equals(doc.getImportStatus())) {
+                batch.setFailedCount(Math.max(0, (batch.getFailedCount() != null ? batch.getFailedCount() : 1) - 1));
             }
             batchRepository.save(batch);
         }

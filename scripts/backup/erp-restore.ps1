@@ -32,7 +32,7 @@ if ($TargetLocation -and $TargetLocation.Trim() -ne "") {
 $DB_DAILY      = Join-Path $BACKUP_ROOT "Database\Daily"
 $DB_WEEKLY     = Join-Path $BACKUP_ROOT "Database\Weekly"
 $DB_MONTHLY    = Join-Path $BACKUP_ROOT "Database\Monthly"
-$DB_UPLOADS    = Join-Path $BACKUP_ROOT "Uploads"
+$DB_UPLOADS    = Join-Path $BACKUP_ROOT "Database\Uploads"
 
 $DB_HOST       = "localhost"
 $DB_PORT       = "5432"
@@ -42,9 +42,6 @@ $TEST_DB       = "ritham_erp_restore_test"
 
 $env:PGPASSFILE = "$env:APPDATA\postgresql\pgpass.conf"
 $env:PAGER      = ""
-if (-not $env:PGPASSWORD) {
-    $env:PGPASSWORD = "ritham123"
-}
 
 function Write-Title { param([string]$t) Write-Host ""; Write-Host ("=" * 60) -ForegroundColor Cyan; Write-Host "  $t" -ForegroundColor Cyan; Write-Host ("=" * 60) -ForegroundColor Cyan }
 function Confirm-UserAction { param([string]$prompt) Write-Host ""; Write-Host $prompt -ForegroundColor Yellow; $answer = Read-Host "  Type YES to continue, or anything else to abort"; if ($answer -ne "YES") { Write-Host "Aborted by user." -ForegroundColor Red; exit 0 } }
@@ -128,7 +125,12 @@ if ($BackupFile -and (Test-Path $BackupFile)) {
 
     Write-Host ""
     $choice = Read-Host "  Enter number of backup to restore (1-$($sortedDumps.Count))"
-    $idx = [int]$choice - 1
+    $parsedChoice = 0
+    if (-not [int]::TryParse($choice, [ref]$parsedChoice)) {
+        Write-Host "Invalid numeric selection. Aborted." -ForegroundColor Red
+        exit 1
+    }
+    $idx = $parsedChoice - 1
     if ($idx -lt 0 -or $idx -ge $sortedDumps.Count) {
         Write-Host "Invalid selection. Aborted." -ForegroundColor Red
         exit 1

@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const nextStageObj = STAGES.find(s => s.key === targetStage);
       let newStatus = targetStage;
       if (targetStage === 'DELIVERY' || targetStage === 'COMPLETED') {
-        newStatus = 'DELIVERY';
+        newStatus = 'DELIVERED';
       }
 
       const confirmBtn = document.getElementById('confirmAdvanceBtn');

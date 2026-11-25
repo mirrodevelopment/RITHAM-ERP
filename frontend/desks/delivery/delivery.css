@@ -195,8 +195,9 @@
 .dlv-balance { font-size: 11px; color: #F87171; margin-top: 2px; }
 
 /* Overdue / near */
-.dlv-overdue { color: #F87171; font-weight: 600; }
-.dlv-near    { color: #FBBF24; font-weight: 500; }
+.dlv-overdue, .dlv-date-overdue { color: #F87171; font-weight: 600; }
+.dlv-date-today { color: #FBBF24; font-weight: 600; }
+.dlv-near, .dlv-date-soon { color: #FBBF24; font-weight: 500; }
 
 /* Delivered stamp */
 .dlv-stamp {

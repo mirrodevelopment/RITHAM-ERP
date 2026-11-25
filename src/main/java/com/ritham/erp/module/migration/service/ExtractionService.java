@@ -109,8 +109,9 @@ public class ExtractionService {
             return opt.get().canonicalKeys();
         }
         return List.of(
-                "FN", "BN", "HB", "L_1", "SS", "SL_1", "SL_2",
-                "AM", "B", "H", "TS", "PL", "S", "L_2",
+                "FN", "BN", "HB", "L", "SS",
+                "SL-1", "SL-2",
+                "AM", "B", "H", "TS", "PL", "S", "L-2",
                 "SCUT", "LNG", "SHALL", "BD"
         );
     }
@@ -121,9 +122,12 @@ public class ExtractionService {
             return opt.get().canonicalKeys();
         }
         return List.of(
-                "LTH", "SHO", "HS", "HL", "HLO", "AK", "AM", "BN", "FN",
-                "DP1_1", "DP1_2", "B1", "B2", "B3", "F_HOOK", "B_HOOK",
-                "LINING", "AV", "SARI"
+                "LTH", "SHO", "H.S.", "H.L.", "H.LO",
+                "AK", "AM", "BN", "FN",
+                "DP-1-1", "DP-1-2",
+                "B-1", "B-2", "B-3",
+                "F-HOOK", "B-HOOK",
+                "LINING", "AV.", "SARI"
         );
     }
 
@@ -788,9 +792,9 @@ public class ExtractionService {
         if (dm.find()) {
             String d = dm.group(1);
             String moStr = dm.group(2);
-            String yr = dm.group(3) != null ? dm.group(3) : "2024";
+            String yr = dm.group(3) != null ? dm.group(3) : String.valueOf(LocalDate.now().getYear());
             if (yr.length() == 2) yr = "20" + yr;
-            int mo = 8;
+            int mo = -1;
             try {
                 mo = Integer.parseInt(moStr.replaceAll("[^0-9]", ""));
             } catch (Exception ignored) {}
@@ -819,7 +823,9 @@ public class ExtractionService {
             if (dm.find()) {
                 String d = dm.group(1);
                 String mo = dm.group(2);
-                String yr = (orderDate != null && orderDate.length() >= 4) ? orderDate.substring(0, 4) : "2024";
+                String yr = (orderDate != null && orderDate.length() >= 4)
+                        ? orderDate.substring(0, 4)
+                        : String.valueOf(LocalDate.now().getYear());
                 try {
                     return LocalDate.of(Integer.parseInt(yr), Integer.parseInt(mo), Integer.parseInt(d)).toString();
                 } catch (Exception ignored) {}

@@ -75,7 +75,11 @@ public class BackupController {
         if (result.isSuccess()) {
             return ResponseEntity.ok(ApiResponse.success(result.getMessage(), result));
         } else {
-            return ResponseEntity.badRequest().body(ApiResponse.success(result.getMessage(), result));
+            return ResponseEntity.badRequest().body(ApiResponse.<BackupTriggerResponse>builder()
+                    .success(false)
+                    .message(result.getMessage())
+                    .data(result)
+                    .build());
         }
     }
 
@@ -130,7 +134,11 @@ public class BackupController {
         if (response.isSuccess()) {
             return ResponseEntity.ok(ApiResponse.success(response.getMessage(), response));
         } else {
-            return ResponseEntity.badRequest().body(ApiResponse.success(response.getMessage(), response));
+            return ResponseEntity.badRequest().body(ApiResponse.<RestoreBackupResponse>builder()
+                    .success(false)
+                    .message(response.getMessage())
+                    .data(response)
+                    .build());
         }
     }
 }

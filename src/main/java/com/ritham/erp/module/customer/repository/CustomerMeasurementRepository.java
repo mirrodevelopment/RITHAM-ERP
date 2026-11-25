@@ -29,7 +29,6 @@ public interface CustomerMeasurementRepository extends JpaRepository<CustomerMea
         WHERE LOWER(cm.customerName) LIKE LOWER(CONCAT('%', :query, '%'))
            OR cm.customerMobile LIKE CONCAT('%', :query, '%')
            OR LOWER(cm.garmentType) LIKE LOWER(CONCAT('%', :query, '%'))
-        ORDER BY cm.updatedAt DESC
     """)
     Page<CustomerMeasurement> search(@Param("query") String query, Pageable pageable);
 }

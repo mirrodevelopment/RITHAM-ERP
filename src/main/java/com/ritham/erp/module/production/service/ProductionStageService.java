@@ -94,21 +94,27 @@ public class ProductionStageService {
     public List<ProductionStageResponse> reorderStages(ReorderStagesRequest request) {
         List<Long> stageIds = request.getStageIds();
 
-        // Batch-fetch all stages in one query, build a lookup map
-        Map<Long, ProductionStage> stageMap = stageRepository.findAllById(stageIds)
-                .stream()
+        // Fetch all stages ordered so any omitted or duplicated IDs retain a deterministic unique order
+        List<ProductionStage> allStages = stageRepository.findAllByOrderByDisplayOrderAsc();
+        Map<Long, ProductionStage> stageMap = allStages.stream()
                 .collect(Collectors.toMap(s -> s.getId(), s -> s));
 
-        // Update display orders in memory
-        for (int i = 0; i < stageIds.size(); i++) {
-            ProductionStage stg = stageMap.get(stageIds.get(i));
-            if (stg != null) {
-                stg.setDisplayOrder(i + 1);
+        java.util.Set<Long> assignedIds = new java.util.HashSet<>();
+        int nextOrder = 1;
+        for (Long id : stageIds) {
+            ProductionStage stg = stageMap.get(id);
+            if (stg != null && assignedIds.add(id)) {
+                stg.setDisplayOrder(nextOrder++);
+            }
+        }
+        for (ProductionStage stg : allStages) {
+            if (!assignedIds.contains(stg.getId())) {
+                stg.setDisplayOrder(nextOrder++);
             }
         }
 
         // Persist all in a single batch
-        stageRepository.saveAll(stageMap.values());
+        stageRepository.saveAll(allStages);
         return getAllStages();
     }
 

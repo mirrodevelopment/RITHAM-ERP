@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load User Accounts List (Strictly System Dashboard Logins)
   async function loadUsers() {
     try {
-      Loader.show(tbody, { cols: 5, rows: 4 });
+      tbody.innerHTML = Loader.skeletonTableRows(5, 4);
 
       const res = await Api.get(`${API.EMPLOYEES}?size=100&sort=id,asc`);
       const items = res.content || [];
@@ -131,9 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderTable(dashboardUsers, dashboardUsers.length);
 
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-danger">Failed to load system accounts: ${err.message}</td></tr>`;
-    } finally {
-      Loader.hide(tbody);
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-danger">Failed to load system accounts: ${Utils.escapeHtml(err.message)}</td></tr>`;
     }
   }
 

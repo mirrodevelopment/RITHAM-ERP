@@ -2,6 +2,7 @@ package com.ritham.erp.module.migration.service.ocr;
 
 import lombok.extern.slf4j.Slf4j;
 import net.sourceforge.tess4j.Tesseract;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.awt.image.BufferedImage;
@@ -17,6 +18,9 @@ import java.util.regex.Pattern;
 @Component
 @Slf4j
 public class DocumentOrientationDetector {
+
+    @Value("${app.migration.tesseract-data-path:D:/ritham-erp/tessdata}")
+    private String configuredTessDataPath = "D:/ritham-erp/tessdata";
 
     public record OrientationResult(
             int angle,
@@ -132,6 +136,9 @@ public class DocumentOrientationDetector {
     }
 
     private String resolveTessDataPath() {
+        if (configuredTessDataPath != null && !configuredTessDataPath.isBlank() && new File(configuredTessDataPath).exists()) {
+            return new File(configuredTessDataPath).getAbsolutePath();
+        }
         if (new File("tessdata").exists()) return new File("tessdata").getAbsolutePath();
         if (new File("C:/Program Files/Tesseract-OCR/tessdata").exists()) return "C:/Program Files/Tesseract-OCR/tessdata";
         if (new File("C:/Users/admin/AppData/Local/Programs/Tesseract-OCR/tessdata").exists()) return "C:/Users/admin/AppData/Local/Programs/Tesseract-OCR/tessdata";

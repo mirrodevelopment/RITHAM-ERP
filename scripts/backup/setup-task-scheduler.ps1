@@ -16,7 +16,7 @@ if (-not $isAdmin) {
 # Configuration
 $TASK_NAME        = "Ritham ERP - Daily DB Backup"
 $TASK_DESCRIPTION = "Automatic daily backup of ritham_erp PostgreSQL database and uploaded files to external drive."
-$BACKUP_SCRIPT    = "d:\ritham-erp\scripts\backup\erp-backup.ps1"
+$BACKUP_SCRIPT    = Join-Path $PSScriptRoot "erp-backup.ps1"
 $BACKUP_HOUR      = 23   # 11 PM
 $BACKUP_MINUTE    = 0
 $RUN_AS_USER      = "$env:USERDOMAIN\$env:USERNAME"   # Current logged-in user
@@ -94,8 +94,13 @@ if ($registered) {
     Write-Host ""
     Write-Host "  Task registered successfully!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "  Name  : $($task.TaskName)"
-    Write-Host "  State : $($task.State)"
+    if ($task) {
+        Write-Host "  Name  : $($task.TaskName)"
+        Write-Host "  State : $($task.State)"
+    } else {
+        Write-Host "  Name  : $TASK_NAME"
+        Write-Host "  Mode  : Scheduled via schtasks (current user)"
+    }
     Write-Host "  Next run will be at: 11:00 PM tonight"
     Write-Host ""
     Write-Host "  To run immediately for testing:" -ForegroundColor Cyan

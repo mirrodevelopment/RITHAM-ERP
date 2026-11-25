@@ -88,6 +88,6 @@ public class CustomUserDetails implements UserDetails {
     }
 
     public boolean isGlobalAdmin() {
-        return isAdmin();
+        return isAdmin() && getBranchId() == null;
     }
 }

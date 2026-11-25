@@ -149,16 +149,19 @@ d:\ritham-erp\
     │   │   │   ├── JwtAuthFilter.java           # JWT + branch context filter
     │   │   │   └── JwtService.java              # Token generation/validation
     │   │   └── module/
-    │   │       ├── auth/                        # Login, refresh, logout
+    │   │       ├── auth/                        # Login, refresh, logout & rate limiter
+    │   │       ├── backup/                      # Scheduled & manual PostgreSQL/file backup & DR
     │   │       ├── branch/                      # Branch CRUD
     │   │       ├── customer/                    # Customer + measurement CRUD
     │   │       ├── employee/                    # Employee CRUD
+    │   │       ├── migration/                   # Historical slip OCR extraction, review & import
     │   │       ├── order/                       # Order lifecycle, payments, analytics
     │   │       └── production/                  # Production stage management
     │   └── resources/
     │       ├── application.yaml                 # Main config
     │       ├── application-dev.yaml             # Dev profile overrides
-    │       └── db/migration/                    # Flyway: V1 through V11
+    │       ├── application-prod.yaml            # Production profile (ForwardedHeaderFilter for tunnel/proxy)
+    │       └── db/migration/                    # Flyway consolidated migrations: V1__init_schema.sql & V2__seed_initial_data.sql
     └── test/
         └── java/com/ritham/erp/
             ├── module/auth/
@@ -211,31 +214,22 @@ All schema changes are managed by Flyway from src/main/resources/db/migration/.
 Flyway runs automatically on startup. The ddl-auto: validate setting ensures Hibernate
 validates against the Flyway-managed schema (no auto-create or auto-update).
 
-### Migration Timeline
+### Migration Timeline (Consolidated Baseline)
 
-| Migration | Description | Key Changes |
+| Migration | Description | Key Contents |
 |---|---|---|
-| V1 | Baseline schema | roles, departments, employees, refresh_tokens, customers, customer_measurements, customer_orders, order_designs, order_measurements, order_materials, production_tracking, order_payments, order_deliveries, production_stages |
-| V2 | Seed data | Pre-populates roles, departments, all system employees (hashed passwords), customer/order dataset |
-| V3 | discount_amount column | Adds discount support to customer_orders |
-| V4 | Fix status default | Corrects default value for status column |
-| V5 | Employee advance | Adds advance payment tracking to employees |
-| V6 | Employee joining date | Adds joining_date column |
-| V7 | Nullable username | Makes employees.username nullable (mobile-number login support) |
-| V8 | Restore system usernames | Re-assigns known usernames to system accounts |
-| V9 | Branches and multi-tenancy | Creates branches table, adds branch_id to employees and customer_orders, seeds Chennai and Coimbatore branches |
-| V10 | Order number sequence | Creates order_number_seq starting at 1001, adds unique index on order_number |
-| V11 | Optimistic locking | Adds version BIGINT DEFAULT 0 NOT NULL to customer_orders |
+| `V1__init_schema.sql` | Consolidated schema (19 tables) | `branches`, `roles`, `departments`, `employees` (with `branch_id`, `advance`, `joining_date`), `refresh_tokens`, `customers`, `customer_measurements`, `customer_orders` (with `discount_amount`, `branch_id`, `version`, `order_number_seq`), `order_designs`, `order_measurements`, `order_materials`, `production_tracking`, `order_payments`, `order_deliveries`, `production_stages`, `migration_batches`, `migration_documents`, `migration_reviews`, `migration_imports` |
+| `V2__seed_initial_data.sql` | Seed data | Pre-populates roles, departments, 12 seeded `production_stages`, and default system employees (`ENCODE_ON_STARTUP` passwords) |
 
 ### Core Tables Summary
 
 | Table | Primary Key | Purpose |
 |---|---|---|
+| branches | id BIGSERIAL | Physical business locations |
 | roles | id BIGSERIAL | 4 named roles |
 | departments | id BIGSERIAL | 4 departments |
 | employees | id BIGSERIAL | All system users + production staff |
 | refresh_tokens | id BIGSERIAL | Persisted JWT refresh tokens |
-| branches | id BIGSERIAL | Physical business locations |
 | customers | customer_mobile VARCHAR(15) | Customer registry (mobile = PK) |
 | customer_measurements | id BIGSERIAL | Per-customer, per-garment measurement profiles |
 | customer_orders | id BIGSERIAL | Core order master (with @Version optimistic lock) |
@@ -246,6 +240,10 @@ validates against the Flyway-managed schema (no auto-create or auto-update).
 | order_payments | id BIGSERIAL | Full payment ledger (every transaction) |
 | order_deliveries | id BIGSERIAL | Delivery confirmation records (schema only) |
 | production_stages | id BIGSERIAL | Master list of tailoring stages (DB-driven) |
+| migration_batches | id BIGSERIAL | Historical paper-slip ingestion batches (branch-scoped) |
+| migration_documents | id BIGSERIAL | Uploaded scans/PDF pages, OCR text & extracted JSON |
+| migration_reviews | id BIGSERIAL | Human verification audit log for migration documents |
+| migration_imports | id BIGSERIAL | Import audit log linking migration documents to orders |
 
 ---
 

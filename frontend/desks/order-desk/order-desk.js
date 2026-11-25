@@ -6,6 +6,7 @@
 'use strict';
 
 let _allOrders = [];
+let _filteredOrders = [];
 let _activeFilter = 'ALL';
 let _activeSearchQuery = '';
 
@@ -53,12 +54,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       { key: 'garmentType', header: 'Garment Type', transform: v => v || '—' },
       { key: 'orderDate', header: 'Order Date', transform: (v, o) => ExcelExport.formatDate(v || o.createdAt) },
       { key: 'deliveryDate', header: 'Delivery Date', transform: v => ExcelExport.formatDate(v) },
-      { key: 'totalAmount', header: 'Total (Rs)', transform: v => Number(v || 0) },
-      { key: 'paidAmount', header: 'Paid (Rs)', transform: v => Number(v || 0) },
-      { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) },
       { key: 'status', header: 'Status / Stage', transform: v => v || '—' },
       { key: 'assignedEmployeeName', header: 'Assigned Staff', transform: v => v || 'Unassigned' }
     ];
+    if (!isOperationsManager()) {
+      columns.splice(
+        7, 0,
+        { key: 'totalAmount', header: 'Total (Rs)', transform: v => Number(v || 0) },
+        { key: 'paidAmount', header: 'Paid (Rs)', transform: v => Number(v || 0) },
+        { key: 'balanceDue', header: 'Balance Due (Rs)', transform: (_, o) => Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)) }
+      );
+    }
     await ExcelExport.exportData({
       data: listToExport,
       fileName: 'ritham-orderdesk-recent',
@@ -312,6 +318,7 @@ function applyFilters() {
     });
   }
 
+  _filteredOrders = list;
   renderOrdersTable(list);
 }
 
@@ -359,7 +366,7 @@ function renderOrdersTable(orders) {
     } else if (gType === 'ANARKALI') {
       garmentHtml = `<span class="od-garment-pill od-garment-generic">🧵 Anarkali</span>`;
     } else if (order.garmentType) {
-      garmentHtml = `<span class="od-garment-pill od-garment-generic">${order.garmentType}</span>`;
+      garmentHtml = `<span class="od-garment-pill od-garment-generic">${Utils.escapeHtml(order.garmentType)}</span>`;
     } else {
       garmentHtml = `<span style="font-size:12px; color:var(--text-muted);">${order.itemCount ?? 1} item${(order.itemCount ?? 1) !== 1 ? 's' : ''}</span>`;
     }
@@ -374,14 +381,14 @@ function renderOrdersTable(orders) {
     return `
       <tr onclick="onOrderRowClick(event, '${order.id}')">
         <td>
-          <span class="od-order-no-pill">${order.orderNumber || '#' + order.id}</span>
+          <span class="od-order-no-pill">${Utils.escapeHtml(order.orderNumber || '#' + order.id)}</span>
         </td>
         <td>
           <div class="od-customer-cell">
-            <span class="od-customer-name">${order.customerName || 'Walk-in Customer'}</span>
+            <span class="od-customer-name">${Utils.escapeHtml(order.customerName || 'Walk-in Customer')}</span>
             <div class="od-customer-sub">
-              <span>${order.customerMobile || '—'}</span>
-              ${order.customerDue ? `<span class="od-due-badge">⚠️ ₹${order.customerDue} Due</span>` : ''}
+              <span>${Utils.escapeHtml(order.customerMobile || '—')}</span>
+              ${order.customerDue ? `<span class="od-due-badge">⚠️ ₹${Utils.escapeHtml(String(order.customerDue))} Due</span>` : ''}
             </div>
           </div>
         </td>

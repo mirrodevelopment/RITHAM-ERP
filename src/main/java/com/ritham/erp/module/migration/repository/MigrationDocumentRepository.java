@@ -46,6 +46,9 @@ public interface MigrationDocumentRepository extends JpaRepository<MigrationDocu
     /** Count documents by import status within a batch. */
     long countByBatchIdAndImportStatus(Long batchId, String importStatus);
 
+    /** Count remaining sibling documents sharing a source file path within a batch. */
+    long countByBatchIdAndSourceFilePath(Long batchId, String sourceFilePath);
+
     // ── 3-Stage Pipeline Queries ──────────────────────────────────────────────
     @Query(value = """
             SELECT d FROM MigrationDocument d

@@ -237,11 +237,61 @@ const Utils = (() => {
     return role.includes('PRODUCTION') && !role.includes('ADMIN') && !role.includes('MANAGER');
   }
 
+  const BLOUSE_MEASUREMENT_KEY_ALIASES = {
+    'HS': 'H.S.', 'H.S': 'H.S.',
+    'HL': 'H.L.', 'H.L': 'H.L.',
+    'HLO': 'H.LO', 'H.LO.': 'H.LO',
+    'DP-1-1': 'DP-1', 'DP1_1': 'DP-1',
+    'DP-1-2': 'DP-2', 'DP1_2': 'DP-2',
+    'B1': 'B-1', 'B2': 'B-2', 'B3': 'B-3',
+    'F-HOOK': 'F.HOOK', 'F_HOOK': 'F.HOOK', 'F.HOOK.': 'F.HOOK',
+    'B-HOOK': 'B.HOOK', 'B_HOOK': 'B.HOOK', 'B.HOOK.': 'B.HOOK',
+    'AV': 'AV.',
+  };
+
+  const CHUDI_MEASUREMENT_KEY_ALIASES = {
+    'FN': 'F.N.', 'F.N': 'F.N.',
+    'BN': 'B.N.', 'B.N': 'B.N.',
+    'HB': 'H.B.', 'H.B': 'H.B.',
+    'L_1': 'L', 'L-1': 'L',
+    'SS': 'S.S.', 'S.S': 'S.S.',
+    'SL-1': 'S.L.', 'SL_1': 'S.L.',
+    'SL-2': 'S.LO', 'SL_2': 'S.LO',
+    'TS': 'T.S.', 'T.S': 'T.S.',
+    'PL': 'P.L.', 'P.L': 'P.L.',
+    'S': 'S.',
+    'L-2': 'L.', 'L_2': 'L.',
+    'SCUT': 'S.CUT', 'S_CUT': 'S.CUT',
+    'BD': 'B.D.', 'B.D': 'B.D.',
+  };
+
+  /**
+   * Normalizes backend OCR/migration measurement keys to the ERP UI form's `data-key`
+   * format for BLOUSE or CHUDI without losing existing entries.
+   */
+  function normalizeMeasurementMap(garmentType, map) {
+    if (!map || typeof map !== 'object') return {};
+    const aliases = String(garmentType || '').toUpperCase().includes('CHUDI')
+      ? CHUDI_MEASUREMENT_KEY_ALIASES
+      : BLOUSE_MEASUREMENT_KEY_ALIASES;
+    const result = {};
+    for (const [rawKey, val] of Object.entries(map)) {
+      if (rawKey == null) continue;
+      const trimmed = String(rawKey).trim();
+      const canonical = aliases[trimmed] || aliases[trimmed.toUpperCase()] || trimmed;
+      if (!(canonical in result) || result[canonical] === '' || result[canonical] == null) {
+        result[canonical] = val;
+      }
+    }
+    return result;
+  }
+
   return {
     formatDate, formatDateTime, timeAgo,
     formatCurrency, formatNumber,
     generateOrderNumber,
     capitalize, initials, truncate, slugify, escapeHtml,
+    normalizeMeasurementMap,
     getRoleLabel, isReadOnlyUser, canAdvanceProductionStage,
     $, $$, el, showEl, hideEl, setLoading,
     debounce, throttle,

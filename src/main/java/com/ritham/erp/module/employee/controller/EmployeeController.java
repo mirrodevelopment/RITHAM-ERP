@@ -6,9 +6,7 @@ import com.ritham.erp.module.employee.dto.*;
 import com.ritham.erp.module.employee.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,13 +27,10 @@ public class EmployeeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
-        Sort sort = sortDir.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Pageable pageable = com.ritham.erp.common.util.PaginationUtils.safePageRequest(
+                page, size, sortBy, sortDir,
+                com.ritham.erp.common.util.PaginationUtils.EMPLOYEE_SORT_FIELDS, "id");
         PageResponse<EmployeeResponse> response = employeeService.getEmployees(search, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -49,8 +44,7 @@ public class EmployeeController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<EmployeeResponse>> createEmployee(
-            @Valid @RequestBody CreateEmployeeRequest request
-    ) {
+            @Valid @RequestBody CreateEmployeeRequest request) {
         EmployeeResponse created = employeeService.createEmployee(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Employee created successfully", created));
@@ -60,8 +54,7 @@ public class EmployeeController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<EmployeeResponse>> updateEmployee(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateEmployeeRequest request
-    ) {
+            @Valid @RequestBody UpdateEmployeeRequest request) {
         EmployeeResponse updated = employeeService.updateEmployee(id, request);
         return ResponseEntity.ok(ApiResponse.success("Employee updated successfully", updated));
     }
@@ -70,8 +63,7 @@ public class EmployeeController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> updatePassword(
             @PathVariable Long id,
-            @Valid @RequestBody UpdatePasswordRequest request
-    ) {
+            @Valid @RequestBody UpdatePasswordRequest request) {
         employeeService.updatePassword(id, request);
         return ResponseEntity.ok(ApiResponse.success("Password updated successfully"));
     }

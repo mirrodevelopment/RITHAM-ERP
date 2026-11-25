@@ -7,9 +7,7 @@ import com.ritham.erp.module.customer.dto.SaveCustomerMeasurementRequest;
 import com.ritham.erp.module.customer.service.CustomerMeasurementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,8 +24,7 @@ public class CustomerMeasurementController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<CustomerMeasurementResponse>> saveOrUpdate(
-            @Valid @RequestBody SaveCustomerMeasurementRequest request
-    ) {
+            @Valid @RequestBody SaveCustomerMeasurementRequest request) {
         CustomerMeasurementResponse response = measurementService.saveOrUpdate(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Customer measurements saved successfully", response));
@@ -35,16 +32,14 @@ public class CustomerMeasurementController {
 
     @GetMapping("/customer/{mobile}")
     public ResponseEntity<ApiResponse<List<CustomerMeasurementResponse>>> getByCustomerMobile(
-            @PathVariable String mobile
-    ) {
+            @PathVariable String mobile) {
         List<CustomerMeasurementResponse> list = measurementService.getByCustomerMobile(mobile);
         return ResponseEntity.ok(ApiResponse.success(list));
     }
 
     @GetMapping("/customer/{mobile}/latest")
     public ResponseEntity<ApiResponse<CustomerMeasurementResponse>> getLatestByCustomerMobile(
-            @PathVariable String mobile
-    ) {
+            @PathVariable String mobile) {
         CustomerMeasurementResponse response = measurementService.getLatestByCustomerMobile(mobile).orElse(null);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -52,9 +47,9 @@ public class CustomerMeasurementController {
     @GetMapping("/customer/{mobile}/garment/{garmentType}")
     public ResponseEntity<ApiResponse<CustomerMeasurementResponse>> getByGarment(
             @PathVariable String mobile,
-            @PathVariable String garmentType
-    ) {
-        CustomerMeasurementResponse response = measurementService.getByCustomerMobileAndGarment(mobile, garmentType).orElse(null);
+            @PathVariable String garmentType) {
+        CustomerMeasurementResponse response = measurementService.getByCustomerMobileAndGarment(mobile, garmentType)
+                .orElse(null);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -64,13 +59,10 @@ public class CustomerMeasurementController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(defaultValue = "updatedAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
-        Sort sort = sortDir.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Pageable pageable = com.ritham.erp.common.util.PaginationUtils.safePageRequest(
+                page, size, sortBy, sortDir,
+                com.ritham.erp.common.util.PaginationUtils.MEASUREMENT_SORT_FIELDS, "updatedAt");
         PageResponse<CustomerMeasurementResponse> response = measurementService.getAllMeasurements(search, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

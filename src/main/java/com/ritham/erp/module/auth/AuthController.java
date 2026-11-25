@@ -1,6 +1,5 @@
 package com.ritham.erp.module.auth;
 
-import com.ritham.erp.common.constants.AppConstants;
 import com.ritham.erp.common.constants.RoleConstants;
 import com.ritham.erp.common.response.ApiResponse;
 import com.ritham.erp.module.auth.dto.LoginRequest;
@@ -41,20 +40,9 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             jakarta.servlet.http.HttpServletRequest httpRequest) {
 
-        String clientIp = extractClientIp(httpRequest);
+        String clientIp = com.ritham.erp.security.ClientIpResolver.extractClientIp(httpRequest);
         LoginResponse response = authService.login(request, clientIp);
         return ResponseEntity.ok(ApiResponse.success("Login successful", response));
-    }
-
-    private String extractClientIp(jakarta.servlet.http.HttpServletRequest request) {
-        if (request == null) {
-            return AppConstants.DEFAULT_CLIENT_IP;
-        }
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-        return request.getRemoteAddr() != null ? request.getRemoteAddr() : AppConstants.DEFAULT_CLIENT_IP;
     }
 
     /**
@@ -89,20 +77,21 @@ public class AuthController {
 
         Employee employee = authService.getCurrentEmployee(currentUser.getEmployeeId());
         com.ritham.erp.module.branch.entity.Branch branch = employee.getBranch();
-        boolean isGlobalAdmin = RoleConstants.ADMIN.equals(employee.getRole().getName()) && branch == null;
+        String roleName = employee.getRole() != null ? employee.getRole().getName() : null;
+        boolean isGlobalAdmin = (RoleConstants.ADMIN.equals(roleName) || "ADMIN".equals(roleName)) && branch == null;
 
         Map<String, Object> profile = new java.util.HashMap<>();
-        profile.put("id",           employee.getId());
+        profile.put("id", employee.getId());
         profile.put("employeeCode", employee.getEmployeeCode());
-        profile.put("fullName",     employee.getFullName());
-        profile.put("username",     employee.getUsername() != null ? employee.getUsername() : employee.getMobileNumber());
-        profile.put("email",        employee.getEmail() != null ? employee.getEmail() : "");
+        profile.put("fullName", employee.getFullName());
+        profile.put("username", employee.getUsername() != null ? employee.getUsername() : employee.getMobileNumber());
+        profile.put("email", employee.getEmail() != null ? employee.getEmail() : "");
         profile.put("mobileNumber", employee.getMobileNumber());
-        profile.put("role",         employee.getRole().getName());
-        profile.put("isActive",     employee.getIsActive());
-        profile.put("branchId",     branch != null ? branch.getId() : null);
-        profile.put("branchName",   branch != null ? branch.getName() : (isGlobalAdmin ? "All Branches (Global)" : null));
-        profile.put("branchCode",   branch != null ? branch.getBranchCode() : (isGlobalAdmin ? "GLOBAL" : null));
+        profile.put("role", employee.getRole().getName());
+        profile.put("isActive", employee.getIsActive());
+        profile.put("branchId", branch != null ? branch.getId() : null);
+        profile.put("branchName", branch != null ? branch.getName() : (isGlobalAdmin ? "All Branches (Global)" : null));
+        profile.put("branchCode", branch != null ? branch.getBranchCode() : (isGlobalAdmin ? "GLOBAL" : null));
         profile.put("isGlobalAdmin", isGlobalAdmin);
 
         return ResponseEntity.ok(ApiResponse.success(profile));

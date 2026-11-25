@@ -45,8 +45,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (authHeader != null && authHeader.startsWith(AppConstants.JWT_PREFIX)) {
             jwt = authHeader.substring(AppConstants.JWT_PREFIX.length());
-        } else if (request.getParameter("token") != null && !request.getParameter("token").isBlank()) {
-            jwt = request.getParameter("token").trim();
         }
 
         if (jwt == null) {
@@ -71,7 +69,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                if (jwtService.isTokenValid(jwt, userDetails)) {
+                if (jwtService.isTokenValid(jwt, userDetails) && userDetails.isEnabled()) {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,

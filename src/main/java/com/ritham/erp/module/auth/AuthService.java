@@ -63,7 +63,7 @@ public class AuthService {
             );
         } catch (DisabledException e) {
             throw new AppException(ErrorCode.ACCOUNT_DISABLED);
-        } catch (BadCredentialsException e) {
+        } catch (org.springframework.security.core.AuthenticationException e) {
             loginRateLimiter.recordFailedAttempt(clientIp, request.getUsername());
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
@@ -99,11 +99,15 @@ public class AuthService {
             throw new AppException(ErrorCode.TOKEN_EXPIRED);
         }
 
+        Employee employee = storedToken.getEmployee();
+        if (!Boolean.TRUE.equals(employee.getIsActive())) {
+            throw new AppException(ErrorCode.ACCOUNT_DISABLED);
+        }
+
         // Rotate: revoke old token, issue new pair
         storedToken.setIsRevoked(true);
         refreshTokenRepository.save(storedToken);
 
-        Employee employee    = storedToken.getEmployee();
         CustomUserDetails ud = new CustomUserDetails(employee);
         String userIdentifier = employee.getUsername() != null ? employee.getUsername() : employee.getMobileNumber();
 
@@ -187,7 +191,8 @@ public class AuthService {
     private LoginResponse buildLoginResponse(
             Employee employee, String accessToken, String refreshToken) {
         com.ritham.erp.module.branch.entity.Branch branch = employee.getBranch();
-        boolean isGlobalAdmin = RoleConstants.ADMIN.equals(employee.getRole().getName()) && branch == null;
+        String roleName = employee.getRole() != null ? employee.getRole().getName() : null;
+        boolean isGlobalAdmin = (RoleConstants.ADMIN.equals(roleName) || "ADMIN".equals(roleName)) && branch == null;
 
         return LoginResponse.builder()
                 .employeeId(employee.getId())

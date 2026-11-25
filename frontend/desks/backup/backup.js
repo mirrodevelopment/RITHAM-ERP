@@ -983,11 +983,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const folderName = relPath.split('/')[0] || relPath.split('\\')[0] || '';
         if (folderName) {
           const curVal = customLocationInput.value.trim();
-          const drivePrefix = curVal.length >= 2 ? curVal.substring(0, 2) : (availableLocations[0]?.driveLetter || 'E:');
-          customLocationInput.value = `${drivePrefix}\\${folderName}`;
+          const normalizedCur = curVal.replace(/\//g, '\\').replace(/\\+$/, '');
+          const drivePrefix = normalizedCur.length >= 2 ? normalizedCur.substring(0, 2) : (availableLocations[0]?.driveLetter || 'E:');
+          if (!normalizedCur || normalizedCur.toLowerCase().endsWith('\\' + folderName.toLowerCase())) {
+            Toast.info(`Verified folder "${folderName}". Confirm the exact drive path before saving.`);
+          } else {
+            customLocationInput.value = `${drivePrefix}\\${folderName}`;
+            Toast.info(`Suggested path "${drivePrefix}\\${folderName}". Browser security omits parent folders—verify full path if nested.`);
+          }
           renderFolderSuggestions(customLocationInput.value);
           handleTestWriteAccess();
-          Toast.info(`Selected folder: ${folderName}`);
         }
       }
     });
@@ -1277,6 +1282,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="console-line"><span class="console-ts">[${new Date().toLocaleTimeString()}]</span> <span class="console-level INFO">[SCRIPT]</span> <span class="console-msg">Launching erp-restore.ps1...</span></div>
     `;
 
+    let restoreSucceeded = false;
     try {
       const payload = {
         backupFileName: selectedRestoreArchive.fileName,
@@ -1290,6 +1296,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await Api.post(API.BACKUP_RESTORE, payload);
 
       if (res && res.success) {
+        restoreSucceeded = true;
         restoreStatusBadge.className = 'badge badge-success';
         restoreStatusBadge.textContent = 'Completed';
         restoreStatusTitle.textContent = selectedRestoreMode === 'PRODUCTION'
@@ -1340,6 +1347,9 @@ document.addEventListener('DOMContentLoaded', () => {
       Toast.error(err.message || 'Failed to execute restore operation');
     } finally {
       isRestoring = false;
+      if (!restoreSucceeded) {
+        executeRestoreBtn.disabled = false;
+      }
       cancelImportModalBtn.disabled = false;
       closeImportModalBtn.disabled = false;
       cancelImportModalBtn.textContent = 'Close';
@@ -1348,8 +1358,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Import Modal Events
   if (openImportModalBtn) openImportModalBtn.addEventListener('click', () => openImportModal());
-  if (closeImportModalBtn) closeImportModalBtn.addEventListener('click', () => { importBackupModal.style.display = 'none'; });
-  if (cancelImportModalBtn) cancelImportModalBtn.addEventListener('click', () => { importBackupModal.style.display = 'none'; });
+  if (closeImportModalBtn) closeImportModalBtn.addEventListener('click', () => { if (!isRestoring) importBackupModal.style.display = 'none'; });
+  if (cancelImportModalBtn) cancelImportModalBtn.addEventListener('click', () => { if (!isRestoring) importBackupModal.style.display = 'none'; });
   if (executeRestoreBtn) executeRestoreBtn.addEventListener('click', executeDatabaseRestore);
 
   if (tabSourceRepoBtn) tabSourceRepoBtn.addEventListener('click', () => switchImportSourceTab('repo'));
@@ -1416,6 +1426,7 @@ document.addEventListener('DOMContentLoaded', () => {
   [runBackupModal, locationConfigModal, playbookModal, verifyModal, importBackupModal].forEach(modal => {
     if (modal) {
       modal.addEventListener('click', (e) => {
+        if (modal === importBackupModal && isRestoring) return;
         if (e.target === modal) modal.style.display = 'none';
       });
     }

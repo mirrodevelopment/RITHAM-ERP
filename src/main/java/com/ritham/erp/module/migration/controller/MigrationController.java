@@ -61,7 +61,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class MigrationController {
 
     private static final java.util.regex.Pattern PATTERN_OVERALL_CONF = java.util.regex.Pattern.compile("\"overallConfidence\"\\s*:\\s*([0-9.]+)");
-    private static final java.util.regex.Pattern PATTERN_MOBILE = java.util.regex.Pattern.compile("\"customerMobile\"\\s*:\\s*\"([6-9]\\d{9})\"");
+    private static final java.util.regex.Pattern PATTERN_MOBILE = java.util.regex.Pattern.compile("\"(?:mobileNo|customerMobile)\"\\s*:\\s*\"([6-9]\\d{9})\"");
     private static final java.util.regex.Pattern PATTERN_GARMENT = java.util.regex.Pattern.compile("\"garmentType\"\\s*:\\s*\"([^\"]+)\"");
 
     private final MigrationBatchService  batchService;

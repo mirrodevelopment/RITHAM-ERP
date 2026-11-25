@@ -18,9 +18,15 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
 
     List<CustomerOrder> findByCustomerMobile(String customerMobile);
 
+    @Query("SELECT o FROM CustomerOrder o WHERE o.customerMobile = :customerMobile AND (:branchId IS NULL OR o.branch.id = :branchId)")
+    List<CustomerOrder> findByCustomerMobileScoped(@Param("branchId") Long branchId, @Param("customerMobile") String customerMobile);
+
     boolean existsByCustomerMobile(String customerMobile);
 
     java.util.Optional<CustomerOrder> findFirstByCustomerMobileAndGarmentTypeIsNotNullOrderByCreatedAtDesc(String customerMobile);
+
+    @Query("SELECT o FROM CustomerOrder o WHERE o.customerMobile = :customerMobile AND o.garmentType IS NOT NULL AND (:branchId IS NULL OR o.branch.id = :branchId) ORDER BY o.createdAt DESC")
+    List<CustomerOrder> findLatestMeasurementOrdersScoped(@Param("branchId") Long branchId, @Param("customerMobile") String customerMobile, Pageable pageable);
 
     boolean existsByOrderNumber(String orderNumber);
 
@@ -78,13 +84,13 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND o.status = :status")
     long countByStatusScoped(@Param("branchId") Long branchId, @Param("status") String status);
 
-    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND UPPER(o.status) IN ('PENDING', 'DESIGNING')")
+    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND UPPER(o.status) = 'PENDING'")
     long countPendingOrdersScoped(@Param("branchId") Long branchId);
 
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND UPPER(o.status) IN ('READY_TO_DELIVERY', 'DELIVERY', 'DELIVERED', 'COMPLETED')")
     long countCompletedOrdersScoped(@Param("branchId") Long branchId);
 
-    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND UPPER(o.status) IN ('LINING', 'HAND_MACHINE_WORK', 'INITIAL_IRONING', 'CUTTING', 'STRETCHING', 'STITCHING', 'HEMMING', 'FINAL_IRONING', 'QUALITY_CHECK', 'IN_PROGRESS', 'IN_PRODUCTION')")
+    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND UPPER(o.status) IN ('DESIGNING', 'LINING', 'HAND_MACHINE_WORK', 'INITIAL_IRONING', 'CUTTING', 'STRETCHING', 'STITCHING', 'HEMMING', 'FINAL_IRONING', 'QUALITY_CHECK', 'IN_PROGRESS', 'IN_PRODUCTION')")
     long countInProgressOrdersScoped(@Param("branchId") Long branchId);
 
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND UPPER(o.status) = 'CANCELLED'")
@@ -102,13 +108,13 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE o.status = :status")
     long countByStatus(@Param("status") String status);
 
-    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE UPPER(o.status) IN ('PENDING', 'DESIGNING')")
+    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE UPPER(o.status) = 'PENDING'")
     long countPendingOrders();
 
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE UPPER(o.status) IN ('READY_TO_DELIVERY', 'DELIVERY', 'DELIVERED', 'COMPLETED')")
     long countCompletedOrders();
 
-    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE UPPER(o.status) IN ('LINING', 'HAND_MACHINE_WORK', 'INITIAL_IRONING', 'CUTTING', 'STRETCHING', 'STITCHING', 'HEMMING', 'FINAL_IRONING', 'QUALITY_CHECK', 'IN_PROGRESS', 'IN_PRODUCTION')")
+    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE UPPER(o.status) IN ('DESIGNING', 'LINING', 'HAND_MACHINE_WORK', 'INITIAL_IRONING', 'CUTTING', 'STRETCHING', 'STITCHING', 'HEMMING', 'FINAL_IRONING', 'QUALITY_CHECK', 'IN_PROGRESS', 'IN_PRODUCTION')")
     long countInProgressOrders();
 
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE UPPER(o.status) = 'CANCELLED'")
@@ -131,30 +137,114 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE o.status = 'DELIVERED' AND o.updatedAt < :cutoff")
     long countDeliveredOlderThan(@Param("cutoff") LocalDateTime cutoff);
 
+    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND UPPER(o.status) IN ('DELIVERED', 'COMPLETED') AND o.updatedAt < :cutoff")
+    long countDeliveredOlderThanScoped(@Param("branchId") Long branchId, @Param("cutoff") LocalDateTime cutoff);
+
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE o.status = 'DELIVERED' AND o.updatedAt >= :cutoff")
     long countDeliveredNewerThan(@Param("cutoff") LocalDateTime cutoff);
+
+    @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND UPPER(o.status) IN ('DELIVERED', 'COMPLETED') AND o.updatedAt >= :cutoff")
+    long countDeliveredNewerThanScoped(@Param("branchId") Long branchId, @Param("cutoff") LocalDateTime cutoff);
 
     @Modifying
     @Query("DELETE FROM CustomerOrder o WHERE o.status = 'DELIVERED' AND o.updatedAt < :cutoff")
     int deleteDeliveredOlderThan(@Param("cutoff") LocalDateTime cutoff);
+
+    @Modifying
+    @Query("DELETE FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND UPPER(o.status) IN ('DELIVERED', 'COMPLETED') AND o.updatedAt < :cutoff")
+    int deleteDeliveredOlderThanScoped(@Param("branchId") Long branchId, @Param("cutoff") LocalDateTime cutoff);
 
     // ── Analytics & Reporting queries ──────────────────────────────────────
 
     @Query("SELECT CAST(o.orderDate AS LocalDate), COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND o.orderDate >= :startDateTime AND o.orderDate <= :endDateTime GROUP BY CAST(o.orderDate AS LocalDate) ORDER BY CAST(o.orderDate AS LocalDate) ASC")
     List<Object[]> countDailyOrdersScoped(@Param("branchId") Long branchId, @Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime);
 
+    @Query("""
+        SELECT CAST(o.orderDate AS LocalDate), COUNT(o)
+        FROM CustomerOrder o
+        WHERE (:branchId IS NULL OR o.branch.id = :branchId)
+          AND o.orderDate >= :startDateTime AND o.orderDate <= :endDateTime
+          AND (:stage IS NULL OR UPPER(o.status) = UPPER(:stage))
+          AND (:paymentStatus IS NULL OR UPPER(o.paymentStatus) = UPPER(:paymentStatus))
+          AND (:paymentMode IS NULL OR UPPER(o.paymentMode) = UPPER(:paymentMode))
+          AND (:query IS NULL OR :query = '' OR LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(o.customerMobile) LIKE CONCAT('%', :query, '%'))
+        GROUP BY CAST(o.orderDate AS LocalDate)
+        ORDER BY CAST(o.orderDate AS LocalDate) ASC
+    """)
+    List<Object[]> countDailyOrdersFilteredScoped(
+        @Param("branchId") Long branchId,
+        @Param("startDateTime") LocalDateTime startDateTime,
+        @Param("endDateTime") LocalDateTime endDateTime,
+        @Param("stage") String stage,
+        @Param("paymentStatus") String paymentStatus,
+        @Param("paymentMode") String paymentMode,
+        @Param("query") String query
+    );
+
     @Query("SELECT o.status, COUNT(o) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND (:startDateTime IS NULL OR o.orderDate >= :startDateTime) AND (:endDateTime IS NULL OR o.orderDate <= :endDateTime) GROUP BY o.status")
     List<Object[]> countOrdersByStatusScoped(@Param("branchId") Long branchId, @Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime);
+
+    @Query("""
+        SELECT o.status, COUNT(o)
+        FROM CustomerOrder o
+        WHERE (:branchId IS NULL OR o.branch.id = :branchId)
+          AND (:startDateTime IS NULL OR o.orderDate >= :startDateTime)
+          AND (:endDateTime IS NULL OR o.orderDate <= :endDateTime)
+          AND (:stage IS NULL OR UPPER(o.status) = UPPER(:stage))
+          AND (:paymentStatus IS NULL OR UPPER(o.paymentStatus) = UPPER(:paymentStatus))
+          AND (:paymentMode IS NULL OR UPPER(o.paymentMode) = UPPER(:paymentMode))
+          AND (:query IS NULL OR :query = '' OR LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(o.customerMobile) LIKE CONCAT('%', :query, '%'))
+        GROUP BY o.status
+    """)
+    List<Object[]> countOrdersByStatusFilteredScoped(
+        @Param("branchId") Long branchId,
+        @Param("startDateTime") LocalDateTime startDateTime,
+        @Param("endDateTime") LocalDateTime endDateTime,
+        @Param("stage") String stage,
+        @Param("paymentStatus") String paymentStatus,
+        @Param("paymentMode") String paymentMode,
+        @Param("query") String query
+    );
 
     @Query("SELECT COALESCE(o.paymentMode, 'CASH'), COUNT(o), COALESCE(SUM(o.paidAmount), 0) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND (:startDateTime IS NULL OR o.orderDate >= :startDateTime) AND (:endDateTime IS NULL OR o.orderDate <= :endDateTime) GROUP BY o.paymentMode")
     List<Object[]> countOrdersByPaymentModeScoped(@Param("branchId") Long branchId, @Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime);
 
-    @Query("SELECT o.customerMobile, COUNT(o), COALESCE(SUM(o.totalAmount), 0) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND (:startDateTime IS NULL OR o.orderDate >= :startDateTime) AND (:endDateTime IS NULL OR o.orderDate <= :endDateTime) GROUP BY o.customerMobile ORDER BY COUNT(o) DESC")
+    @Query("SELECT o.customerMobile, COUNT(o), COALESCE(SUM(CASE WHEN (o.totalAmount - COALESCE(o.discountAmount, 0)) > 0 THEN (o.totalAmount - COALESCE(o.discountAmount, 0)) ELSE 0 END), 0) FROM CustomerOrder o WHERE (:branchId IS NULL OR o.branch.id = :branchId) AND (:startDateTime IS NULL OR o.orderDate >= :startDateTime) AND (:endDateTime IS NULL OR o.orderDate <= :endDateTime) GROUP BY o.customerMobile ORDER BY COUNT(o) DESC")
     List<Object[]> findTopCustomersScoped(@Param("branchId") Long branchId, @Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime, Pageable pageable);
 
     @Query("""
+        SELECT o.customerMobile, COUNT(o),
+               COALESCE(SUM(CASE WHEN (o.totalAmount - COALESCE(o.discountAmount, 0)) > 0 THEN (o.totalAmount - COALESCE(o.discountAmount, 0)) ELSE 0 END), 0)
+        FROM CustomerOrder o
+        WHERE (:branchId IS NULL OR o.branch.id = :branchId)
+          AND (:startDateTime IS NULL OR o.orderDate >= :startDateTime)
+          AND (:endDateTime IS NULL OR o.orderDate <= :endDateTime)
+          AND (:stage IS NULL OR UPPER(o.status) = UPPER(:stage))
+          AND (:paymentStatus IS NULL OR UPPER(o.paymentStatus) = UPPER(:paymentStatus))
+          AND (:paymentMode IS NULL OR UPPER(o.paymentMode) = UPPER(:paymentMode))
+          AND (:query IS NULL OR :query = '' OR LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(o.customerMobile) LIKE CONCAT('%', :query, '%'))
+        GROUP BY o.customerMobile
+        ORDER BY COUNT(o) DESC
+    """)
+    List<Object[]> findTopCustomersFilteredScoped(
+        @Param("branchId") Long branchId,
+        @Param("startDateTime") LocalDateTime startDateTime,
+        @Param("endDateTime") LocalDateTime endDateTime,
+        @Param("stage") String stage,
+        @Param("paymentStatus") String paymentStatus,
+        @Param("paymentMode") String paymentMode,
+        @Param("query") String query,
+        Pageable pageable
+    );
+
+    @Query("""
         SELECT COUNT(o),
-               COALESCE(SUM(o.totalAmount), 0),
+               COALESCE(SUM(CASE WHEN (o.totalAmount - COALESCE(o.discountAmount, 0)) > 0
+                                 THEN (o.totalAmount - COALESCE(o.discountAmount, 0))
+                                 ELSE 0 END), 0),
                COALESCE(SUM(o.paidAmount), 0),
                COALESCE(SUM(CASE WHEN (o.totalAmount - COALESCE(o.discountAmount, 0) - COALESCE(o.paidAmount, 0)) > 0 
                                  THEN (o.totalAmount - COALESCE(o.discountAmount, 0) - COALESCE(o.paidAmount, 0)) 

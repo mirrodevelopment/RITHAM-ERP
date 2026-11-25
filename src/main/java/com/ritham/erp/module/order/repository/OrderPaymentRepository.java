@@ -32,6 +32,53 @@ public interface OrderPaymentRepository extends JpaRepository<OrderPayment, Long
     @org.springframework.data.jpa.repository.Query("SELECT CAST(p.paymentDate AS LocalDate), COALESCE(SUM(p.amount), 0) FROM OrderPayment p, CustomerOrder o WHERE p.orderId = o.id AND (:branchId IS NULL OR o.branch.id = :branchId) AND p.paymentDate >= :startDateTime AND p.paymentDate <= :endDateTime GROUP BY CAST(p.paymentDate AS LocalDate) ORDER BY CAST(p.paymentDate AS LocalDate) ASC")
     List<Object[]> sumDailyRevenueScoped(@org.springframework.data.repository.query.Param("branchId") Long branchId, @org.springframework.data.repository.query.Param("startDateTime") java.time.LocalDateTime startDateTime, @org.springframework.data.repository.query.Param("endDateTime") java.time.LocalDateTime endDateTime);
 
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT CAST(p.paymentDate AS LocalDate), COALESCE(SUM(p.amount), 0)
+        FROM OrderPayment p, CustomerOrder o
+        WHERE p.orderId = o.id
+          AND (:branchId IS NULL OR o.branch.id = :branchId)
+          AND p.paymentDate >= :startDateTime AND p.paymentDate <= :endDateTime
+          AND (:stage IS NULL OR UPPER(o.status) = UPPER(:stage))
+          AND (:paymentStatus IS NULL OR UPPER(o.paymentStatus) = UPPER(:paymentStatus))
+          AND (:paymentMode IS NULL OR UPPER(p.paymentMethod) = UPPER(:paymentMode))
+          AND (:query IS NULL OR :query = '' OR LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(o.customerMobile) LIKE CONCAT('%', :query, '%'))
+        GROUP BY CAST(p.paymentDate AS LocalDate)
+        ORDER BY CAST(p.paymentDate AS LocalDate) ASC
+    """)
+    List<Object[]> sumDailyRevenueFilteredScoped(
+        @org.springframework.data.repository.query.Param("branchId") Long branchId,
+        @org.springframework.data.repository.query.Param("startDateTime") java.time.LocalDateTime startDateTime,
+        @org.springframework.data.repository.query.Param("endDateTime") java.time.LocalDateTime endDateTime,
+        @org.springframework.data.repository.query.Param("stage") String stage,
+        @org.springframework.data.repository.query.Param("paymentStatus") String paymentStatus,
+        @org.springframework.data.repository.query.Param("paymentMode") String paymentMode,
+        @org.springframework.data.repository.query.Param("query") String query
+    );
+
     @org.springframework.data.jpa.repository.Query("SELECT p.paymentMethod, COUNT(p), COALESCE(SUM(p.amount), 0) FROM OrderPayment p, CustomerOrder o WHERE p.orderId = o.id AND (:branchId IS NULL OR o.branch.id = :branchId) AND p.paymentDate >= :startDateTime AND p.paymentDate <= :endDateTime GROUP BY p.paymentMethod")
     List<Object[]> countAndSumRevenueGroupedByPaymentMethod(@org.springframework.data.repository.query.Param("branchId") Long branchId, @org.springframework.data.repository.query.Param("startDateTime") java.time.LocalDateTime startDateTime, @org.springframework.data.repository.query.Param("endDateTime") java.time.LocalDateTime endDateTime);
+
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT p.paymentMethod, COUNT(p), COALESCE(SUM(p.amount), 0)
+        FROM OrderPayment p, CustomerOrder o
+        WHERE p.orderId = o.id
+          AND (:branchId IS NULL OR o.branch.id = :branchId)
+          AND p.paymentDate >= :startDateTime AND p.paymentDate <= :endDateTime
+          AND (:stage IS NULL OR UPPER(o.status) = UPPER(:stage))
+          AND (:paymentStatus IS NULL OR UPPER(o.paymentStatus) = UPPER(:paymentStatus))
+          AND (:paymentMode IS NULL OR UPPER(p.paymentMethod) = UPPER(:paymentMode))
+          AND (:query IS NULL OR :query = '' OR LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(o.customerMobile) LIKE CONCAT('%', :query, '%'))
+        GROUP BY p.paymentMethod
+    """)
+    List<Object[]> countAndSumRevenueGroupedByPaymentMethodFilteredScoped(
+        @org.springframework.data.repository.query.Param("branchId") Long branchId,
+        @org.springframework.data.repository.query.Param("startDateTime") java.time.LocalDateTime startDateTime,
+        @org.springframework.data.repository.query.Param("endDateTime") java.time.LocalDateTime endDateTime,
+        @org.springframework.data.repository.query.Param("stage") String stage,
+        @org.springframework.data.repository.query.Param("paymentStatus") String paymentStatus,
+        @org.springframework.data.repository.query.Param("paymentMode") String paymentMode,
+        @org.springframework.data.repository.query.Param("query") String query
+    );
 }

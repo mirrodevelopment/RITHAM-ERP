@@ -106,6 +106,7 @@ app:
     upload-dir: ${MIGRATION_UPLOAD_DIR:D:/ritham-erp-uploads/migration}
 
     # Tesseract OCR data path - must contain eng.traineddata (and tam.traineddata for Tamil).
+    
     # Default Windows Tesseract installation path.
     # Set TESSERACT_DATA_PATH env variable if installed elsewhere.
     tesseract-data-path: ${TESSERACT_DATA_PATH:D:/ritham-erp/tessdata}

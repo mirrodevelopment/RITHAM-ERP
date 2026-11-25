@@ -128,10 +128,22 @@ function Write-LogSeparator {
 function New-BackupLock {
     if (Test-Path $CONFIG.LockFile) {
         $lockContent = Get-Content $CONFIG.LockFile -Raw -ErrorAction SilentlyContinue
-        Write-Log "ABORT: Another backup is already running. Lock: $($CONFIG.LockFile)" "ERROR"
-        Write-Log "Lock contents: $lockContent" "WARN"
-        Write-Log "If no backup is running, delete the lock file and retry." "WARN"
-        exit 2
+        $staleLock = $true
+        if ($lockContent -match "PID=(\d+)") {
+            $lockPid = [int]$matches[1]
+            $proc = Get-Process -Id $lockPid -ErrorAction SilentlyContinue
+            if ($proc) {
+                $staleLock = $false
+            }
+        }
+        if (-not $staleLock -and -not $Force) {
+            Write-Log "ABORT: Another backup is already running. Lock: $($CONFIG.LockFile)" "ERROR"
+            Write-Log "Lock contents: $lockContent" "WARN"
+            Write-Log "If no backup is running, delete the lock file or pass -Force to override." "WARN"
+            exit 2
+        }
+        Write-Log "Removing stale or forced lock file ($lockContent)..." "WARN"
+        Remove-Item $CONFIG.LockFile -Force -ErrorAction SilentlyContinue
     }
     "PID=$PID Started=$TIMESTAMP" | Set-Content $CONFIG.LockFile -Encoding UTF8
     Write-Log "Lock acquired."
@@ -367,7 +379,9 @@ function Invoke-ManifestGeneration {
         [string]$DumpPath,
         [string]$GlobalsPath,
         [int]$TocEntries,
-        [double]$DurationSeconds
+        [double]$DurationSeconds,
+        [bool]$IsComplete = $true,
+        [string]$Status = "VERIFIED"
     )
     try {
         Write-Log "Generating complete backup manifest (manifest.json)..."
@@ -392,17 +406,19 @@ function Invoke-ManifestGeneration {
             globalsIncluded = (Test-Path $GlobalsPath)
             tocEntriesCount = $TocEntries
             durationSeconds = $DurationSeconds
-            completeBackup  = $true
-            status          = "VERIFIED"
+            completeBackup  = $IsComplete
+            status          = $Status
             hostName        = $env:COMPUTERNAME
             user            = $env:USERNAME
         }
         $manifestJson = $manifest | ConvertTo-Json -Depth 5
         $manifestPath = Join-Path (Split-Path $DumpPath -Parent) "manifest_$TIMESTAMP.json"
-        $latestManifestPath = Join-Path $CONFIG.BackupRoot "manifest-latest.json"
         $manifestJson | Set-Content -Path $manifestPath -Encoding UTF8
-        $manifestJson | Set-Content -Path $latestManifestPath -Encoding UTF8
-        Write-Log "Manifest created: $(Split-Path $manifestPath -Leaf)" "OK"
+        if ($Status -eq "VERIFIED") {
+            $latestManifestPath = Join-Path $CONFIG.BackupRoot "manifest-latest.json"
+            $manifestJson | Set-Content -Path $latestManifestPath -Encoding UTF8
+        }
+        Write-Log "Manifest created: $(Split-Path $manifestPath -Leaf) ($Status)" "OK"
     } catch {
         Write-Log "Warning: Failed to generate manifest: $_" "WARN"
     }
@@ -469,8 +485,30 @@ function Invoke-RetentionPolicy {
     Invoke-PruneDumps -Directory $DB_DAILY   -Keep $CONFIG.RetainDaily   -Label "Daily"
     Invoke-PruneDumps -Directory $DB_WEEKLY  -Keep $CONFIG.RetainWeekly  -Label "Weekly"
     Invoke-PruneDumps -Directory $DB_MONTHLY -Keep $CONFIG.RetainMonthly -Label "Monthly"
+    Invoke-PruneUploadDirs -Directory $FILE_DAILY -Keep $CONFIG.RetainDaily -Label "Daily files"
 
     Write-Log "Retention policy applied." "OK"
+}
+
+function Invoke-PruneUploadDirs {
+    param([string]$Directory, [int]$Keep, [string]$Label)
+
+    if (-not (Test-Path $Directory)) { return }
+    $dirs = @(Get-ChildItem -Path $Directory -Directory -Filter "migration_*" -ErrorAction SilentlyContinue |
+             Sort-Object LastWriteTime -Descending)
+
+    if ($dirs.Count -le $Keep) {
+        Write-Log "$Label snapshots: $($dirs.Count) / $Keep - no cleanup needed."
+        return
+    }
+
+    $toDelete = $dirs | Select-Object -Skip $Keep
+    foreach ($d in $toDelete) {
+        if ($d.Name -match "^migration_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$") {
+            Write-Log "Removing old $Label snapshot: $($d.Name)"
+            Remove-Item $d.FullName -Recurse -Force
+        }
+    }
 }
 
 function Invoke-PruneDumps {
@@ -490,12 +528,17 @@ function Invoke-PruneDumps {
         if ($f.Name -match "^ritham_erp_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.dump$") {
             Write-Log "Removing old $Label backup: $($f.Name)"
             Remove-Item $f.FullName -Force
-            # Remove matching globals file
+            # Remove matching globals and manifest files
             $ts = $f.Name -replace "^ritham_erp_", "" -replace "\.dump$", ""
             $globalsFile = Join-Path $Directory "ritham_erp_globals_$ts.sql"
             if (Test-Path $globalsFile) {
                 Remove-Item $globalsFile -Force
                 Write-Log "Removed matching globals: ritham_erp_globals_$ts.sql"
+            }
+            $manifestFile = Join-Path $Directory "manifest_$ts.json"
+            if (Test-Path $manifestFile) {
+                Remove-Item $manifestFile -Force
+                Write-Log "Removed matching manifest: manifest_$ts.json"
             }
         } else {
             Write-Log "SKIP: '$($f.Name)' does not match naming pattern - not deleted." "WARN"
@@ -539,11 +582,18 @@ try {
     if (Invoke-BackupVerification) {
         $VERIFY_OK = $true
     } else {
-        Write-Log "Verification failed - status DEGRADED. Previous backups preserved." "ERROR"
+        $duration = [math]::Round(((Get-Date) - $START_TIME).TotalSeconds, 1)
+        Invoke-ManifestGeneration -DumpPath $BACKUP_DUMP -GlobalsPath $GLOBALS_SQL -TocEntries $global:TOC_ENTRIES -DurationSeconds $duration -IsComplete ([bool]$CompleteBackup) -Status "FAILED_VERIFICATION"
+        throw "Backup verification failed (pg_restore --list returned non-zero). Previous verified backups preserved."
     }
 
     Write-Log "--- File Backup ---"
-    $FILE_BACKUP_OK = Invoke-FileBackup
+    if ($CompleteBackup) {
+        $FILE_BACKUP_OK = Invoke-FileBackup
+    } else {
+        Write-Log "File backup skipped (-CompleteBackup:`$false)." "INFO"
+        $FILE_BACKUP_OK = $true
+    }
 
     Write-Log "--- Retention Policy ---"
     Invoke-RetentionPolicy
@@ -551,7 +601,7 @@ try {
     $duration = [math]::Round(((Get-Date) - $START_TIME).TotalSeconds, 1)
 
     # Generate Manifest metadata for complete snapshot
-    Invoke-ManifestGeneration -DumpPath $BACKUP_DUMP -GlobalsPath $GLOBALS_SQL -TocEntries $global:TOC_ENTRIES -DurationSeconds $duration
+    Invoke-ManifestGeneration -DumpPath $BACKUP_DUMP -GlobalsPath $GLOBALS_SQL -TocEntries $global:TOC_ENTRIES -DurationSeconds $duration -IsComplete ([bool]$CompleteBackup) -Status "VERIFIED"
 
     Write-LogSeparator
     Write-Log "BACKUP COMPLETED"

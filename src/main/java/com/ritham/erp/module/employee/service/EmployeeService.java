@@ -58,11 +58,12 @@ public class EmployeeService {
             throw new AppException(ErrorCode.EMPLOYEE_MOBILE_TAKEN);
         }
 
-        Role role = null;
+        Role role;
         if (request.getRoleId() != null) {
-            role = roleRepository.findById(request.getRoleId()).orElse(null);
-        }
-        if (role == null) {
+            role = roleRepository.findById(request.getRoleId())
+                    .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND,
+                            "Role not found with ID: " + request.getRoleId()));
+        } else {
             role = roleRepository.findByName(RoleConstants.PRODUCTION_EMPLOYEE)
                     .or(() -> roleRepository.findByName("PRODUCTION_EMPLOYEE"))
                     .or(() -> roleRepository.findById(3L))

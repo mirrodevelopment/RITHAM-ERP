@@ -30,19 +30,25 @@ import java.util.stream.Collectors;
 public class BackupService {
 
     @Value("${app.backup.root:E:/ERP-Backups}")
-    private String backupRoot;
+    private volatile String backupRoot = "E:/ERP-Backups";
 
     @Value("${app.backup.script-path:d:/ritham-erp/scripts/backup/erp-backup.ps1}")
-    private String backupScriptPath;
+    private String backupScriptPath = "d:/ritham-erp/scripts/backup/erp-backup.ps1";
 
     @Value("${app.backup.restore-script-path:d:/ritham-erp/scripts/backup/erp-restore.ps1}")
-    private String restoreScriptPath;
+    private String restoreScriptPath = "d:/ritham-erp/scripts/backup/erp-restore.ps1";
 
     @Value("${app.backup.pg-bin-dir:C:/Program Files/PostgreSQL/17/bin}")
-    private String pgBinDir;
+    private String pgBinDir = "C:/Program Files/PostgreSQL/17/bin";
 
     @Value("${app.backup.database:ritham_erp}")
-    private String databaseName;
+    private String databaseName = "ritham_erp";
+
+    @Value("${spring.datasource.username:ritham}")
+    private String dbUsername = "ritham";
+
+    @Value("${spring.datasource.password:}")
+    private String dbPassword = "";
 
     private static final String LOCK_FILE_PATH = "C:/Windows/Temp/ritham-erp-backup.lock";
     private static final Pattern LOG_LINE_PATTERN = Pattern.compile("^\\[(.*?)\\]\\s+\\[(.*?)\\]\\s+(.*)$");
@@ -485,28 +491,10 @@ public class BackupService {
      * Inspects a backup archive using pg_restore --list before restoring.
      */
     public InspectBackupResponse inspectBackup(String locationOverride, String category, String fileName, String filePath) {
-        Path targetPath = null;
-        if (filePath != null && !filePath.isBlank()) {
-            targetPath = Paths.get(filePath);
-        } else if (fileName != null && !fileName.isBlank()) {
-            String root = resolveRoot(locationOverride);
-            String cat = (category != null && !category.isBlank()) ? category : "Uploads";
-            Path p1 = Paths.get(root, "Database", cat, fileName);
-            Path p2 = Paths.get(root, "Uploads", fileName);
-            if (Files.exists(p1)) targetPath = p1;
-            else if (Files.exists(p2)) targetPath = p2;
-            else {
-                for (String c : List.of("Daily", "Weekly", "Monthly", "Uploads")) {
-                    Path cand = Paths.get(root, "Database", c, fileName);
-                    if (Files.exists(cand)) { targetPath = cand; break; }
-                }
-            }
-        }
-
+        Path targetPath = resolveAndValidateBackupFile(locationOverride, category, fileName, filePath, true);
         if (targetPath == null || !Files.exists(targetPath)) {
             throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Backup file not found for inspection");
         }
-
         return inspectDumpFile(targetPath);
     }
 
@@ -581,35 +569,13 @@ public class BackupService {
         }
 
         String root = resolveRoot(request.getLocation());
-        Path dumpPath = null;
-        if (request.getFilePath() != null && !request.getFilePath().isBlank()) {
-            dumpPath = Paths.get(request.getFilePath());
-        }
-
-        if (dumpPath == null || !Files.exists(dumpPath)) {
-            String fileName = request.getBackupFileName();
-            if (fileName == null || fileName.isBlank()) {
-                throw new AppException(ErrorCode.VALIDATION_FAILED, "Backup file name is required");
-            }
-            String cat = request.getCategory() != null ? request.getCategory().trim() : "";
-            if (!cat.isBlank()) {
-                Path p = Paths.get(root, "Database", cat, fileName);
-                if (Files.exists(p)) dumpPath = p;
-            }
-            if (dumpPath == null || !Files.exists(dumpPath)) {
-                for (String c : List.of("Daily", "Weekly", "Monthly", "Uploads")) {
-                    Path cand = Paths.get(root, "Database", c, fileName);
-                    if (Files.exists(cand)) {
-                        dumpPath = cand;
-                        break;
-                    }
-                }
-            }
-            if (dumpPath == null || !Files.exists(dumpPath)) {
-                Path pUploads = Paths.get(root, "Uploads", fileName);
-                if (Files.exists(pUploads)) dumpPath = pUploads;
-            }
-        }
+        Path dumpPath = resolveAndValidateBackupFile(
+                request.getLocation(),
+                request.getCategory(),
+                request.getBackupFileName(),
+                request.getFilePath(),
+                false
+        );
 
         if (dumpPath == null || !Files.exists(dumpPath)) {
             throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Target backup dump file not found: " + request.getBackupFileName());
@@ -643,7 +609,9 @@ public class BackupService {
             }
 
             ProcessBuilder pb = new ProcessBuilder(cmd);
-            pb.environment().put("PGPASSWORD", "ritham123");
+            if (dbPassword != null && !dbPassword.isBlank()) {
+                pb.environment().put("PGPASSWORD", dbPassword);
+            }
             pb.environment().put("PAGER", "");
             pb.redirectErrorStream(true);
 
@@ -736,13 +704,15 @@ public class BackupService {
                     psqlPath.toAbsolutePath().toString(),
                     "-h", "localhost",
                     "-p", "5432",
-                    "-U", "ritham",
+                    "-U", (dbUsername != null && !dbUsername.isBlank()) ? dbUsername : "ritham",
                     "-d", targetDb,
                     "--pset=pager=off",
                     "-t",
                     "-c", query
             );
-            pb.environment().put("PGPASSWORD", "ritham123");
+            if (dbPassword != null && !dbPassword.isBlank()) {
+                pb.environment().put("PGPASSWORD", dbPassword);
+            }
             pb.environment().put("PAGER", "");
             pb.redirectErrorStream(true);
             Process p = pb.start();
@@ -909,8 +879,90 @@ public class BackupService {
         if (!List.of("Daily", "Weekly", "Monthly", "Uploads").contains(category)) {
             throw new AppException(ErrorCode.VALIDATION_FAILED, "Invalid backup category: " + category);
         }
-        if (fileName == null || fileName.contains("..") || fileName.contains("/") || fileName.contains("\\") || !fileName.endsWith(".dump")) {
+        validateSafeDumpFileName(fileName);
+    }
+
+    private void validateSafeDumpFileName(String fileName) {
+        if (fileName == null || fileName.isBlank() || fileName.contains("..")
+                || fileName.contains("/") || fileName.contains("\\")
+                || !fileName.toLowerCase(Locale.ROOT).endsWith(".dump")) {
             throw new AppException(ErrorCode.VALIDATION_FAILED, "Invalid file name: " + fileName);
+        }
+    }
+
+    private Path resolveAndValidateBackupFile(
+            String locationOverride,
+            String category,
+            String fileName,
+            String filePath,
+            boolean allowMissingFileName
+    ) {
+        String root = resolveRoot(locationOverride);
+        Path allowedDbDir = Paths.get(root, "Database").toAbsolutePath().normalize();
+        Path allowedUploadsDir = Paths.get(root, "Uploads").toAbsolutePath().normalize();
+
+        if (filePath != null && !filePath.isBlank()) {
+            Path candidate;
+            try {
+                candidate = Paths.get(filePath.trim()).toAbsolutePath().normalize();
+            } catch (InvalidPathException e) {
+                throw new AppException(ErrorCode.VALIDATION_FAILED, "Invalid backup file path");
+            }
+            validateSafeDumpFileName(candidate.getFileName() != null ? candidate.getFileName().toString() : null);
+            boolean insideAllowed = isPathWithin(candidate, allowedDbDir) || isPathWithin(candidate, allowedUploadsDir);
+            if (!insideAllowed) {
+                throw new AppException(ErrorCode.VALIDATION_FAILED, "Backup file path must be inside the configured backup directory");
+            }
+            return candidate;
+        }
+
+        if (fileName == null || fileName.isBlank()) {
+            if (allowMissingFileName) {
+                return null;
+            }
+            throw new AppException(ErrorCode.VALIDATION_FAILED, "Backup file name is required");
+        }
+
+        String cleanName = fileName.trim();
+        validateSafeDumpFileName(cleanName);
+
+        String cat = category != null ? category.trim() : "";
+        if (!cat.isBlank()) {
+            validateCategoryAndFileName(cat, cleanName);
+            Path p1 = allowedDbDir.resolve(cat).resolve(cleanName).normalize();
+            if (Files.exists(p1) && isPathWithin(p1, allowedDbDir)) {
+                return p1;
+            }
+        }
+
+        for (String c : List.of("Daily", "Weekly", "Monthly", "Uploads")) {
+            Path cand = allowedDbDir.resolve(c).resolve(cleanName).normalize();
+            if (Files.exists(cand) && isPathWithin(cand, allowedDbDir)) {
+                return cand;
+            }
+        }
+
+        Path pUploads = allowedUploadsDir.resolve(cleanName).normalize();
+        if (Files.exists(pUploads) && isPathWithin(pUploads, allowedUploadsDir)) {
+            return pUploads;
+        }
+
+        return null;
+    }
+
+    private boolean isPathWithin(Path candidate, Path allowedRoot) {
+        try {
+            Path normalizedCandidate = candidate.toAbsolutePath().normalize();
+            Path normalizedRoot = allowedRoot.toAbsolutePath().normalize();
+            if (!normalizedCandidate.startsWith(normalizedRoot)) {
+                return false;
+            }
+            if (Files.exists(normalizedCandidate) && Files.exists(normalizedRoot)) {
+                return normalizedCandidate.toRealPath().startsWith(normalizedRoot.toRealPath());
+            }
+            return true;
+        } catch (IOException e) {
+            return false;
         }
     }
 
@@ -930,27 +982,32 @@ public class BackupService {
         try {
             ProcessBuilder pb = new ProcessBuilder(
                     "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-                    "Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID, VolumeName, DriveType, FileSystem | ConvertTo-Csv -NoTypeInformation"
+                    "Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID, VolumeName, DriveType, FileSystem | ConvertTo-Json -Compress"
             );
             Process p = pb.start();
+            String jsonOutput;
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
-                reader.readLine(); // skip CSV header
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.isBlank()) continue;
-                    String[] parts = line.replace("\"", "").split(",");
-                    if (parts.length >= 4) {
-                        String devId = parts[0].trim().toUpperCase();
-                        Map<String, String> d = new HashMap<>();
-                        d.put("DeviceID", devId);
-                        d.put("VolumeName", parts[1].trim());
-                        d.put("DriveType", parts[2].trim());
-                        d.put("FileSystem", parts[3].trim());
-                        map.put(devId, d);
-                    }
-                }
+                jsonOutput = reader.lines().collect(Collectors.joining("\n")).trim();
             }
             p.waitFor();
+            if (!jsonOutput.isEmpty()) {
+                tools.jackson.databind.ObjectMapper mapper = new tools.jackson.databind.ObjectMapper();
+                Object parsed = mapper.readValue(jsonOutput, Object.class);
+                List<?> items = parsed instanceof List<?> list ? list : List.of(parsed);
+                for (Object item : items) {
+                    if (!(item instanceof Map<?, ?> node)) continue;
+                    Object rawDevId = node.get("DeviceID");
+                    if (rawDevId == null) continue;
+                    String devId = rawDevId.toString().trim().toUpperCase(Locale.ROOT);
+                    if (devId.isEmpty()) continue;
+                    Map<String, String> d = new HashMap<>();
+                    d.put("DeviceID", devId);
+                    d.put("VolumeName", node.get("VolumeName") != null ? node.get("VolumeName").toString().trim() : "");
+                    d.put("DriveType", node.get("DriveType") != null ? node.get("DriveType").toString().trim() : "");
+                    d.put("FileSystem", node.get("FileSystem") != null ? node.get("FileSystem").toString().trim() : "");
+                    map.put(devId, d);
+                }
+            }
         } catch (Exception e) {
             log.warn("Failed to query Win32_LogicalDisk via PowerShell: {}", e.getMessage());
         }
@@ -959,21 +1016,24 @@ public class BackupService {
 
     private void updateScriptDefaultPath(String newPath) {
         try {
-            Path script = Paths.get(backupScriptPath);
-            if (Files.exists(script)) {
-                String content = Files.readString(script, StandardCharsets.UTF_8);
-                String escaped = newPath.replace("\\", "\\\\");
-                content = content.replaceAll("BackupRoot\\s*=\\s*\".*?\"", "BackupRoot        = \"" + escaped + "\"");
-                Files.writeString(script, content, StandardCharsets.UTF_8);
-                log.info("Persisted BackupRoot to erp-backup.ps1: {}", newPath);
+            String escaped = Matcher.quoteReplacement(newPath.replace("\\", "\\\\"));
+            if (backupScriptPath != null && !backupScriptPath.isBlank()) {
+                Path script = Paths.get(backupScriptPath);
+                if (Files.exists(script)) {
+                    String content = Files.readString(script, StandardCharsets.UTF_8);
+                    content = content.replaceAll("BackupRoot\\s*=\\s*\".*?\"", "BackupRoot        = \"" + escaped + "\"");
+                    Files.writeString(script, content, StandardCharsets.UTF_8);
+                    log.info("Persisted BackupRoot to erp-backup.ps1: {}", newPath);
+                }
             }
-            Path restoreScript = Paths.get("d:/ritham-erp/scripts/backup/erp-restore.ps1");
-            if (Files.exists(restoreScript)) {
-                String content = Files.readString(restoreScript, StandardCharsets.UTF_8);
-                String escaped = newPath.replace("\\", "\\\\");
-                content = content.replaceAll("\\$BACKUP_ROOT\\s*=\\s*\".*?\"", "\\$BACKUP_ROOT   = \"" + escaped + "\"");
-                Files.writeString(restoreScript, content, StandardCharsets.UTF_8);
-                log.info("Persisted BACKUP_ROOT to erp-restore.ps1: {}", newPath);
+            if (restoreScriptPath != null && !restoreScriptPath.isBlank()) {
+                Path restoreScript = Paths.get(restoreScriptPath);
+                if (Files.exists(restoreScript)) {
+                    String content = Files.readString(restoreScript, StandardCharsets.UTF_8);
+                    content = content.replaceAll("\\$BACKUP_ROOT\\s*=\\s*\".*?\"", "\\$BACKUP_ROOT   = \"" + escaped + "\"");
+                    Files.writeString(restoreScript, content, StandardCharsets.UTF_8);
+                    log.info("Persisted BACKUP_ROOT to erp-restore.ps1: {}", newPath);
+                }
             }
         } catch (Exception e) {
             log.warn("Failed to persist default backup root in scripts: {}", e.getMessage());

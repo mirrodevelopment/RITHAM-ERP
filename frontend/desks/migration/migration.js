@@ -97,8 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── DOM Element Cache ─────────────────────────────────────────────────────
   // Header / KPIs
-  const refreshMigrationBtn  = document.getElementById('refreshMigrationBtn');
-  const btnHeaderUpload      = document.getElementById('btnHeaderUpload');
+  const refreshMigrationBtn     = document.getElementById('refreshMigrationBtn');
+  const openCreateBatchModalBtn = document.getElementById('openCreateBatchModalBtn');
   const kpiTotalDocs         = document.getElementById('kpiTotalDocs');
   const kpiBatchesCount      = document.getElementById('kpiBatchesCount');
   const kpiOcrCompleted      = document.getElementById('kpiOcrCompleted');
@@ -697,9 +697,23 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    if (btnHeaderUpload) {
-      btnHeaderUpload.addEventListener('click', () => {
-        fileInput.click();
+    if (openCreateBatchModalBtn) {
+      openCreateBatchModalBtn.addEventListener('click', async () => {
+        const desc = window.prompt('Enter description for new migration batch:', 'Order Slips Archive');
+        if (desc === null) return;
+        try {
+          const payload = { description: (desc || '').trim() || 'Order Slips Archive' };
+          if (branches && branches.length > 0) {
+            payload.branchId = branches[0].id;
+          }
+          const createRes = await Api.post(API.MIGRATION_BATCHES, payload);
+          const newBatch = createRes.data || createRes;
+          await loadBatches(newBatch.id);
+          await loadOverallStatistics();
+          Toast.success(`Created batch ${newBatch.batchCode || ''}`.trim());
+        } catch (err) {
+          Toast.error(err?.message || 'Failed to create migration batch');
+        }
       });
     }
 
@@ -2008,10 +2022,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      let url = API.MIGRATION_DOCUMENT_SOURCE_FILE(docId);
-      if (token) {
-        url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
-      }
+      const url = API.MIGRATION_DOCUMENT_SOURCE_FILE(docId);
 
       const res = await fetch(url, { headers });
       if (!res.ok) {
@@ -2031,11 +2042,8 @@ document.addEventListener('DOMContentLoaded', () => {
         a.remove();
       }
     } catch (err) {
-      console.warn('Blob fetch failed, falling back to direct navigation:', err);
-      const token = Storage.getToken();
-      let url = API.MIGRATION_DOCUMENT_SOURCE_FILE(docId);
-      if (token) url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
-      window.open(url, '_blank');
+      console.error('Failed to open source PDF:', err);
+      Toast.error(err?.message || 'Could not open original PDF');
     }
   }
 
@@ -2568,7 +2576,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function handleImportSingleDoc(docId, btnElement) {
-    const doc = currentDocuments.find(d => d.id === docId);
+    const doc = currentDocuments.find(d => String(d.id) === String(docId));
     if (doc) {
       const summary = getDocExtractedSummary(doc);
       const comp = computeDocFieldCompletion(doc, summary);
@@ -3833,17 +3841,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTransform();
   }
 
-  document.getElementById('zoomInBtn')?.addEventListener('click', () => adjustZoom(0.2));
-  document.getElementById('zoomOutBtn')?.addEventListener('click', () => adjustZoom(-0.2));
   document.getElementById('rotateLeftBtn')?.addEventListener('click', () => rotateImage(-90));
   document.getElementById('rotateRightBtn')?.addEventListener('click', () => rotateImage(90));
-  document.getElementById('resetZoomBtn')?.addEventListener('click', () => resetZoom());
-  document.getElementById('toggleRawOcrBtn')?.addEventListener('click', () => {
-    const box = document.getElementById('reviewRawOcrBox');
-    if (box) {
-      box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
-    }
-  });
 
   async function handleRescanDocument() {
     if (!currentDocInReview || !currentDocInReview.id) return;

@@ -149,13 +149,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (modalNotes) modalNotes.value = (notes && !notes.includes('Order #') && !notes.includes('Auto-synced')) ? notes : '';
     updateModalGarmentPanels();
 
+    const normalized = Utils.normalizeMeasurementMap(garmentType, measurements);
     const selector = garmentType === 'BLOUSE'
       ? '#modalBlousePanel input[data-garment="blouse"]'
       : '#modalChudiPanel input[data-garment="chudi"]';
 
     document.querySelectorAll(selector).forEach(input => {
       const key = input.getAttribute('data-key');
-      input.value = measurements[key] || '';
+      input.value = normalized[key] || '';
     });
   }
 
@@ -315,7 +316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div style="grid-column:1/-1;padding:48px;text-align:center;color:var(--text-muted);background:var(--bg-surface-1);border-radius:12px;border:1px solid var(--border-default);">
           <div style="font-size:28px;margin-bottom:8px;">📐</div>
           <div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">No measurement records found</div>
-          <div style="font-size:12px;">${query ? `No customer match for "${query}"` : 'Record customer measurements using the button above.'}</div>
+          <div style="font-size:12px;">${query ? `No customer match for "${Utils.escapeHtml(query)}"` : 'Record customer measurements using the button above.'}</div>
         </div>
       `;
       return;
@@ -323,9 +324,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     gridEl.innerHTML = filtered.map(r => {
       const isBlouse = r.garmentType === 'BLOUSE';
-      const badgeCls = isBlouse ? 'msr-badge-blouse' : 'msr-badge-chudi';
+      const badgeCls = isBlouse ? 'tag-blouse' : 'tag-chudi';
       const badgeTxt = isBlouse ? '👗 Blouse (19 Specs)' : '👘 Chudi (18 Specs)';
-      const measurements = r.measurements || {};
+      const measurements = Utils.normalizeMeasurementMap(r.garmentType, r.measurements || {});
       const entries = Object.entries(measurements);
       
       const cleanNote = (r.notes && !r.notes.includes('Order #') && !r.notes.includes('Auto-synced')) ? r.notes : null;
@@ -334,8 +335,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="msr-specs-grid">
           ${entries.slice(0, 12).map(([k, v]) => `
             <div class="msr-spec-cell">
-              <span class="msr-spec-k">${k}</span>
-              <span class="msr-spec-v" title="${v}">${v}</span>
+              <span class="msr-spec-k">${Utils.escapeHtml(k)}</span>
+              <span class="msr-spec-v" title="${Utils.escapeHtml(v)}">${Utils.escapeHtml(v)}</span>
             </div>
           `).join('')}
           ${entries.length > 12 ? `
@@ -350,14 +351,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="msr-card">
           <div class="msr-card-head">
             <div>
-              <div class="msr-card-customer" style="font-size:15px;font-weight:700;color:var(--text-primary);">${r.customerName || 'Customer'}</div>
+              <div class="msr-card-customer" style="font-size:15px;font-weight:700;color:var(--text-primary);">${Utils.escapeHtml(r.customerName || 'Customer')}</div>
               <div class="msr-card-meta" style="margin-top:4px;">
-                <span style="font-family:monospace;font-weight:600;color:#818CF8;">📱 ${r.customerMobile}</span>
-                ${cleanNote ? `<span>•</span><span style="font-size:11px;color:var(--text-muted);">${cleanNote}</span>` : ''}
+                <span style="font-family:monospace;font-weight:600;color:#818CF8;">📱 ${Utils.escapeHtml(r.customerMobile)}</span>
+                ${cleanNote ? `<span>•</span><span style="font-size:11px;color:var(--text-muted);">${Utils.escapeHtml(cleanNote)}</span>` : ''}
               </div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-              <span class="msr-badge ${badgeCls}">${badgeTxt}</span>
+              <span class="garment-tag ${badgeCls}">${badgeTxt}</span>
             </div>
           </div>
 
@@ -390,9 +391,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!record) return;
 
     const isBlouse = record.garmentType === 'BLOUSE';
-    const badgeCls = isBlouse ? 'msr-badge-blouse' : 'msr-badge-chudi';
+    const badgeCls = isBlouse ? 'tag-blouse' : 'tag-chudi';
     const badgeTxt = isBlouse ? '👗 Blouse Tailoring Specification' : '👘 Chudi Tailoring Specification';
-    const entries  = Object.entries(record.measurements || {});
+    const entries  = Object.entries(Utils.normalizeMeasurementMap(record.garmentType, record.measurements || {}));
     const cleanNote = (record.notes && !record.notes.includes('Order #') && !record.notes.includes('Auto-synced')) ? record.notes : null;
 
     document.getElementById('sheetModalTitle').textContent = `${record.customerName} — Specification Profile`;
@@ -405,10 +406,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div>
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Customer Profile</div>
             <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-top:2px;">
-              ${record.customerName} 
-              <span style="font-size:13px;color:#818CF8;font-family:monospace;margin-left:8px;">(📱 ${record.customerMobile})</span>
+              ${Utils.escapeHtml(record.customerName)} 
+              <span style="font-size:13px;color:#818CF8;font-family:monospace;margin-left:8px;">(📱 ${Utils.escapeHtml(record.customerMobile)})</span>
             </div>
-            ${cleanNote ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">📝 ${cleanNote}</div>` : ''}
+            ${cleanNote ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">📝 ${Utils.escapeHtml(cleanNote)}</div>` : ''}
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span class="msr-badge ${badgeCls}" style="font-size:12px;padding:6px 12px;">${badgeTxt}</span>
@@ -496,9 +497,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       Toast.warning('No measurement records available to export');
       return;
     }
+    const q = (searchInput?.value || '').trim().toLowerCase();
     const filteredRecords = allRecords.filter(r => {
-      if (currentFilter === 'ALL') return true;
-      return (r.garmentType || '').toUpperCase() === currentFilter;
+      if (currentFilter !== 'ALL' && (r.garmentType || '').toUpperCase() !== currentFilter) return false;
+      if (!q) return true;
+      return (r.customerName || '').toLowerCase().includes(q)
+        || (r.customerMobile || '').toLowerCase().includes(q)
+        || (r.notes || '').toLowerCase().includes(q);
     });
     if (filteredRecords.length === 0) {
       Toast.warning('No records match current filter to export');
@@ -506,7 +511,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const data = filteredRecords.map((r, index) => {
-      const msrList = Object.entries(r.measurements || {})
+      const normalized = Utils.normalizeMeasurementMap(r.garmentType, r.measurements || {});
+      const msrList = Object.entries(normalized)
         .map(([k, v]) => `${k}: ${v}`)
         .join(', ');
       return {

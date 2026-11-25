@@ -136,6 +136,7 @@ class OrderPaymentServiceTest {
 
     @Test
     void testUpdateStatus_recordsFinalPaymentInLedger() {
+        testOrder.setStatus(OrderService.STATUS_READY_TO_DELIVERY);
         when(orderRepository.findById(101L)).thenReturn(Optional.of(testOrder));
         when(customerRepository.findByCustomerMobile("9876543210")).thenReturn(Optional.of(testCustomer));
         when(orderRepository.save(any(CustomerOrder.class))).thenReturn(testOrder);

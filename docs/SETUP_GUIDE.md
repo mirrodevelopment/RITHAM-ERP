@@ -5,8 +5,8 @@
 Simply double-click **`start.bat`** in the project root directory!
 
 `start.bat` will automatically:
-1. Open the frontend UI in your default web browser (`frontend/index.html`).
-2. Boot the Spring Boot backend server (`.\mvnw.cmd spring-boot:run`).
+1. Boot the Spring Boot backend server (`.\mvnw.cmd spring-boot:run`) on `http://localhost:8080`.
+2. Poll `http://localhost:8080/actuator/health` and automatically open `http://localhost:8080/desks/login/login.html` in your default web browser.
 
 ---
 
@@ -19,7 +19,7 @@ cd d:\ritham-erp
 ```
 
 ### Step 2: Open Frontend in Web Browser
-Open [file:///d:/ritham-erp/frontend/index.html](file:///d:/ritham-erp/frontend/index.html) in Chrome, Edge, or Firefox.
+Open **`http://localhost:8080/desks/login/login.html`** in Chrome, Edge, or Firefox (served directly by Spring Boot static resources; avoid `file:///` URLs).
 
 ---
 
@@ -27,7 +27,7 @@ Open [file:///d:/ritham-erp/frontend/index.html](file:///d:/ritham-erp/frontend/
 
 | Account | Username | Password | Access Level |
 |---------|----------|----------|--------------|
-| **System Administrator** | `admin` | `Admin@123` | Full Enterprise Access |
+| **System Administrator** | `admin` | `Admin@123` | Full Enterprise Access (Global) |
 
 ---
 
