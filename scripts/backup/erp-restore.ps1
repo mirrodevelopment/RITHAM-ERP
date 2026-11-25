@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # Ritham ERP - Database Restore Script
 # ==============================================================================
 # Purpose : Restores a database backup, either to a TEST database (safe)
@@ -19,10 +19,11 @@ param(
     [switch]$Force
 )
 
-$PG_BIN        = "C:\Program Files\PostgreSQL\17\bin"
+$PG_BIN        = if ($env:ERP_PG_BIN_DIR -and $env:ERP_PG_BIN_DIR.Trim() -ne "") { $env:ERP_PG_BIN_DIR.Trim() } else { "C:\Program Files\PostgreSQL\17\bin" }
 $PG_RESTORE    = Join-Path $PG_BIN "pg_restore.exe"
 $PSQL          = Join-Path $PG_BIN "psql.exe"
-$BACKUP_ROOT   = "E:\ERP-Backups"
+$BACKUP_ROOT   = "C:\Users\admin\AppData\Local\Temp\junit-16657834417242112433\ScheduledSelectedFolder"
+$APP_UPLOAD_DIR= if ($env:ERP_UPLOAD_DIR -and $env:ERP_UPLOAD_DIR.Trim() -ne "") { $env:ERP_UPLOAD_DIR.Trim() } else { "D:\ritham-erp-uploads\migration" }
 
 if ($TargetLocation -and $TargetLocation.Trim() -ne "") {
     $BACKUP_ROOT = $TargetLocation.Trim()
@@ -33,11 +34,12 @@ $DB_DAILY      = Join-Path $BACKUP_ROOT "Database\Daily"
 $DB_WEEKLY     = Join-Path $BACKUP_ROOT "Database\Weekly"
 $DB_MONTHLY    = Join-Path $BACKUP_ROOT "Database\Monthly"
 $DB_UPLOADS    = Join-Path $BACKUP_ROOT "Database\Uploads"
+$FILES_DAILY   = Join-Path $BACKUP_ROOT "Files\Daily"
 
 $DB_HOST       = "localhost"
 $DB_PORT       = "5432"
-$DB_USER       = "ritham"
-$PROD_DB       = "ritham_erp"
+$DB_USER       = if ($env:ERP_DB_USER -and $env:ERP_DB_USER.Trim() -ne "") { $env:ERP_DB_USER.Trim() } else { "ritham" }
+$PROD_DB       = if ($env:ERP_DB_NAME -and $env:ERP_DB_NAME.Trim() -ne "") { $env:ERP_DB_NAME.Trim() } else { "ritham_erp" }
 $TEST_DB       = "ritham_erp_restore_test"
 
 $env:PGPASSFILE = "$env:APPDATA\postgresql\pgpass.conf"
@@ -156,20 +158,28 @@ Write-Host "  Backup file is valid. TOC entries: $tocCount" -ForegroundColor Gre
 # --- Create / recreate target database ---
 Write-Title "Preparing Target Database: $TARGET_DB"
 
-if ($IS_PRODUCTION) {
-    if (-not $NonInteractive) {
-        Confirm-UserAction "FINAL WARNING: This will DROP and recreate '$PROD_DB'. All current data will be LOST. Type YES:"
+if ($IS_PRODUCTION -and -not $NonInteractive) {
+    Confirm-UserAction "FINAL WARNING: This will DROP and recreate '$PROD_DB'. All current data will be LOST. Type YES:"
+}
+
+Write-Host "  Terminating active connections and dropping '$TARGET_DB'..."
+& $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS $TARGET_DB WITH (FORCE);" 2>&1 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  DROP WITH (FORCE) did not complete cleanly (code $LASTEXITCODE); retrying via pg_terminate_backend..." -ForegroundColor Yellow
+    & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$TARGET_DB' AND pid <> pg_backend_pid();" 2>&1 | Out-Null
+    Start-Sleep -Milliseconds 300
+    & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS $TARGET_DB;" 2>&1 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  FAIL: Could not drop database '$TARGET_DB' (exit code $LASTEXITCODE). Close external DB tools connected to '$TARGET_DB' and retry." -ForegroundColor Red
+        exit 1
     }
-    Write-Host "  Dropping and recreating '$PROD_DB'..."
-    & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$PROD_DB' AND pid <> pg_backend_pid();" | Out-Null
-    & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -c "DROP DATABASE IF EXISTS $PROD_DB;" | Out-Null
-    & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -c "CREATE DATABASE $PROD_DB OWNER $DB_USER ENCODING 'UTF8';" | Out-Null
-} else {
-    Write-Host "  Dropping existing test database '$TEST_DB' if it exists..."
-    & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$TEST_DB' AND pid <> pg_backend_pid();" | Out-Null
-    & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -c "DROP DATABASE IF EXISTS $TEST_DB;" | Out-Null
-    & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -c "CREATE DATABASE $TEST_DB OWNER $DB_USER ENCODING 'UTF8';" | Out-Null
-    Write-Host "  Test database '$TEST_DB' created." -ForegroundColor Green
+}
+
+Write-Host "  Creating fresh '$TARGET_DB'..."
+& $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres --pset=pager=off -v ON_ERROR_STOP=1 -c "CREATE DATABASE $TARGET_DB OWNER $DB_USER ENCODING 'UTF8';" 2>&1 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  FAIL: Could not create database '$TARGET_DB' (exit code $LASTEXITCODE). Ensure role '$DB_USER' has CREATEDB privilege." -ForegroundColor Red
+    exit 1
 }
 
 # --- Restore ---
@@ -186,26 +196,34 @@ $restoreArgs = @(
     "--verbose",
     $BACKUP_FILE
 )
-& $PG_RESTORE @restoreArgs 2>&1 | Where-Object { $_ -match "^(processing|restoring|creating|setting)" } | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+$restoreAllLines = & $PG_RESTORE @restoreArgs 2>&1
+$restoreExitCode = $LASTEXITCODE
+$restoreAllLines | Where-Object { $_ -match "^(processing|restoring|creating|setting|error|ERROR)" } | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
 
-if ($LASTEXITCODE -gt 1) {
-    # Exit code 1 means warnings (acceptable), >1 means errors
-    Write-Host "  pg_restore completed with errors (code $LASTEXITCODE). Check output above." -ForegroundColor Red
-    exit $LASTEXITCODE
-} else {
-    Write-Host "  Restore completed successfully." -ForegroundColor Green
+if ($restoreExitCode -gt 1) {
+    Write-Host "  pg_restore failed with critical errors (code $restoreExitCode)." -ForegroundColor Red
+    exit $restoreExitCode
 }
 
 # --- Verification ---
 Write-Title "Post-Restore Verification"
-Write-Host "  Checking table counts..." -ForegroundColor Gray
+Write-Host "  Checking restored tables..." -ForegroundColor Gray
 
 $env:PAGER = ""
 $tableQuery = "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
-$tableOutput = & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d $TARGET_DB --pset=pager=off -c $tableQuery 2>&1
-Write-Host ($tableOutput -join "`n") -ForegroundColor Gray
+$tableOutput = & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d $TARGET_DB --pset=pager=off -t -A -c $tableQuery 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  FAIL: Unable to inspect restored tables in '$TARGET_DB'." -ForegroundColor Red
+    exit 1
+}
+$restoredTableNames = @($tableOutput | ForEach-Object { "$_".Trim() } | Where-Object { $_ -ne "" })
+if ($restoredTableNames.Count -eq 0 -or -not ($restoredTableNames -contains "customer_orders")) {
+    Write-Host "  FAIL: Expected ERP schema tables (customer_orders) are missing after restore (pg_restore exit=$restoreExitCode)." -ForegroundColor Red
+    exit 1
+}
+Write-Host ($restoredTableNames -join ", ") -ForegroundColor Gray
 
-$countQuery = "SELECT 'customers' AS tbl, COUNT(*) FROM customers UNION ALL SELECT 'customer_orders', COUNT(*) FROM customer_orders UNION ALL SELECT 'employees', COUNT(*) FROM employees UNION ALL SELECT 'production_stages', COUNT(*) FROM production_stages;"
+$countQuery = "SELECT 'branches' AS tbl, COUNT(*) FROM branches UNION ALL SELECT 'customers', COUNT(*) FROM customers UNION ALL SELECT 'customer_measurements', COUNT(*) FROM customer_measurements UNION ALL SELECT 'customer_orders', COUNT(*) FROM customer_orders UNION ALL SELECT 'order_payments', COUNT(*) FROM order_payments UNION ALL SELECT 'employees', COUNT(*) FROM employees UNION ALL SELECT 'production_stages', COUNT(*) FROM production_stages;"
 Write-Host ""
 Write-Host "  Key table row counts:" -ForegroundColor Cyan
 & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d $TARGET_DB --pset=pager=off -c $countQuery
@@ -214,6 +232,26 @@ Write-Host "  Key table row counts:" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Sequences:" -ForegroundColor Cyan
 & $PSQL -h $DB_HOST -p $DB_PORT -U $DB_USER -d $TARGET_DB --pset=pager=off -c "SELECT sequencename, last_value FROM pg_sequences WHERE schemaname = 'public' ORDER BY sequencename;"
+
+# Restore uploaded migration files in PRODUCTION mode when available
+if ($IS_PRODUCTION -and (Test-Path $FILES_DAILY) -and $APP_UPLOAD_DIR) {
+    $latestFileSnap = Get-ChildItem -Path $FILES_DAILY -Directory -Filter "migration_*" -ErrorAction SilentlyContinue |
+                      Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($latestFileSnap) {
+        Write-Host ""
+        Write-Host "  Restoring application upload files from $($latestFileSnap.Name) -> $APP_UPLOAD_DIR..." -ForegroundColor Cyan
+        if (-not (Test-Path $APP_UPLOAD_DIR)) {
+            New-Item -ItemType Directory -Path $APP_UPLOAD_DIR -Force | Out-Null
+        }
+        robocopy "$($latestFileSnap.FullName)" "$APP_UPLOAD_DIR" /E /NP /NDL /NJH /R:2 /W:2 | Out-Null
+        if ($LASTEXITCODE -lt 8) {
+            $restoredFiles = @(Get-ChildItem -Path $APP_UPLOAD_DIR -Recurse -File -ErrorAction SilentlyContinue).Count
+            Write-Host "  RESTORED_FILES_COUNT=$restoredFiles" -ForegroundColor Green
+        } else {
+            Write-Host "  Warning: Upload files robocopy reported exit code $LASTEXITCODE." -ForegroundColor Yellow
+        }
+    }
+}
 
 if (-not $IS_PRODUCTION) {
     Write-Title "Test Restore Complete"
@@ -225,7 +263,8 @@ if (-not $IS_PRODUCTION) {
 } else {
     Write-Title "Production Restore Complete"
     Write-Host "  '$PROD_DB' has been restored." -ForegroundColor Green
-    Write-Host "  You may now start the Spring Boot application via start.bat" -ForegroundColor Green
+    Write-Host "  You may now start or refresh the Spring Boot application." -ForegroundColor Green
 }
 
 Write-Host ""
+exit 0

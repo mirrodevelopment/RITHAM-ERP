@@ -17,6 +17,7 @@ spring:
       idle-timeout: 300000
       connection-timeout: 20000
       max-lifetime: 1200000
+      allow-pool-suspension: true
 
   # ── JPA / Hibernate ─────────────────────────────────────────────────────────
   jpa:
@@ -51,8 +52,8 @@ spring:
   # ── Multipart file uploads ───────────────────────────────────────────────────
   servlet:
     multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
+      max-file-size: 500MB
+      max-request-size: 500MB
 
 # ── Server ────────────────────────────────────────────────────────────────────
 server:
@@ -116,3 +117,13 @@ app:
 
     # Confidence threshold (0.0 - 1.0) below which a field is flagged for human review.
     ocr-confidence-threshold: 0.85
+
+  # Daily Automatic Backup & Device Reconnect Watcher (defaults to 7:00 PM)
+  backup:
+    schedule:
+      enabled: ${BACKUP_SCHEDULE_ENABLED:true}
+      hour: ${BACKUP_SCHEDULE_HOUR:19}
+      minute: ${BACKUP_SCHEDULE_MINUTE:0}
+      backup-on-device-connect: ${BACKUP_ON_DEVICE_CONNECT:true}
+      poll-ms: ${BACKUP_SCHEDULE_POLL_MS:15000}
+      initial-delay-ms: ${BACKUP_SCHEDULE_INITIAL_DELAY_MS:15000}

@@ -123,7 +123,9 @@ const API = {
   // Backup Management (System Administrator)
   BACKUP_STATUS:              `${API_BASE_URL}/admin/backup/status`,
   BACKUP_LOCATIONS:           `${API_BASE_URL}/admin/backup/locations`,
+  BACKUP_DIRECTORIES:         `${API_BASE_URL}/admin/backup/directories`,
   BACKUP_SET_LOCATION:        `${API_BASE_URL}/admin/backup/location`,
+  BACKUP_SCHEDULE:            `${API_BASE_URL}/admin/backup/schedule`,
   BACKUP_FILES:               `${API_BASE_URL}/admin/backup/files`,
   BACKUP_LOGS:                `${API_BASE_URL}/admin/backup/logs`,
   BACKUP_RUN:                 `${API_BASE_URL}/admin/backup/run`,

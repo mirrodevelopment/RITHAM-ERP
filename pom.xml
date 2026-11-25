@@ -25,6 +25,7 @@
     <properties>
         <java.version>17</java.version>
         <maven.compiler.release>17</maven.compiler.release>
+        <erp.build.dir>target</erp.build.dir>
 
         <jjwt.version>0.12.6</jjwt.version>
         <lombok.version>1.18.42</lombok.version>
@@ -163,6 +164,7 @@
 
     <!-- Build Configuration -->
     <build>
+        <directory>${project.basedir}/${erp.build.dir}</directory>
 
         <!-- Resource Configuration -->
         <resources>

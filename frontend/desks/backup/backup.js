@@ -18,12 +18,16 @@ document.addEventListener('DOMContentLoaded', () => {
   Sidebar.init({ activePage: 'backup' });
 
   // ── State ─────────────────────────────────────────────────────────────────
+  const ACTIVE_LOCATION_STORAGE_KEY = 'ritham_backup_active_location';
+  let allRepositoryFiles = [];
   let backupFiles = [];
   let availableLocations = [];
-  let activeLocation = ''; // Active viewing location path, e.g. "E:\ERP-Backups"
+  let activeLocation = localStorage.getItem(ACTIVE_LOCATION_STORAGE_KEY) || '';
   let activeCategory = 'All';
   let searchQuery = '';
   let statusData = null;
+  let browserCurrentPath = '';
+  let browserParentPath = null;
 
   // ── DOM Elements ──────────────────────────────────────────────────────────
   const refreshBackupBtn          = document.getElementById('refreshBackupBtn');
@@ -53,11 +57,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const postgresStatusVal         = document.getElementById('postgresStatusVal');
   const postgresSubtext           = document.getElementById('postgresSubtext');
   const pgDot                     = document.getElementById('pgDot');
+  const dbEngineFormatText        = document.getElementById('dbEngineFormatText');
+  const scheduleHeadlineVal       = document.getElementById('scheduleHeadlineVal');
   const nextScheduledRunVal       = document.getElementById('nextScheduledRunVal');
   const retentionStatsBadge       = document.getElementById('retentionStatsBadge');
+  const autoBackupEnabledToggle   = document.getElementById('autoBackupEnabledToggle');
+  const scheduleTimeInput         = document.getElementById('scheduleTimeInput');
+  const backupOnConnectToggle     = document.getElementById('backupOnConnectToggle');
+  const saveScheduleBtn           = document.getElementById('saveScheduleBtn');
+  const scheduleTargetFolderLabel = document.getElementById('scheduleTargetFolderLabel');
+  const deviceWatcherBadge        = document.getElementById('deviceWatcherBadge');
 
   // Diagnostics elements
   const diagDriveDot              = document.getElementById('diagDriveDot');
+  const diagDriveLabel            = document.getElementById('diagDriveLabel');
   const diagDriveBadge            = document.getElementById('diagDriveBadge');
   const diagSpaceDot              = document.getElementById('diagSpaceDot');
   const diagSpaceBadge            = document.getElementById('diagSpaceBadge');
@@ -85,12 +98,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const uploadFileSection            = document.getElementById('uploadFileSection');
   const repoBackupSelect             = document.getElementById('repoBackupSelect');
   const repoFileLocationLabel        = document.getElementById('repoFileLocationLabel');
+  const uploadDestPathDisplay        = document.getElementById('uploadDestPathDisplay');
+  const uploadChangeFolderBtn        = document.getElementById('uploadChangeFolderBtn');
   const externalDumpFileInput        = document.getElementById('externalDumpFileInput');
   const dumpDropzone                 = document.getElementById('dumpDropzone');
   const uploadProgressBox            = document.getElementById('uploadProgressBox');
   const uploadFileNameLabel          = document.getElementById('uploadFileNameLabel');
   const uploadPercentLabel           = document.getElementById('uploadPercentLabel');
   const uploadProgressBar            = document.getElementById('uploadProgressBar');
+  const uploadStepGuideBanner        = document.getElementById('uploadStepGuideBanner');
+  const uploadQuickSwitchProdBtn     = document.getElementById('uploadQuickSwitchProdBtn');
+  const importModalSubtitle          = document.getElementById('importModalSubtitle');
   const archiveInspectionCard        = document.getElementById('archiveInspectionCard');
   const inspectCardFileName          = document.getElementById('inspectCardFileName');
   const inspectCardMeta              = document.getElementById('inspectCardMeta');
@@ -108,8 +126,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const restoreConsoleBox            = document.getElementById('restoreConsoleBox');
   const restoreAuditCountsPanel      = document.getElementById('restoreAuditCountsPanel');
   const auditStatsGrid               = document.getElementById('auditStatsGrid');
+  const restorePostActionBanner      = document.getElementById('restorePostActionBanner');
   const executeRestoreBtn            = document.getElementById('executeRestoreBtn');
   const executeRestoreBtnText        = document.getElementById('executeRestoreBtnText');
+  const restoreLoadingOverlay        = document.getElementById('restoreLoadingOverlay');
+  const restoreLoadingTitle          = document.getElementById('restoreLoadingTitle');
+  const restoreLoadingSubtitle       = document.getElementById('restoreLoadingSubtitle');
+  const restoreLoadingFileLabel      = document.getElementById('restoreLoadingFileLabel');
+  const restoreSuccessPopupModal     = document.getElementById('restoreSuccessPopupModal');
+  const restorePopupHeadline         = document.getElementById('restorePopupHeadline');
+  const restorePopupMessage          = document.getElementById('restorePopupMessage');
+  const restorePopupStatsGrid        = document.getElementById('restorePopupStatsGrid');
+  const restorePopupFilesNote        = document.getElementById('restorePopupFilesNote');
+  const closeRestoreSuccessPopupBtn  = document.getElementById('closeRestoreSuccessPopupBtn');
+  const popupOpenCustomersLink       = document.getElementById('popupOpenCustomersLink');
+  const popupOpenOrdersLink          = document.getElementById('popupOpenOrdersLink');
 
   // Modals
   const runBackupModal            = document.getElementById('runBackupModal');
@@ -134,6 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const quickFolderChips          = document.getElementById('quickFolderChips');
   const recentFoldersSection      = document.getElementById('recentFoldersSection');
   const recentFolderChips         = document.getElementById('recentFolderChips');
+  const serverFolderBrowserPanel  = document.getElementById('serverFolderBrowserPanel');
+  const folderBrowserUpBtn        = document.getElementById('folderBrowserUpBtn');
+  const folderBrowserPathLabel    = document.getElementById('folderBrowserPathLabel');
+  const closeFolderBrowserBtn     = document.getElementById('closeFolderBrowserBtn');
+  const newSubfolderNameInput     = document.getElementById('newSubfolderNameInput');
+  const createSubfolderBtn        = document.getElementById('createSubfolderBtn');
+  const serverFolderList          = document.getElementById('serverFolderList');
 
   // ── Recent Folders Persistence ───────────────────────────────────────────
   function getRecentFolders() {
@@ -165,12 +203,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const dismissVerifyModalBtn     = document.getElementById('dismissVerifyModalBtn');
   const verifyModalBody           = document.getElementById('verifyModalBody');
 
+  function setActiveLocationState(path) {
+    if (!path || !path.trim()) return;
+    activeLocation = path.trim().replace(/\//g, '\\');
+    try {
+      localStorage.setItem(ACTIVE_LOCATION_STORAGE_KEY, activeLocation);
+    } catch (_) {}
+    updateBannerDisplay();
+    updateUploadDestinationDisplay();
+  }
+
+  function updateUploadDestinationDisplay() {
+    if (!uploadDestPathDisplay) return;
+    const base = (activeLocation || 'E:\\ERP-Backups').replace(/[\\/]+$/, '');
+    uploadDestPathDisplay.textContent = `${base}\\Database\\Uploads`;
+  }
+
   // ── Load All Data ─────────────────────────────────────────────────────────
   async function loadAllData() {
     try {
-      await loadLocations();
+      await loadStatus();
       await Promise.all([
-        loadStatus(),
+        loadLocations(),
         loadFiles(),
       ]);
     } catch (err) {
@@ -197,7 +251,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderLocationDropdowns() {
     if (!locationSelectDropdown) return;
 
-    // Find currently active target drive if not yet set
+    // Preserve explicit custom folder across reloads; only fall back if unset
+    if (!activeLocation && statusData && statusData.activeBackupRoot) {
+      activeLocation = statusData.activeBackupRoot;
+    }
     const current = availableLocations.find(l => l.currentTarget);
     if (!activeLocation && current) {
       activeLocation = current.suggestedPath || (current.driveLetter + '\\ERP-Backups');
@@ -252,6 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeLocationPathDisplay) {
       activeLocationPathDisplay.textContent = activeLocation || 'E:\\ERP-Backups';
     }
+    updateUploadDestinationDisplay();
 
     const currentLoc = availableLocations.find(l =>
       activeLocation && activeLocation.toUpperCase().startsWith(l.driveLetter.toUpperCase())
@@ -340,6 +398,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await Api.get(url);
       if (!data) return;
       statusData = data;
+      if (!activeLocation && data.activeBackupRoot) {
+        setActiveLocationState(data.activeBackupRoot);
+      }
       renderStatus(data);
     } catch (err) {
       console.error('Failed to load backup status:', err);
@@ -352,13 +413,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const drive = data.drive || {};
     if (drive.connected) {
       driveFreeSpaceVal.textContent = `${drive.freeSpaceGB} GB Free`;
-      driveSubtext.innerHTML = `<span class="pulse-dot online"></span> ${drive.driveLetter} Mounted (${drive.totalSpaceGB} GB total)`;
+      driveSubtext.innerHTML = `<span class="pulse-dot online"></span> ${drive.driveLetter} Mounted (${drive.totalSpaceGB} GB total)${drive.folderExists === false ? ' • Folder auto-create ready' : ''}`;
       driveProgressBar.style.width = `${Math.min(100, drive.usedPercent)}%`;
       driveProgressBar.style.background = drive.usedPercent > 90 ? '#ef4444' : (drive.usedPercent > 75 ? '#f59e0b' : '#2563eb');
 
       diagDriveDot.className = 'pulse-dot online';
+      if (diagDriveLabel) diagDriveLabel.textContent = `Destination Drive (${drive.driveLetter || 'Target'})`;
       diagDriveBadge.className = 'badge badge-success';
-      diagDriveBadge.textContent = `${drive.driveLetter} Connected`;
+      diagDriveBadge.textContent = drive.writable === false ? `${drive.driveLetter} Read-Only` : `${drive.driveLetter} Connected`;
 
       if (drive.freeSpaceGB > 0.5) {
         diagSpaceDot.className = 'pulse-dot online';
@@ -393,29 +455,76 @@ document.addEventListener('DOMContentLoaded', () => {
       latestSnapshotBadge.textContent = `Verified (${latest.sizeMB} MB)`;
     } else {
       latestSnapshotAge.textContent = 'No Archives';
-      latestSnapshotFile.textContent = 'No .dump snapshots in this location';
+      latestSnapshotFile.textContent = 'No snapshots in this location';
       latestSnapshotBadge.className = 'badge badge-warning';
       latestSnapshotBadge.textContent = 'Pending First Run';
     }
 
-    // 3. PostgreSQL Engine Card
+    // 3. Database Engine Card (PostgreSQL or H2 dev)
     if (data.postgresRunning) {
-      postgresStatusVal.textContent = 'PostgreSQL 17';
-      postgresSubtext.innerHTML = `<span class="pulse-dot online"></span> Port 5432 • ${data.databaseName}`;
+      const isH2 = data.databaseEngine === 'H2';
+      postgresStatusVal.textContent = isH2 ? 'H2 Embedded DB' : 'PostgreSQL 17';
+      postgresSubtext.innerHTML = isH2
+        ? `<span class="pulse-dot online"></span> Local File DB (${Utils.escapeHtml(data.snapshotFormat || '.sql')} snapshots)`
+        : `<span class="pulse-dot online"></span> Port 5432 • ${Utils.escapeHtml(data.databaseName || 'ritham_erp')}`;
+      if (dbEngineFormatText) {
+        dbEngineFormatText.textContent = isH2
+          ? 'H2 SQL Snapshot Format (.sql)'
+          : 'Custom Compressed Dump Format (.dump)';
+      }
+      if (importModalSubtitle) {
+        importModalSubtitle.textContent = isH2
+          ? 'Restore backed-up H2 snapshots (.sql) or import external backup files'
+          : 'Restore backed-up PostgreSQL archives (.dump) or import external backup files';
+      }
       diagPgDot.className = 'pulse-dot online';
       diagPgBadge.className = 'badge badge-success';
-      diagPgBadge.textContent = 'Online (Port 5432)';
+      diagPgBadge.textContent = isH2 ? 'Online (H2 Dev)' : 'Online (Port 5432)';
     } else {
       postgresStatusVal.textContent = 'Engine Stopped';
-      postgresSubtext.innerHTML = `<span class="pulse-dot offline"></span> PostgreSQL is offline`;
+      postgresSubtext.innerHTML = `<span class="pulse-dot offline"></span> Database engine is offline`;
+      if (dbEngineFormatText) {
+        dbEngineFormatText.textContent = 'Database Engine Offline';
+      }
       diagPgDot.className = 'pulse-dot offline';
       diagPgBadge.className = 'badge badge-warning';
       diagPgBadge.textContent = 'Service Stopped';
     }
 
     // 4. Schedule & Retention Card
-    if (data.nextScheduledRun) {
-      nextScheduledRunVal.textContent = `Next run: ${data.nextScheduledRun}`;
+    if (scheduleHeadlineVal) {
+      scheduleHeadlineVal.textContent = data.scheduleTimeText || 'Daily 7:00 PM';
+    }
+    if (nextScheduledRunVal && data.nextScheduledRun) {
+      nextScheduledRunVal.textContent = data.scheduleEnabled === false
+        ? data.nextScheduledRun
+        : `Next run: ${data.nextScheduledRun}`;
+    }
+    if (autoBackupEnabledToggle && typeof data.scheduleEnabled === 'boolean') {
+      autoBackupEnabledToggle.checked = data.scheduleEnabled;
+    }
+    if (backupOnConnectToggle && typeof data.backupOnDeviceConnect === 'boolean') {
+      backupOnConnectToggle.checked = data.backupOnDeviceConnect;
+    }
+    if (scheduleTimeInput && typeof data.scheduleHour === 'number' && typeof data.scheduleMinute === 'number' && document.activeElement !== scheduleTimeInput) {
+      const hh = String(data.scheduleHour).padStart(2, '0');
+      const mm = String(data.scheduleMinute).padStart(2, '0');
+      scheduleTimeInput.value = `${hh}:${mm}`;
+    }
+    if (scheduleTargetFolderLabel) {
+      const targetRoot = data.scheduledTargetRoot || data.activeBackupRoot || activeLocation || '--';
+      scheduleTargetFolderLabel.textContent = `Target: ${targetRoot}`;
+      scheduleTargetFolderLabel.title = targetRoot;
+    }
+    if (deviceWatcherBadge && data.deviceWatcherStatus) {
+      deviceWatcherBadge.textContent = data.deviceWatcherStatus;
+      if (data.backupOnDeviceConnect === false) {
+        deviceWatcherBadge.className = 'badge badge-ghost';
+      } else if (drive.connected && drive.writable !== false) {
+        deviceWatcherBadge.className = 'badge badge-success';
+      } else {
+        deviceWatcherBadge.className = 'badge badge-warning';
+      }
     }
     retentionStatsBadge.textContent = `${data.dailyCount}/${data.dailyLimit}D • ${data.weeklyCount}/${data.weeklyLimit}W • ${data.monthlyCount}/${data.monthlyLimit}M`;
 
@@ -452,11 +561,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ── Load Backup Files ─────────────────────────────────────────────────────
+  async function loadAllRepositoryFiles() {
+    try {
+      const url = `${API.BACKUP_FILES}?category=All${activeLocation ? `&location=${encodeURIComponent(activeLocation)}` : ''}`;
+      const files = await Api.get(url);
+      allRepositoryFiles = files || [];
+      return allRepositoryFiles;
+    } catch (err) {
+      console.warn('Could not load complete repository file list:', err);
+      return allRepositoryFiles;
+    }
+  }
+
   async function loadFiles() {
     try {
       const url = `${API.BACKUP_FILES}?category=${encodeURIComponent(activeCategory)}${activeLocation ? `&location=${encodeURIComponent(activeLocation)}` : ''}`;
       const files = await Api.get(url);
       backupFiles = files || [];
+      if (activeCategory === 'All') {
+        allRepositoryFiles = backupFiles;
+      }
       renderTable();
     } catch (err) {
       console.error('Failed to load backup files:', err);
@@ -734,17 +858,19 @@ document.addEventListener('DOMContentLoaded', () => {
               Duration: <strong>${res.durationSeconds}s</strong> • Snapshot: <code>${Utils.escapeHtml(res.backupFileName || 'ritham_erp_latest.dump')}</code>
             </div>
             <div style="margin-top: 8px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;">
-              • Destination: <code>${Utils.escapeHtml(targetLoc)}</code><br>
+              • Destination Folder: <code>${Utils.escapeHtml(res.targetLocation || targetLoc)}</code><br>
+              ${res.backupFilePath ? `• Saved File: <code>${Utils.escapeHtml(res.backupFilePath)}</code><br>` : ''}
               • TOC Verified • Globals SQL Archived • Manifest Generated
             </div>
           </div>
         `;
 
         // Update active location if needed and refresh
-        if (targetLoc && targetLoc !== activeLocation) {
-          activeLocation = targetLoc;
-          if (locationSelectDropdown) locationSelectDropdown.value = targetLoc;
-          updateBannerDisplay();
+        const appliedTarget = res.targetLocation || targetLoc;
+        if (appliedTarget && appliedTarget !== activeLocation) {
+          setActiveLocationState(appliedTarget);
+          saveRecentFolder(appliedTarget);
+          renderLocationDropdowns();
         }
         await Promise.all([loadStatus(), loadFiles()]);
 
@@ -868,13 +994,23 @@ document.addEventListener('DOMContentLoaded', () => {
     testWriteResult.innerHTML = '<span style="color: var(--text-muted); font-size:12px;">Checking path & write permissions...</span>';
 
     try {
-      // Validate via status endpoint
+      // Validate via status endpoint (checks mounted drive + existing or nearest ancestor writability)
       const res = await Api.get(`${API.BACKUP_STATUS}?location=${encodeURIComponent(path)}`);
-      if (res && res.drive && res.drive.connected) {
+      if (res && res.drive && res.drive.connected && res.drive.writable !== false) {
+        const folderNote = res.drive.folderExists === false
+          ? 'New folder will be created automatically'
+          : 'Full Write Access';
         testWriteResult.innerHTML = `
           <div style="color: #4ade80; font-weight: 600; font-size:12.5px; display:flex; align-items:center; gap:6px;">
             <span>✓</span>
-            <span>Ready: <strong>${res.drive.freeSpaceGB} GB Free</strong> on Drive ${res.drive.driveLetter || ''} • Full Write Access</span>
+            <span>Ready: <strong>${res.drive.freeSpaceGB} GB Free</strong> on Drive ${Utils.escapeHtml(res.drive.driveLetter || '')} • ${folderNote}</span>
+          </div>
+        `;
+      } else if (res && res.drive && res.drive.connected && res.drive.writable === false) {
+        testWriteResult.innerHTML = `
+          <div style="color: #f87171; font-weight: 600; font-size:12.5px; display:flex; align-items:center; gap:6px;">
+            <span>✕</span>
+            <span>Drive ${Utils.escapeHtml(res.drive.driveLetter || '')} is mounted, but the folder is not writable. Check folder permissions.</span>
           </div>
         `;
       } else {
@@ -912,10 +1048,12 @@ document.addEventListener('DOMContentLoaded', () => {
         persistAsDefault: persistAsDefault
       });
 
-      saveRecentFolder(path);
-      Toast.success(`Backup folder set to: ${path}`);
-      activeLocation = path;
+      const resolvedRoot = (res && res.activeBackupRoot) ? res.activeBackupRoot : path;
+      saveRecentFolder(resolvedRoot);
+      setActiveLocationState(resolvedRoot);
+      Toast.success(`Backup folder set to: ${resolvedRoot}`);
       locationConfigModal.style.display = 'none';
+      if (serverFolderBrowserPanel) serverFolderBrowserPanel.style.display = 'none';
 
       await loadLocations();
       await Promise.all([loadStatus(), loadFiles()]);
@@ -946,7 +1084,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Location Selector Dropdown Change in Top Banner
   if (locationSelectDropdown) {
-    locationSelectDropdown.addEventListener('change', (e) => {
+    locationSelectDropdown.addEventListener('change', async (e) => {
       const selected = e.target.value;
       if (selected === '__CHOOSE_CUSTOM__') {
         openLocationConfigModal();
@@ -955,11 +1093,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       if (selected) {
-        activeLocation = selected;
-        saveRecentFolder(selected);
-        updateBannerDisplay();
-        Toast.info(`Switching view to ${selected}...`);
-        Promise.all([loadStatus(), loadFiles()]);
+        try {
+          const res = await Api.post(API.BACKUP_SET_LOCATION, {
+            locationPath: selected,
+            persistAsDefault: true
+          });
+          const applied = (res && res.activeBackupRoot) ? res.activeBackupRoot : selected;
+          setActiveLocationState(applied);
+          saveRecentFolder(applied);
+          renderLocationDropdowns();
+          Toast.info(`Active backup folder set & saved for daily auto-backup: ${applied}`);
+          await Promise.all([loadStatus(), loadFiles()]);
+        } catch (err) {
+          Toast.error(err.message || `Could not switch backup folder to ${selected}`);
+          locationSelectDropdown.value = activeLocation;
+        }
       }
     });
   }
@@ -969,31 +1117,132 @@ document.addEventListener('DOMContentLoaded', () => {
     browseFolderBtn.addEventListener('click', openLocationConfigModal);
   }
 
-  // System Folder Picker ("Browse..." button in modal)
-  if (browseSystemFolderBtn && systemFolderPicker) {
-    browseSystemFolderBtn.addEventListener('click', () => {
-      systemFolderPicker.value = '';
-      systemFolderPicker.click();
-    });
+  // In-modal Server Folder Browser ("Browse..." button)
+  async function loadServerDirectories(targetPath) {
+    if (!serverFolderList) return;
+    serverFolderList.innerHTML = '<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:12px;">Loading folders...</div>';
+    try {
+      const url = targetPath
+        ? `${API.BACKUP_DIRECTORIES}?path=${encodeURIComponent(targetPath)}`
+        : API.BACKUP_DIRECTORIES;
+      const data = await Api.get(url);
+      browserCurrentPath = data.currentPath || '';
+      browserParentPath = data.parentPath;
 
-    systemFolderPicker.addEventListener('change', (e) => {
-      const files = e.target.files;
-      if (files && files.length > 0) {
-        const relPath = files[0].webkitRelativePath || '';
-        const folderName = relPath.split('/')[0] || relPath.split('\\')[0] || '';
-        if (folderName) {
-          const curVal = customLocationInput.value.trim();
-          const normalizedCur = curVal.replace(/\//g, '\\').replace(/\\+$/, '');
-          const drivePrefix = normalizedCur.length >= 2 ? normalizedCur.substring(0, 2) : (availableLocations[0]?.driveLetter || 'E:');
-          if (!normalizedCur || normalizedCur.toLowerCase().endsWith('\\' + folderName.toLowerCase())) {
-            Toast.info(`Verified folder "${folderName}". Confirm the exact drive path before saving.`);
-          } else {
-            customLocationInput.value = `${drivePrefix}\\${folderName}`;
-            Toast.info(`Suggested path "${drivePrefix}\\${folderName}". Browser security omits parent folders—verify full path if nested.`);
-          }
-          renderFolderSuggestions(customLocationInput.value);
+      if (folderBrowserPathLabel) {
+        folderBrowserPathLabel.textContent = browserCurrentPath || 'Available Host Drives';
+        folderBrowserPathLabel.title = browserCurrentPath || 'Available Host Drives';
+      }
+      if (folderBrowserUpBtn) {
+        folderBrowserUpBtn.disabled = !browserCurrentPath;
+      }
+      if (createSubfolderBtn) {
+        createSubfolderBtn.disabled = !browserCurrentPath;
+      }
+      if (newSubfolderNameInput) {
+        newSubfolderNameInput.disabled = !browserCurrentPath;
+        newSubfolderNameInput.placeholder = browserCurrentPath
+          ? 'New subfolder name (e.g. RithamBackups)'
+          : 'Open a drive first to create a subfolder';
+      }
+
+      const entries = data.entries || [];
+      if (entries.length === 0) {
+        serverFolderList.innerHTML = '<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:12px;">Empty folder — click Select &amp; Apply Folder to use it, or create a subfolder above.</div>';
+        return;
+      }
+
+      const curNorm = (customLocationInput ? customLocationInput.value.trim() : '').toUpperCase();
+      serverFolderList.innerHTML = entries.map(ent => `
+        <div class="folder-browser-item ${curNorm === ent.path.toUpperCase() ? 'selected' : ''}" data-path="${Utils.escapeHtml(ent.path)}">
+          <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+            <span>📁</span>
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${Utils.escapeHtml(ent.name)}</span>
+          </div>
+          <span style="font-size:11px; color:var(--text-muted);">Open ▸</span>
+        </div>
+      `).join('');
+
+      serverFolderList.querySelectorAll('.folder-browser-item').forEach(row => {
+        row.addEventListener('click', () => {
+          serverFolderList.querySelectorAll('.folder-browser-item').forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+          const p = row.dataset.path;
+          if (customLocationInput) customLocationInput.value = p;
+          renderFolderSuggestions(p);
           handleTestWriteAccess();
-        }
+        });
+        row.addEventListener('dblclick', () => {
+          const p = row.dataset.path;
+          if (customLocationInput) customLocationInput.value = p;
+          loadServerDirectories(p);
+        });
+      });
+    } catch (err) {
+      serverFolderList.innerHTML = `<div style="padding:14px; text-align:center; color:#f87171; font-size:12px;">${Utils.escapeHtml(err.message || 'Could not browse folder')}</div>`;
+    }
+  }
+
+  async function handleCreateSubfolder() {
+    const folderName = newSubfolderNameInput ? newSubfolderNameInput.value.trim() : '';
+    if (!browserCurrentPath) {
+      Toast.warning('Open a drive or folder first before creating a subfolder.');
+      return;
+    }
+    if (!folderName) {
+      Toast.warning('Enter a folder name to create.');
+      return;
+    }
+    try {
+      const created = await Api.post(API.BACKUP_DIRECTORIES, {
+        parentPath: browserCurrentPath,
+        folderName: folderName
+      });
+      if (newSubfolderNameInput) newSubfolderNameInput.value = '';
+      Toast.success(`Created folder: ${created.path}`);
+      if (customLocationInput) customLocationInput.value = created.path;
+      renderFolderSuggestions(created.path);
+      handleTestWriteAccess();
+      await loadServerDirectories(browserCurrentPath);
+    } catch (err) {
+      Toast.error(err.message || 'Could not create subfolder');
+    }
+  }
+
+  if (browseSystemFolderBtn && serverFolderBrowserPanel) {
+    browseSystemFolderBtn.addEventListener('click', () => {
+      const isVisible = serverFolderBrowserPanel.style.display !== 'none';
+      if (isVisible) {
+        serverFolderBrowserPanel.style.display = 'none';
+        return;
+      }
+      serverFolderBrowserPanel.style.display = 'block';
+      const cur = customLocationInput ? customLocationInput.value.trim() : '';
+      const driveStart = cur.length >= 2 ? `${cur.substring(0, 2)}\\` : '';
+      loadServerDirectories(driveStart);
+    });
+  }
+
+  if (closeFolderBrowserBtn && serverFolderBrowserPanel) {
+    closeFolderBrowserBtn.addEventListener('click', () => {
+      serverFolderBrowserPanel.style.display = 'none';
+    });
+  }
+
+  if (folderBrowserUpBtn) {
+    folderBrowserUpBtn.addEventListener('click', () => {
+      loadServerDirectories(browserParentPath || '');
+    });
+  }
+
+  if (createSubfolderBtn) {
+    createSubfolderBtn.addEventListener('click', handleCreateSubfolder);
+  }
+  if (newSubfolderNameInput) {
+    newSubfolderNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleCreateSubfolder();
       }
     });
   }
@@ -1048,7 +1297,31 @@ document.addEventListener('DOMContentLoaded', () => {
   let isRestoring = false;
   let isUploadingDump = false;
 
-  function openImportModal(preselectedFile = null) {
+  function isH2Snapshot(archive) {
+    const name = archive?.fileName ? archive.fileName.toLowerCase() : '';
+    return name.endsWith('.sql') || (statusData?.databaseEngine === 'H2' && !name.endsWith('.dump'));
+  }
+
+  function renderStatsTiles(rowCounts) {
+    if (!rowCounts || Object.keys(rowCounts).length === 0) return '';
+    return Object.entries(rowCounts).map(([tbl, count]) => `
+      <div class="audit-stat-box">
+        <div class="audit-stat-name">${Utils.escapeHtml(tbl.replace(/_/g, ' '))}</div>
+        <div class="audit-stat-count">${Number(count).toLocaleString()}</div>
+      </div>
+    `).join('');
+  }
+
+  function switchToLiveRestoreMode() {
+    if (modeCardProd) modeCardProd.click();
+    if (executeRestoreBtn) executeRestoreBtn.disabled = false;
+    if (confirmRestorePhraseInput) {
+      confirmRestorePhraseInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      confirmRestorePhraseInput.focus();
+    }
+  }
+
+  async function openImportModal(preselectedFile = null) {
     selectedRestoreMode = 'TEST';
     if (radioModeTest) radioModeTest.checked = true;
     if (radioModeProd) radioModeProd.checked = false;
@@ -1058,13 +1331,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirmRestorePhraseInput) confirmRestorePhraseInput.value = '';
     if (restoreExecutionPanel) restoreExecutionPanel.style.display = 'none';
     if (restoreAuditCountsPanel) restoreAuditCountsPanel.style.display = 'none';
+    if (uploadStepGuideBanner) uploadStepGuideBanner.style.display = 'none';
+    if (restoreLoadingOverlay) restoreLoadingOverlay.style.display = 'none';
+    if (restoreSuccessPopupModal) restoreSuccessPopupModal.style.display = 'none';
+    if (restorePostActionBanner) {
+      restorePostActionBanner.style.display = 'none';
+      restorePostActionBanner.innerHTML = '';
+    }
     if (executeRestoreBtn) {
       executeRestoreBtn.disabled = false;
-      executeRestoreBtnText.textContent = 'Start Safe Test Restore';
+      executeRestoreBtnText.textContent = 'Run Dry-Run Verification';
       executeRestoreBtn.className = 'btn btn-primary';
     }
 
-    populateRepoBackupSelect(preselectedFile ? preselectedFile.fileName : null);
+    updateUploadDestinationDisplay();
+    if (importBackupModal) {
+      importBackupModal.style.display = 'flex';
+    }
+
+    await loadAllRepositoryFiles();
+    const repoList = allRepositoryFiles.length > 0 ? allRepositoryFiles : backupFiles;
+    populateRepoBackupSelect(preselectedFile ? preselectedFile.fileName : null, repoList);
 
     if (preselectedFile && preselectedFile.category === 'Uploads') {
       switchImportSourceTab('upload');
@@ -1073,17 +1360,14 @@ document.addEventListener('DOMContentLoaded', () => {
       switchImportSourceTab('repo');
       if (preselectedFile) {
         inspectAndDisplayArchive(preselectedFile);
-      } else if (backupFiles.length > 0) {
-        inspectAndDisplayArchive(backupFiles[0]);
+      } else if (repoList.length > 0) {
+        inspectAndDisplayArchive(repoList[0]);
       }
-    }
-
-    if (importBackupModal) {
-      importBackupModal.style.display = 'flex';
     }
   }
 
   function switchImportSourceTab(tab) {
+    const repoList = allRepositoryFiles.length > 0 ? allRepositoryFiles : backupFiles;
     if (tab === 'upload') {
       if (tabSourceUploadBtn) tabSourceUploadBtn.classList.add('active');
       if (tabSourceRepoBtn) tabSourceRepoBtn.classList.remove('active');
@@ -1098,30 +1382,31 @@ document.addEventListener('DOMContentLoaded', () => {
       if (repoFileSection) repoFileSection.style.display = 'block';
       if (uploadFileSection) uploadFileSection.style.display = 'none';
       if (repoBackupSelect && repoBackupSelect.value) {
-        const found = backupFiles.find(b => b.fileName === repoBackupSelect.value);
+        const found = repoList.find(b => b.fileName === repoBackupSelect.value);
         if (found) inspectAndDisplayArchive(found);
       }
     }
   }
 
-  function populateRepoBackupSelect(selectedFileName = null) {
+  function populateRepoBackupSelect(selectedFileName = null, sourceList = null) {
     if (!repoBackupSelect) return;
     if (repoFileLocationLabel) {
       repoFileLocationLabel.textContent = activeLocation || 'Default Repository';
     }
 
-    if (!backupFiles || backupFiles.length === 0) {
+    const list = sourceList || (allRepositoryFiles.length > 0 ? allRepositoryFiles : backupFiles) || [];
+    if (list.length === 0) {
       repoBackupSelect.innerHTML = '<option value="">No backup snapshots found in active repository</option>';
       if (archiveInspectionCard) archiveInspectionCard.style.display = 'none';
       return;
     }
 
-    repoBackupSelect.innerHTML = backupFiles.map(b => {
-      const isSel = (selectedFileName && b.fileName === selectedFileName) || (!selectedFileName && b === backupFiles[0]);
+    repoBackupSelect.innerHTML = list.map(b => {
+      const isSel = (selectedFileName && b.fileName === selectedFileName) || (!selectedFileName && b === list[0]);
       return `<option value="${Utils.escapeHtml(b.fileName)}" ${isSel ? 'selected' : ''}>${Utils.escapeHtml(b.fileName)} (${b.category} • ${b.sizeMB} MB • ${b.ageText || ''})</option>`;
     }).join('');
 
-    const target = backupFiles.find(b => b.fileName === (selectedFileName || repoBackupSelect.value)) || backupFiles[0];
+    const target = list.find(b => b.fileName === (selectedFileName || repoBackupSelect.value)) || list[0];
     if (target) {
       inspectAndDisplayArchive(target);
     }
@@ -1137,13 +1422,16 @@ document.addEventListener('DOMContentLoaded', () => {
       isUpload: archive.isUpload || (archive.category === 'Uploads')
     };
 
+    const h2File = isH2Snapshot(archive);
     if (archiveInspectionCard) {
       archiveInspectionCard.style.display = 'block';
       inspectCardFileName.textContent = archive.fileName;
       inspectCardMeta.textContent = `${archive.sizeMB || '--'} MB • Category: ${archive.category || 'Database'} • Location: ${archive.filePath || activeLocation || 'Default'}`;
       inspectCardBadge.className = 'badge badge-primary';
-      inspectCardBadge.textContent = 'Verifying TOC...';
-      inspectCardDetail.textContent = 'Reading Table of Contents entries with pg_restore...';
+      inspectCardBadge.textContent = h2File ? 'Checking SQL...' : 'Verifying TOC...';
+      inspectCardDetail.textContent = h2File
+        ? 'Validating H2 SQL snapshot statements...'
+        : 'Reading Table of Contents entries with pg_restore...';
     }
 
     try {
@@ -1151,12 +1439,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await Api.post(url);
       if (res && res.valid) {
         inspectCardBadge.className = 'badge badge-success';
-        inspectCardBadge.textContent = 'TOC Verified';
-        inspectCardDetail.innerHTML = `Integrity verified: <strong>${res.tocEntriesCount} Table of Contents entries</strong> confirmed. Schema and data records are intact.`;
+        inspectCardBadge.textContent = h2File ? 'Snapshot Verified' : 'TOC Verified';
+        inspectCardDetail.innerHTML = h2File
+          ? `Integrity verified: <strong>${res.tocEntriesCount} SQL statements</strong> ready for restore.`
+          : `Integrity verified: <strong>${res.tocEntriesCount} Table of Contents entries</strong> confirmed. Schema and data records are intact.`;
         selectedRestoreArchive.tocEntries = res.tocEntriesCount;
       } else {
         inspectCardBadge.className = 'badge badge-warning';
-        inspectCardBadge.textContent = 'TOC Warnings';
+        inspectCardBadge.textContent = 'Archive Warnings';
         inspectCardDetail.textContent = res ? res.message : 'Inspection completed with warnings.';
       }
     } catch (err) {
@@ -1171,8 +1461,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function handleDumpFileUpload(file) {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.dump')) {
-      Toast.error('Please select a valid PostgreSQL custom dump archive (.dump)');
+    const lowerName = file.name.toLowerCase();
+    if (!lowerName.endsWith('.dump') && !lowerName.endsWith('.sql')) {
+      Toast.error('Please select a valid PostgreSQL (.dump) or H2 snapshot (.sql) backup file');
       return;
     }
 
@@ -1182,6 +1473,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     isUploadingDump = true;
+    if (uploadStepGuideBanner) uploadStepGuideBanner.style.display = 'none';
     if (uploadProgressBox) uploadProgressBox.style.display = 'block';
     if (uploadFileNameLabel) uploadFileNameLabel.textContent = `Uploading ${file.name} (${Math.round(file.size / 1024 / 1024 * 10) / 10} MB)...`;
     if (uploadProgressBar) uploadProgressBar.style.width = '45%';
@@ -1220,7 +1512,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (uploadProgressBar) uploadProgressBar.style.width = '100%';
       if (uploadPercentLabel) uploadPercentLabel.textContent = '100%';
 
-      Toast.success(`Uploaded and verified ${data.fileName}`);
+      Toast.success(`Uploaded to ${data.savedPath || ((activeLocation || 'repository') + '\\Database\\Uploads')}`);
 
       selectedRestoreArchive = {
         fileName: data.fileName,
@@ -1232,9 +1524,11 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       inspectAndDisplayArchive(selectedRestoreArchive);
+      if (uploadStepGuideBanner) uploadStepGuideBanner.style.display = 'block';
 
-      loadFiles();
-      loadStatus();
+      activeCategory = 'Uploads';
+      tabButtons.forEach(b => b.classList.toggle('active', b.dataset.category === 'Uploads'));
+      await Promise.all([loadAllRepositoryFiles(), loadFiles(), loadStatus()]);
 
       setTimeout(() => {
         if (uploadProgressBox) uploadProgressBox.style.display = 'none';
@@ -1246,6 +1540,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (uploadProgressBox) uploadProgressBox.style.display = 'none';
     } finally {
       isUploadingDump = false;
+      if (externalDumpFileInput) externalDumpFileInput.value = '';
     }
   }
 
@@ -1259,7 +1554,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (selectedRestoreMode === 'PRODUCTION') {
       const confirmVal = confirmRestorePhraseInput ? confirmRestorePhraseInput.value.trim() : '';
       if (confirmVal !== 'CONFIRM RESTORE') {
-        Toast.error('Type "CONFIRM RESTORE" exactly to authorize overwriting the production database.');
+        Toast.error('Type "CONFIRM RESTORE" exactly to restore data into the live database.');
         if (confirmRestorePhraseInput) confirmRestorePhraseInput.focus();
         return;
       }
@@ -1270,16 +1565,36 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelImportModalBtn.disabled = true;
     closeImportModalBtn.disabled = true;
 
+    const isProd = selectedRestoreMode === 'PRODUCTION';
+    const isH2 = isH2Snapshot(selectedRestoreArchive);
+
+    if (restoreLoadingOverlay) {
+      if (restoreLoadingTitle) {
+        restoreLoadingTitle.textContent = isProd
+          ? 'Restoring Live Database...'
+          : 'Running Dry-Run Verification...';
+      }
+      if (restoreLoadingSubtitle) {
+        restoreLoadingSubtitle.textContent = isProd
+          ? 'Loading backed-up customers, orders, measurements & files into your active ERP database. Please wait — do not close this window.'
+          : 'Testing snapshot replay in isolated temporary memory (live ERP data will not change)...';
+      }
+      if (restoreLoadingFileLabel) {
+        restoreLoadingFileLabel.textContent = selectedRestoreArchive.fileName;
+      }
+      restoreLoadingOverlay.style.display = 'flex';
+    }
+
     restoreExecutionPanel.style.display = 'block';
-    restoreStatusTitle.textContent = selectedRestoreMode === 'PRODUCTION'
-      ? 'Executing Disaster Recovery Restore (ritham_erp)...'
-      : 'Executing Safe Test Restore (ritham_erp_restore_test)...';
+    restoreStatusTitle.textContent = isProd
+      ? 'Restoring Live Database (ritham_erp)...'
+      : 'Running Dry-Run Verification...';
     restoreStatusBadge.className = 'badge badge-primary';
     restoreStatusBadge.textContent = 'Running...';
     restoreConsoleBox.innerHTML = `
       <div class="console-line"><span class="console-ts">[${new Date().toLocaleTimeString()}]</span> <span class="console-level INFO">[START]</span> <span class="console-msg">Target mode: ${selectedRestoreMode}</span></div>
       <div class="console-line"><span class="console-ts">[${new Date().toLocaleTimeString()}]</span> <span class="console-level INFO">[ARCHIVE]</span> <span class="console-msg">${Utils.escapeHtml(selectedRestoreArchive.fileName)}</span></div>
-      <div class="console-line"><span class="console-ts">[${new Date().toLocaleTimeString()}]</span> <span class="console-level INFO">[SCRIPT]</span> <span class="console-msg">Launching erp-restore.ps1...</span></div>
+      <div class="console-line"><span class="console-ts">[${new Date().toLocaleTimeString()}]</span> <span class="console-level INFO">[ENGINE]</span> <span class="console-msg">${isH2 ? 'Executing H2 JDBC snapshot restore...' : 'Launching erp-restore.ps1...'}</span></div>
     `;
 
     let restoreSucceeded = false;
@@ -1290,19 +1605,12 @@ document.addEventListener('DOMContentLoaded', () => {
         location: activeLocation,
         filePath: selectedRestoreArchive.filePath || null,
         restoreMode: selectedRestoreMode,
-        confirmText: selectedRestoreMode === 'PRODUCTION' ? confirmRestorePhraseInput.value.trim() : null
+        confirmText: isProd ? confirmRestorePhraseInput.value.trim() : null
       };
 
       const res = await Api.post(API.BACKUP_RESTORE, payload);
 
       if (res && res.success) {
-        restoreSucceeded = true;
-        restoreStatusBadge.className = 'badge badge-success';
-        restoreStatusBadge.textContent = 'Completed';
-        restoreStatusTitle.textContent = selectedRestoreMode === 'PRODUCTION'
-          ? 'Production Restore Finished Successfully!'
-          : 'Safe Test Drill Completed Successfully!';
-
         if (res.outputLog) {
           const lines = res.outputLog.split('\n');
           const lastLines = lines.slice(-30).join('\n');
@@ -1310,19 +1618,84 @@ document.addEventListener('DOMContentLoaded', () => {
           restoreConsoleBox.scrollTop = restoreConsoleBox.scrollHeight;
         }
 
-        if (res.tableRowCounts && Object.keys(res.tableRowCounts).length > 0) {
+        const statsHtml = renderStatsTiles(res.tableRowCounts);
+        if (statsHtml) {
           restoreAuditCountsPanel.style.display = 'block';
-          auditStatsGrid.innerHTML = Object.entries(res.tableRowCounts).map(([tbl, count]) => `
-            <div class="audit-stat-box">
-              <div class="audit-stat-name">${Utils.escapeHtml(tbl.replace('_', ' '))}</div>
-              <div class="audit-stat-count">${Number(count).toLocaleString()}</div>
-            </div>
-          `).join('');
+          auditStatsGrid.innerHTML = statsHtml;
         }
 
-        Toast.success(res.message || 'Database restore completed successfully!');
-        executeRestoreBtnText.textContent = 'Restore Complete';
-        executeRestoreBtn.className = 'btn btn-success';
+        if (isProd) {
+          restoreSucceeded = true;
+          restoreStatusBadge.className = 'badge badge-success';
+          restoreStatusBadge.textContent = 'Restored to Live DB';
+          restoreStatusTitle.textContent = 'Live Database Restored Successfully!';
+          executeRestoreBtnText.textContent = 'Data Restored';
+          executeRestoreBtn.className = 'btn btn-success';
+
+          if (restorePostActionBanner) {
+            restoreAuditCountsPanel.style.display = 'block';
+            restorePostActionBanner.style.display = 'block';
+            restorePostActionBanner.innerHTML = `
+              <div style="background:rgba(22,163,74,0.12); border:1px solid rgba(22,163,74,0.3); border-radius:8px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                <span style="font-size:12px; color:#86efac;">
+                  Live database (${Utils.escapeHtml(res.databaseEngine || 'DB')}) restored${res.filesRestoredCount > 0 ? ` • ${res.filesRestoredCount} upload files restored` : ''}. All ERP desks now reflect the backed-up data.
+                </span>
+                <div style="display:flex; gap:8px;">
+                  <a href="${ROUTES.ORDER_DESK}" class="btn btn-primary btn-sm">Open Order Desk</a>
+                  <a href="${ROUTES.CUSTOMER}" class="btn btn-secondary btn-sm">Open Customers</a>
+                </div>
+              </div>
+            `;
+          }
+
+          // Show dedicated Data Restored Confirmation Popup
+          if (restoreSuccessPopupModal) {
+            if (restorePopupHeadline) restorePopupHeadline.textContent = 'Data Restored Successfully!';
+            if (restorePopupMessage) {
+              restorePopupMessage.textContent = `Backed-up data from ${res.backupFileName || selectedRestoreArchive.fileName} is now restored in ${res.targetDatabase || 'the live database'} (${res.databaseEngine || 'DB'}).`;
+            }
+            if (restorePopupStatsGrid) restorePopupStatsGrid.innerHTML = statsHtml || '';
+            if (restorePopupFilesNote) {
+              if (res.filesRestoredCount > 0) {
+                restorePopupFilesNote.textContent = `${res.filesRestoredCount} migration upload file(s) were also restored.`;
+                restorePopupFilesNote.style.display = 'block';
+              } else {
+                restorePopupFilesNote.style.display = 'none';
+              }
+            }
+            if (popupOpenCustomersLink) popupOpenCustomersLink.href = ROUTES.CUSTOMER;
+            if (popupOpenOrdersLink) popupOpenOrdersLink.href = ROUTES.ORDER_DESK;
+            restoreSuccessPopupModal.style.display = 'flex';
+          }
+
+          Toast.success(res.message || 'Data restored to live database successfully!');
+        } else {
+          // Dry-run completed: make crystal clear live DB has NOT been modified yet
+          restoreStatusBadge.className = 'badge badge-warning';
+          restoreStatusBadge.textContent = 'Dry Run Only';
+          restoreStatusTitle.textContent = 'Dry-Run Verified — Live ERP Data Was NOT Changed';
+          executeRestoreBtnText.textContent = 'Run Dry-Run Again';
+          executeRestoreBtn.className = 'btn btn-primary';
+
+          if (restorePostActionBanner) {
+            restoreAuditCountsPanel.style.display = 'block';
+            restorePostActionBanner.style.display = 'block';
+            restorePostActionBanner.innerHTML = `
+              <div style="background:rgba(245,158,11,0.14); border:1px solid rgba(245,158,11,0.4); border-radius:8px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                <span style="font-size:12px; color:#fde68a;">
+                  <strong>Dry-Run Only:</strong> Your live ERP database has NOT been modified yet. Click below to restore this backup into the live database so your data comes back.
+                </span>
+                <button type="button" class="btn btn-success btn-sm" id="promoteTestToProdBtn">Restore This Backup to Live Database</button>
+              </div>
+            `;
+            const promoteBtn = document.getElementById('promoteTestToProdBtn');
+            if (promoteBtn) {
+              promoteBtn.addEventListener('click', switchToLiveRestoreMode);
+            }
+          }
+
+          Toast.info('Dry-run test passed (live DB unchanged). Select "Restore Live Database" to apply data.');
+        }
 
         loadStatus();
         loadFiles();
@@ -1347,6 +1720,7 @@ document.addEventListener('DOMContentLoaded', () => {
       Toast.error(err.message || 'Failed to execute restore operation');
     } finally {
       isRestoring = false;
+      if (restoreLoadingOverlay) restoreLoadingOverlay.style.display = 'none';
       if (!restoreSucceeded) {
         executeRestoreBtn.disabled = false;
       }
@@ -1361,13 +1735,25 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closeImportModalBtn) closeImportModalBtn.addEventListener('click', () => { if (!isRestoring) importBackupModal.style.display = 'none'; });
   if (cancelImportModalBtn) cancelImportModalBtn.addEventListener('click', () => { if (!isRestoring) importBackupModal.style.display = 'none'; });
   if (executeRestoreBtn) executeRestoreBtn.addEventListener('click', executeDatabaseRestore);
+  if (uploadQuickSwitchProdBtn) uploadQuickSwitchProdBtn.addEventListener('click', switchToLiveRestoreMode);
+  if (closeRestoreSuccessPopupBtn && restoreSuccessPopupModal) {
+    closeRestoreSuccessPopupBtn.addEventListener('click', () => {
+      restoreSuccessPopupModal.style.display = 'none';
+    });
+  }
 
   if (tabSourceRepoBtn) tabSourceRepoBtn.addEventListener('click', () => switchImportSourceTab('repo'));
   if (tabSourceUploadBtn) tabSourceUploadBtn.addEventListener('click', () => switchImportSourceTab('upload'));
+  if (uploadChangeFolderBtn) {
+    uploadChangeFolderBtn.addEventListener('click', () => {
+      openLocationConfigModal();
+    });
+  }
 
   if (repoBackupSelect) {
     repoBackupSelect.addEventListener('change', () => {
-      const found = backupFiles.find(b => b.fileName === repoBackupSelect.value);
+      const repoList = allRepositoryFiles.length > 0 ? allRepositoryFiles : backupFiles;
+      const found = repoList.find(b => b.fileName === repoBackupSelect.value);
       if (found) inspectAndDisplayArchive(found);
     });
   }
@@ -1405,7 +1791,7 @@ document.addEventListener('DOMContentLoaded', () => {
       modeCardTest.classList.add('selected');
       modeCardProd.classList.remove('selected', 'danger');
       if (prodConfirmCallout) prodConfirmCallout.style.display = 'none';
-      if (executeRestoreBtnText) executeRestoreBtnText.textContent = 'Start Safe Test Restore';
+      if (executeRestoreBtnText) executeRestoreBtnText.textContent = 'Run Dry-Run Verification';
       if (executeRestoreBtn) executeRestoreBtn.className = 'btn btn-primary';
     });
   }
@@ -1417,13 +1803,13 @@ document.addEventListener('DOMContentLoaded', () => {
       modeCardProd.classList.add('selected', 'danger');
       modeCardTest.classList.remove('selected');
       if (prodConfirmCallout) prodConfirmCallout.style.display = 'block';
-      if (executeRestoreBtnText) executeRestoreBtnText.textContent = 'Execute Disaster Recovery';
-      if (executeRestoreBtn) executeRestoreBtn.className = 'btn btn-danger';
+      if (executeRestoreBtnText) executeRestoreBtnText.textContent = 'Restore Live Database';
+      if (executeRestoreBtn) executeRestoreBtn.className = 'btn btn-success';
     });
   }
 
   // Close modals on clicking outside backdrop
-  [runBackupModal, locationConfigModal, playbookModal, verifyModal, importBackupModal].forEach(modal => {
+  [runBackupModal, locationConfigModal, playbookModal, verifyModal, importBackupModal, restoreSuccessPopupModal].forEach(modal => {
     if (modal) {
       modal.addEventListener('click', (e) => {
         if (modal === importBackupModal && isRestoring) return;
@@ -1432,6 +1818,58 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Initial load
+  // ── Automated Schedule & Device Reconnect Controls ────────────────────────
+  async function handleSaveSchedule(silentToast = false) {
+    if (!saveScheduleBtn) return;
+    const enabled = autoBackupEnabledToggle ? autoBackupEnabledToggle.checked : true;
+    const backupOnDeviceConnect = backupOnConnectToggle ? backupOnConnectToggle.checked : true;
+    const rawTime = (scheduleTimeInput && scheduleTimeInput.value) ? scheduleTimeInput.value.trim() : '19:00';
+    const parts = rawTime.split(':');
+    const hour = Math.max(0, Math.min(23, parseInt(parts[0] || '19', 10) || 0));
+    const minute = Math.max(0, Math.min(59, parseInt(parts[1] || '0', 10) || 0));
+
+    try {
+      saveScheduleBtn.disabled = true;
+      saveScheduleBtn.textContent = 'Saving...';
+      const updated = await Api.post(API.BACKUP_SCHEDULE, {
+        enabled,
+        hour,
+        minute,
+        backupOnDeviceConnect,
+        syncWindowsTask: true
+      });
+      if (updated) {
+        statusData = updated;
+        renderStatus(updated);
+      }
+      if (!silentToast) {
+        const label = enabled ? `Daily ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}` : 'Paused';
+        Toast.success(`Schedule saved (${label} • Target: ${updated?.scheduledTargetRoot || activeLocation || 'selected folder'})`);
+      }
+    } catch (err) {
+      Toast.error(err.message || 'Failed to save schedule settings');
+    } finally {
+      saveScheduleBtn.disabled = false;
+      saveScheduleBtn.textContent = 'Save';
+    }
+  }
+
+  if (saveScheduleBtn) {
+    saveScheduleBtn.addEventListener('click', () => handleSaveSchedule(false));
+  }
+  if (autoBackupEnabledToggle) {
+    autoBackupEnabledToggle.addEventListener('change', () => handleSaveSchedule(true));
+  }
+  if (backupOnConnectToggle) {
+    backupOnConnectToggle.addEventListener('change', () => handleSaveSchedule(true));
+  }
+
+  // Initial load + periodic 20s watcher refresh so device-connect backups appear automatically
   loadAllData();
+  setInterval(() => {
+    if (!document.hidden) {
+      loadStatus();
+      loadFiles();
+    }
+  }, 20000);
 });

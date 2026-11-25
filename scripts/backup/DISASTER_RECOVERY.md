@@ -1,4 +1,4 @@
-﻿# Ritham ERP — Disaster Recovery Guide
+# Ritham ERP — Disaster Recovery Guide
 
 **System:** Ritham ERP — Tailoring & Garment Manufacturing ERP  
 **Database:** ritham_erp (PostgreSQL 17)  
@@ -208,8 +208,8 @@ Get-Content "E:\ERP-Backups\manifest-latest.json"
 powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\setup-task-scheduler.ps1"
 ```
 
-The task runs daily at 11:00 PM.  
-If the computer is off at 11 PM, the backup will run when the computer next starts.
+The task runs daily at 7:00 PM (19:00), or whenever configured in Backup Desk UI.  
+If the computer is off at 7:00 PM, the backup will run when the computer next starts.
 
 ---
 

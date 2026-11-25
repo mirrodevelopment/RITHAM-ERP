@@ -15,10 +15,13 @@ public class RestoreBackupResponse {
     private boolean success;
     private String message;
     private String targetDatabase;
+    private String databaseEngine;
     private String backupFileName;
     private String restoreMode;
     private double durationSeconds;
     private int tocEntriesCount;
+    private int filesRestoredCount;
+    private boolean requiresReload;
     private Map<String, Long> tableRowCounts;
     private String outputLog;
 }

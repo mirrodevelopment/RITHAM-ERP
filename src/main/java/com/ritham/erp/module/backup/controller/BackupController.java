@@ -30,6 +30,25 @@ public class BackupController {
         return ResponseEntity.ok(ApiResponse.success(locations));
     }
 
+    @GetMapping("/directories")
+    public ResponseEntity<ApiResponse<BackupDirectoryDto>> listDirectories(
+            @RequestParam(required = false) String path
+    ) {
+        BackupDirectoryDto directories = backupService.listDirectories(path);
+        return ResponseEntity.ok(ApiResponse.success(directories));
+    }
+
+    @PostMapping("/directories")
+    public ResponseEntity<ApiResponse<BackupDirectoryDto.DirectoryEntry>> createDirectory(
+            @Valid @RequestBody CreateBackupDirectoryRequest request
+    ) {
+        BackupDirectoryDto.DirectoryEntry created = backupService.createDirectory(
+                request.getParentPath(),
+                request.getFolderName()
+        );
+        return ResponseEntity.ok(ApiResponse.success("Created folder: " + created.getPath(), created));
+    }
+
     @PostMapping("/location")
     public ResponseEntity<ApiResponse<BackupStatusResponse>> setLocation(
             @Valid @RequestBody UpdateBackupLocationRequest request
@@ -39,6 +58,14 @@ public class BackupController {
                 request.isPersistAsDefault()
         );
         return ResponseEntity.ok(ApiResponse.success("Backup location updated to " + request.getLocationPath(), response));
+    }
+
+    @PostMapping("/schedule")
+    public ResponseEntity<ApiResponse<BackupStatusResponse>> updateSchedule(
+            @Valid @RequestBody BackupScheduleConfigRequest request
+    ) {
+        BackupStatusResponse response = backupService.updateBackupSchedule(request);
+        return ResponseEntity.ok(ApiResponse.success("Backup schedule updated", response));
     }
 
     @GetMapping("/status")

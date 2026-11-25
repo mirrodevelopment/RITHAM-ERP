@@ -19,6 +19,7 @@ spring:
       idle-timeout: 300000
       connection-timeout: 20000
       max-lifetime: 1200000
+      allow-pool-suspension: true
 
   # ── JPA / Hibernate ─────────────────────────────────────────────────────────
   jpa:

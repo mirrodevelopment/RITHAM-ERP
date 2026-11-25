@@ -129,6 +129,7 @@ const Sidebar = (() => {
           icon: ICONS.migration,
           href: '/desks/migration/migration.html',
           roles: [ROLES.ADMIN],
+          hidden: true,
         },
         {
           id: 'report', label: 'Reports',
@@ -205,7 +206,7 @@ const Sidebar = (() => {
   function _renderGroups(groups, userRole, activePage) {
     return groups.map(group => {
       const visibleItems = group.items.filter(item =>
-        !item.roles || item.roles.includes(userRole)
+        !item.hidden && (!item.roles || item.roles.includes(userRole))
       );
       if (visibleItems.length === 0) return '';
 

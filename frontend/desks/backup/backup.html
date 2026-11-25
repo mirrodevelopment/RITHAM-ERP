@@ -191,7 +191,7 @@
               <div class="backup-stat-subtext" id="postgresSubtext">
                 <span class="pulse-dot online" id="pgDot"></span> Port 5432 • ritham_erp
               </div>
-              <div style="margin-top: 8px; font-size:12px; color: var(--text-muted);">
+              <div id="dbEngineFormatText" style="margin-top: 8px; font-size:12px; color: var(--text-muted);">
                 Custom Compressed Dump Format
               </div>
             </div>
@@ -207,9 +207,27 @@
                   </svg>
                 </div>
               </div>
-              <div class="backup-stat-value">Daily 11:00 PM</div>
+              <div class="backup-stat-value" id="scheduleHeadlineVal">Daily 7:00 PM</div>
               <div class="backup-stat-subtext" id="nextScheduledRunVal">
-                Next run: Tonight at 11:00 PM
+                Next run: Today at 7:00 PM
+              </div>
+              <div class="schedule-controls-box">
+                <div class="schedule-controls-row">
+                  <label class="schedule-toggle-chip" title="Run automated daily backup at selected time">
+                    <input type="checkbox" id="autoBackupEnabledToggle" checked />
+                    <span>Auto Daily</span>
+                  </label>
+                  <input type="time" id="scheduleTimeInput" class="schedule-time-input" value="19:00" aria-label="Daily backup time" />
+                  <button type="button" class="btn btn-primary btn-sm" id="saveScheduleBtn" style="padding: 4px 10px; font-size: 11.5px;">Save</button>
+                </div>
+                <label class="schedule-toggle-chip" style="margin-top: 6px;" title="Immediately back up when the selected drive/device reconnects online">
+                  <input type="checkbox" id="backupOnConnectToggle" checked />
+                  <span>Backup when device connects</span>
+                </label>
+                <div class="schedule-target-meta">
+                  <span id="scheduleTargetFolderLabel" title="">Target: --</span>
+                  <span class="badge badge-info" id="deviceWatcherBadge" style="font-size:10.5px;">Watching device</span>
+                </div>
               </div>
               <div style="margin-top: 8px; display:flex; gap:6px;">
                 <span class="badge badge-info" id="retentionStatsBadge" style="font-size:11px;">7D / 4W / 12M Active</span>
@@ -310,7 +328,7 @@
                 <div class="backup-panel-body" style="padding-top: 10px; padding-bottom: 10px;">
                   <div class="health-item">
                     <span class="health-item-label">
-                      <span class="pulse-dot online" id="diagDriveDot"></span> External Drive (E:)
+                      <span class="pulse-dot online" id="diagDriveDot"></span> <span id="diagDriveLabel">Destination Drive</span>
                     </span>
                     <span class="badge badge-success" id="diagDriveBadge">Mounted</span>
                   </div>
@@ -447,6 +465,24 @@
           <!-- Hidden file input for webkitdirectory picker -->
           <input type="file" id="systemFolderPicker" webkitdirectory directory style="display:none;" />
           <div id="testWriteResult" style="margin-top: 6px; font-size: 12.5px; display: none;"></div>
+
+          <!-- Server Directory Browser (Host Drive & Subfolder Explorer) -->
+          <div id="serverFolderBrowserPanel" class="server-folder-browser" style="display: none;">
+            <div class="folder-browser-header">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                <button type="button" class="btn btn-ghost btn-sm" id="folderBrowserUpBtn" title="Go to parent directory or drive list">↑ Up</button>
+                <span class="folder-browser-path" id="folderBrowserPathLabel" title="">Drives</span>
+              </div>
+              <button type="button" class="btn btn-ghost btn-icon" id="closeFolderBrowserBtn" title="Hide folder browser" style="width:26px;height:26px;">✕</button>
+            </div>
+            <div class="folder-browser-create-row">
+              <input type="text" id="newSubfolderNameInput" class="form-control" placeholder="New subfolder name (e.g. RithamBackups)" style="height:30px; font-size:12px;" />
+              <button type="button" class="btn btn-secondary btn-sm" id="createSubfolderBtn" style="white-space:nowrap;">+ New Folder</button>
+            </div>
+            <div id="serverFolderList" class="folder-browser-list">
+              <div style="padding:14px; text-align:center; color:var(--text-muted); font-size:12px;">Loading folders...</div>
+            </div>
+          </div>
         </div>
 
         <!-- Quick Folder Suggestions -->
@@ -476,7 +512,7 @@
             <div>
               <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">Save as Persistent Default Repository</div>
               <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                Updates <code>erp-backup.ps1</code> configuration so that nightly 11:00 PM Windows Task Scheduler jobs automatically back up to this location.
+                Updates <code>backup-config.json</code> and <code>erp-backup.ps1</code> so automated daily backups (7:00 PM or configured time) and device-reconnect backups target this folder.
               </div>
             </div>
           </label>
@@ -558,7 +594,7 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
           </div>
           <div>
             <h3 class="modal-title" style="margin: 0; font-size: 16px;">Import &amp; Restore Database Backup</h3>
-            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Restore snapshot archives or import external .dump files</p>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);" id="importModalSubtitle">Restore backed-up archives or upload external backup snapshots (.sql / .dump)</p>
           </div>
         </div>
         <button type="button" class="btn btn-ghost btn-icon" id="closeImportModalBtn">✕</button>
@@ -580,7 +616,7 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            Upload External (.dump)
+            Upload Backup File (.sql / .dump)
           </button>
         </div>
 
@@ -599,7 +635,14 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
 
         <!-- Section 2: External File Upload Dropzone -->
         <div id="uploadFileSection" style="display: none;">
-          <input type="file" id="externalDumpFileInput" accept=".dump" style="display: none;" />
+          <div class="upload-dest-banner">
+            <div style="min-width:0; flex:1;">
+              <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">Upload Destination Folder</div>
+              <div id="uploadDestPathDisplay" style="font-family:monospace; font-size:12.5px; color:var(--text-primary); word-break:break-all;">--\Database\Uploads</div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="uploadChangeFolderBtn" style="white-space:nowrap;">Change Folder</button>
+          </div>
+          <input type="file" id="externalDumpFileInput" accept=".dump,.sql" style="display: none;" />
           <div class="dropzone-container" id="dumpDropzone">
             <div class="dropzone-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -608,8 +651,8 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
             </div>
-            <div class="dropzone-title">Click to browse or drag &amp; drop .dump file here</div>
-            <div class="dropzone-subtext">PostgreSQL Custom Format Archive (.dump) up to 500 MB</div>
+            <div class="dropzone-title">Click to browse or drag &amp; drop backup file (.dump / .sql)</div>
+            <div class="dropzone-subtext">PostgreSQL Custom Archive (.dump) or H2 Snapshot (.sql) up to 500 MB</div>
           </div>
           <div id="uploadProgressBox" style="display: none; margin-top: 10px;">
             <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
@@ -618,6 +661,14 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
             </div>
             <div class="backup-progress-bar-bg" style="height: 6px;">
               <div class="backup-progress-bar-fill" id="uploadProgressBar" style="width: 0%;"></div>
+            </div>
+          </div>
+          <div id="uploadStepGuideBanner" style="display: none; margin-top: 12px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 10px 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+              <div style="font-size: 12px; color: #6ee7b7;">
+                <strong>Step 1 Complete:</strong> File uploaded &amp; checked. Now select <strong>Restore Live Database</strong> below and run restore to bring your data back.
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" id="uploadQuickSwitchProdBtn">Select Live Restore</button>
             </div>
           </div>
         </div>
@@ -644,25 +695,25 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
               <div class="restore-mode-header">
                 <div class="restore-mode-title">
                   <input type="radio" name="restoreTargetMode" value="TEST" id="radioModeTest" checked style="accent-color: #3b82f6;" />
-                  <span>Safe Test Drill</span>
+                  <span>Verify Only (Dry Run)</span>
                 </div>
-                <span class="badge badge-success" style="font-size: 10.5px;">RECOMMENDED</span>
+                <span class="badge badge-info" style="font-size: 10.5px;">NO LIVE CHANGES</span>
               </div>
               <div class="restore-mode-desc">
-                Restores into isolated database <code>ritham_erp_restore_test</code>. Verifies schema integrity and row counts without affecting live data.
+                Tests snapshot integrity in temporary memory only. Live ERP customers, orders &amp; measurements will <strong>NOT</strong> change.
               </div>
             </div>
 
             <div class="restore-mode-card" id="modeCardProd" data-mode="PRODUCTION">
               <div class="restore-mode-header">
                 <div class="restore-mode-title">
-                  <input type="radio" name="restoreTargetMode" value="PRODUCTION" id="radioModeProd" style="accent-color: #ef4444;" />
-                  <span style="color: #f87171;">Disaster Recovery</span>
+                  <input type="radio" name="restoreTargetMode" value="PRODUCTION" id="radioModeProd" style="accent-color: #22c55e;" />
+                  <span style="color: #4ade80;">Restore Live Database</span>
                 </div>
-                <span class="badge badge-danger" style="font-size: 10.5px;">OVERWRITES LIVE</span>
+                <span class="badge badge-warning" style="font-size: 10.5px;">LOADS DATA INTO ERP</span>
               </div>
               <div class="restore-mode-desc">
-                Restores into active production database <code>ritham_erp</code>. Completely replaces all current live records. Requires confirmation phrase.
+                Restores all backed-up customers, orders, measurements &amp; uploads into active <code>ritham_erp</code> so your data immediately returns across all desks.
               </div>
             </div>
           </div>
@@ -679,7 +730,7 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
             <span>High Risk Operation — Confirmation Required</span>
           </div>
           <p style="font-size: 12px; color: #fca5a5; margin: 0 0 10px;">
-            You are about to overwrite the production database. Type <strong>CONFIRM RESTORE</strong> below to unlock:
+            You are about to overwrite the live database with this backup. Type <strong>CONFIRM RESTORE</strong> below to unlock:
           </p>
           <input type="text" class="form-input" id="confirmRestorePhraseInput" placeholder="CONFIRM RESTORE" autocomplete="off" style="border-color: #ef4444; font-family: monospace;" />
         </div>
@@ -700,6 +751,7 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
             <div class="audit-stats-grid" id="auditStatsGrid">
               <!-- populated dynamically -->
             </div>
+            <div id="restorePostActionBanner" style="display: none; margin-top: 12px;"></div>
           </div>
         </div>
 
@@ -713,8 +765,47 @@ powershell -ExecutionPolicy Bypass -File "d:\ritham-erp\scripts\backup\erp-resto
             <polyline points="1 20 1 14 7 14"></polyline>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
           </svg>
-          <span id="executeRestoreBtnText">Start Safe Test Restore</span>
+          <span id="executeRestoreBtnText">Run Dry-Run Verification</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Restore Loading Overlay -->
+  <div class="restore-loading-overlay" id="restoreLoadingOverlay" style="display: none;">
+    <div class="restore-loading-card">
+      <div class="spinner" style="width: 48px; height: 48px; border-width: 4px; margin: 0 auto 16px;"></div>
+      <h3 id="restoreLoadingTitle" style="margin: 0; font-size: 18px; color: var(--text-primary);">Restoring Database...</h3>
+      <p id="restoreLoadingSubtitle" style="margin: 8px 0 14px; font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+        Applying backup snapshot and refreshing database connections. Please wait — do not close this window.
+      </p>
+      <div class="restore-loading-file-pill" id="restoreLoadingFileLabel">--</div>
+    </div>
+  </div>
+
+  <!-- Data Restored Confirmation Popup -->
+  <div class="modal-backdrop" id="restoreSuccessPopupModal" style="display: none; z-index: 2100;">
+    <div class="modal" style="max-width: 520px; border: 1px solid rgba(34, 197, 94, 0.45);">
+      <div class="modal-body" style="padding: 28px 24px 20px; text-align: center;">
+        <div class="restore-success-icon-ring">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+        <h3 id="restorePopupHeadline" style="margin: 14px 0 6px; font-size: 20px; color: #4ade80;">Data Restored Successfully!</h3>
+        <p id="restorePopupMessage" style="margin: 0 0 16px; font-size: 13.5px; color: var(--text-secondary); line-height: 1.5;">
+          Your backed-up customers, orders, measurements, and settings have been restored to the live database.
+        </p>
+        <div class="audit-stats-grid" id="restorePopupStatsGrid" style="text-align: left; margin-bottom: 12px;"></div>
+        <div id="restorePopupFilesNote" style="display: none; font-size: 12px; color: #93c5fd; margin-bottom: 8px;"></div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-ghost" id="closeRestoreSuccessPopupBtn">OK, Stay Here</button>
+        <div style="display: flex; gap: 8px;">
+          <a href="#" id="popupOpenCustomersLink" class="btn btn-secondary">Open Customers</a>
+          <a href="#" id="popupOpenOrdersLink" class="btn btn-primary">Open Order Desk</a>
+        </div>
       </div>
     </div>
   </div>

@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # Ritham ERP - Automatic PostgreSQL Backup Script
 # ==============================================================================
 # File    : erp-backup.ps1
@@ -26,7 +26,7 @@ $CONFIG = @{
     # Backup Destination
     # Change this to match your external drive letter.
     # E.g. "F:\ERP-Backups" if your external HDD is drive F:
-    BackupRoot        = "E:\ERP-Backups"
+    BackupRoot        = "C:\Users\admin\AppData\Local\Temp\junit-16657834417242112433\ScheduledSelectedFolder"
 
     # Database Settings
     DbName            = "ritham_erp"
@@ -61,7 +61,30 @@ $CONFIG = @{
 }
 # ==============================================================================
 
-# Override target location if specified via parameter
+# Override config via backup-config.json and optional parameters / environment
+$configJsonFile = Join-Path $PSScriptRoot "backup-config.json"
+if ((-not $TargetLocation -or $TargetLocation.Trim() -eq "") -and (Test-Path $configJsonFile)) {
+    try {
+        $cfgJson = Get-Content $configJsonFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($cfgJson -and $cfgJson.PSObject.Properties["backupRoot"] -and $cfgJson.backupRoot -and $cfgJson.backupRoot.Trim() -ne "") {
+            $CONFIG.BackupRoot = $cfgJson.backupRoot.Trim().Replace("/", "\")
+        }
+    } catch {
+        # Fallback to $CONFIG.BackupRoot if backup-config.json is unreadable
+    }
+}
+if ($env:ERP_DB_NAME -and $env:ERP_DB_NAME.Trim() -ne "") {
+    $CONFIG.DbName = $env:ERP_DB_NAME.Trim()
+}
+if ($env:ERP_DB_USER -and $env:ERP_DB_USER.Trim() -ne "") {
+    $CONFIG.DbUser = $env:ERP_DB_USER.Trim()
+}
+if ($env:ERP_PG_BIN_DIR -and $env:ERP_PG_BIN_DIR.Trim() -ne "") {
+    $CONFIG.PgBinDir = $env:ERP_PG_BIN_DIR.Trim()
+}
+if ($env:ERP_UPLOAD_DIR -and $env:ERP_UPLOAD_DIR.Trim() -ne "") {
+    $CONFIG.AppUploadDir = $env:ERP_UPLOAD_DIR.Trim()
+}
 if ($TargetLocation -and $TargetLocation.Trim() -ne "") {
     $CONFIG.BackupRoot = $TargetLocation.Trim()
     Write-Host "Target backup location set to: $($CONFIG.BackupRoot)" -ForegroundColor Cyan
@@ -76,6 +99,7 @@ $PG_ISREADY  = Join-Path $CONFIG.PgBinDir "pg_isready.exe"
 $DB_DAILY    = Join-Path $CONFIG.BackupRoot "Database\Daily"
 $DB_WEEKLY   = Join-Path $CONFIG.BackupRoot "Database\Weekly"
 $DB_MONTHLY  = Join-Path $CONFIG.BackupRoot "Database\Monthly"
+$DB_UPLOADS  = Join-Path $CONFIG.BackupRoot "Database\Uploads"
 $FILE_DAILY  = Join-Path $CONFIG.BackupRoot "Files\Daily"
 $FILE_WEEKLY = Join-Path $CONFIG.BackupRoot "Files\Weekly"
 $FILE_MONTHLY= Join-Path $CONFIG.BackupRoot "Files\Monthly"
@@ -274,7 +298,7 @@ function Test-DatabaseConnectivity {
 # DIRECTORY SETUP
 # ==============================================================================
 function Initialize-BackupDirectories {
-    @($DB_DAILY, $DB_WEEKLY, $DB_MONTHLY,
+    @($DB_DAILY, $DB_WEEKLY, $DB_MONTHLY, $DB_UPLOADS,
       $FILE_DAILY, $FILE_WEEKLY, $FILE_MONTHLY,
       $LOG_DIR) | ForEach-Object {
         if (-not (Test-Path $_)) {

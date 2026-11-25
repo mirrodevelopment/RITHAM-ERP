@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # Ritham ERP - Task Scheduler Setup Script
 # ==============================================================================
 # Purpose : Registers the daily backup task in Windows Task Scheduler.
@@ -6,6 +6,14 @@
 #
 # To remove the task: Unregister-ScheduledTask -TaskName "Ritham ERP - Daily DB Backup" -Confirm:$false
 # ==============================================================================
+
+param(
+    [ValidateRange(0, 23)]
+    [int]$Hour = 19,
+    [ValidateRange(0, 59)]
+    [int]$Minute = 0,
+    [switch]$Disable
+)
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
@@ -15,10 +23,12 @@ if (-not $isAdmin) {
 
 # Configuration
 $TASK_NAME        = "Ritham ERP - Daily DB Backup"
-$TASK_DESCRIPTION = "Automatic daily backup of ritham_erp PostgreSQL database and uploaded files to external drive."
+$TASK_DESCRIPTION = "Automatic daily backup of ritham_erp PostgreSQL database and uploaded files to selected backup folder."
 $BACKUP_SCRIPT    = Join-Path $PSScriptRoot "erp-backup.ps1"
-$BACKUP_HOUR      = 23   # 11 PM
-$BACKUP_MINUTE    = 0
+$BACKUP_HOUR      = $Hour     # Default 19 (7:00 PM)
+$BACKUP_MINUTE    = $Minute
+$TIME_24H         = "{0:D2}:{1:D2}" -f $BACKUP_HOUR, $BACKUP_MINUTE
+$TIME_12H         = ([datetime]::Today.AddHours($BACKUP_HOUR).AddMinutes($BACKUP_MINUTE)).ToString("h:mm tt", [System.Globalization.CultureInfo]::InvariantCulture)
 $RUN_AS_USER      = "$env:USERDOMAIN\$env:USERNAME"   # Current logged-in user
 
 Write-Host ""
@@ -28,15 +38,9 @@ Write-Host ("=" * 60)
 Write-Host ""
 Write-Host "  Task name  : $TASK_NAME"
 Write-Host "  Script     : $BACKUP_SCRIPT"
-Write-Host "  Schedule   : Daily at $($BACKUP_HOUR):$('{0:D2}' -f $BACKUP_MINUTE) (11:00 PM)"
+Write-Host "  Schedule   : Daily at $TIME_24H ($TIME_12H)"
 Write-Host "  Run as     : $RUN_AS_USER"
 Write-Host ""
-
-# Validate the script exists
-if (-not (Test-Path $BACKUP_SCRIPT)) {
-    Write-Host "ERROR: Backup script not found: $BACKUP_SCRIPT" -ForegroundColor Red
-    exit 1
-}
 
 # Remove existing task if it exists
 $existing = Get-ScheduledTask -TaskName $TASK_NAME -ErrorAction SilentlyContinue
@@ -45,13 +49,24 @@ if ($existing) {
     Unregister-ScheduledTask -TaskName $TASK_NAME -Confirm:$false
 }
 
+if ($Disable) {
+    Write-Host "  Scheduled task disabled/removed as requested." -ForegroundColor Yellow
+    exit 0
+}
+
+# Validate the script exists
+if (-not (Test-Path $BACKUP_SCRIPT)) {
+    Write-Host "ERROR: Backup script not found: $BACKUP_SCRIPT" -ForegroundColor Red
+    exit 1
+}
+
 # Build the action
 $action = New-ScheduledTaskAction `
     -Execute "powershell.exe" `
     -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$BACKUP_SCRIPT`""
 
-# Build the trigger: daily at 11 PM
-$trigger = New-ScheduledTaskTrigger -Daily -At "$($BACKUP_HOUR):$('{0:D2}' -f $BACKUP_MINUTE)"
+# Build the trigger: daily at configured time (default 7:00 PM)
+$trigger = New-ScheduledTaskTrigger -Daily -At $TIME_24H
 
 # Settings
 $settings = New-ScheduledTaskSettingsSet `
@@ -84,7 +99,7 @@ try {
 
 if (-not $registered) {
     $schAction = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$BACKUP_SCRIPT`""
-    & schtasks.exe /Create /F /TN $TASK_NAME /TR $schAction /SC DAILY /ST "$($BACKUP_HOUR):$('{0:D2}' -f $BACKUP_MINUTE)" | Out-Null
+    & schtasks.exe /Create /F /TN $TASK_NAME /TR $schAction /SC DAILY /ST $TIME_24H | Out-Null
     if ($LASTEXITCODE -eq 0) {
         $registered = $true
     }
@@ -101,7 +116,7 @@ if ($registered) {
         Write-Host "  Name  : $TASK_NAME"
         Write-Host "  Mode  : Scheduled via schtasks (current user)"
     }
-    Write-Host "  Next run will be at: 11:00 PM tonight"
+    Write-Host "  Next run will be at: $TIME_12H"
     Write-Host ""
     Write-Host "  To run immediately for testing:" -ForegroundColor Cyan
     Write-Host "    Start-ScheduledTask -TaskName '$TASK_NAME'"

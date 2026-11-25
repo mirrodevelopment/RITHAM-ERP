@@ -242,7 +242,7 @@ New-NetFirewallRule -DisplayName "Block Remote Inbound PostgreSQL 5432" `
 
 The system includes automated PowerShell backup and restore automation in `scripts/backup/`:
 
-- **Scheduled Engine:** [setup-task-scheduler.ps1](file:///d:/ritham-erp/scripts/backup/setup-task-scheduler.ps1) sets up a daily Windows Task Scheduler job at 11:00 PM.
+- **Scheduled Engine:** [setup-task-scheduler.ps1](file:///d:/ritham-erp/scripts/backup/setup-task-scheduler.ps1) sets up a daily Windows Task Scheduler job at 7:00 PM (alongside the in-app scheduler & device-reconnect backup watcher).
 - **Execution Script:** [erp-backup.ps1](file:///d:/ritham-erp/scripts/backup/erp-backup.ps1) executes `pg_dump` into `E:\ERP-Backups\Database\Daily\` using custom compressed archive format (`.dump`) and manages 7-day, 4-week, and 12-month retention.
 - **Verification Script:** [erp-restore.ps1](file:///d:/ritham-erp/scripts/backup/erp-restore.ps1) enables safe verification drill into sandbox database `ritham_erp_restore_test`.
 - **Handbook:** Detailed recovery instructions are documented in [DISASTER_RECOVERY.md](file:///d:/ritham-erp/scripts/backup/DISASTER_RECOVERY.md).

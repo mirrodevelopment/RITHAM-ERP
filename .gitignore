@@ -1,5 +1,6 @@
 HELP.md
 target/
+target-server/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -69,4 +70,5 @@ pgpass.conf
 /backups/
 /backup/
 !scripts/backup/
+scripts/backup/backup-config.json
 # Note: *.sql is intentionally NOT excluded — Flyway migration files must remain in Git

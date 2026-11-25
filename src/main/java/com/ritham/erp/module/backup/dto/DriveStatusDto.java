@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
 public class DriveStatusDto {
     private String driveLetter;
     private boolean connected;
+    private boolean folderExists;
+    private boolean writable;
     private double totalSpaceGB;
     private double freeSpaceGB;
     private double usedSpaceGB;

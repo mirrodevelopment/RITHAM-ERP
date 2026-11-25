@@ -14,5 +14,7 @@ public class BackupTriggerResponse {
     private String message;
     private double durationSeconds;
     private String backupFileName;
+    private String targetLocation;
+    private String backupFilePath;
     private String outputLog;
 }
